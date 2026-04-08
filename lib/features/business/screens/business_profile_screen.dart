@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/providers/providers.dart';
 import '../../../models/business.dart';
 import '../../../widgets/cached_image.dart';
-import '../../../widgets/loading_widget.dart';
+import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
 
 class BusinessProfileScreen extends ConsumerWidget {
@@ -24,41 +24,82 @@ class BusinessProfileScreen extends ConsumerWidget {
         final business = businessDynamic as Business;
 
         return Scaffold(
-          appBar: AppBar(
-            title: const Text('Business Profile'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.edit),
-                onPressed: () => context.go('/business-profile/edit'),
-              ),
-            ],
-          ),
-          body: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Banner
-                CachedImage(
-                  imageUrl: business.bannerUrl,
-                  height: 180,
-                  width: double.infinity,
-                  placeholderIcon: Icons.storefront,
+          body: CustomScrollView(
+            slivers: [
+              // Hero banner
+              SliverAppBar(
+                expandedHeight: 200,
+                pinned: true,
+                backgroundColor: theme.colorScheme.surface,
+                leading: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: CircleAvatar(
+                    backgroundColor: Colors.black26,
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () => context.pop(),
+                    ),
+                  ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(16),
+                actions: [
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: CircleAvatar(
+                      backgroundColor: Colors.black26,
+                      child: IconButton(
+                        icon:
+                            const Icon(Icons.edit_rounded, color: Colors.white),
+                        onPressed: () => context.go('/business-profile/edit'),
+                      ),
+                    ),
+                  ),
+                ],
+                flexibleSpace: FlexibleSpaceBar(
+                  background: CachedImage(
+                    imageUrl: business.bannerUrl,
+                    height: 200,
+                    width: double.infinity,
+                    placeholderIcon: Icons.storefront,
+                  ),
+                ),
+              ),
+
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Logo + name + category
                       Row(
                         children: [
-                          CircleAvatar(
-                            radius: 32,
-                            backgroundImage: business.logoUrl.isNotEmpty
-                                ? NetworkImage(business.logoUrl)
-                                : null,
-                            child: business.logoUrl.isEmpty
-                                ? const Icon(Icons.store, size: 32)
-                                : null,
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color:
+                                      theme.colorScheme.primary.withAlpha(40),
+                                  width: 3),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withAlpha(10),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: CircleAvatar(
+                              radius: 34,
+                              backgroundColor: theme.colorScheme.primaryContainer,
+                              backgroundImage: business.logoUrl.isNotEmpty
+                                  ? NetworkImage(business.logoUrl)
+                                  : null,
+                              child: business.logoUrl.isEmpty
+                                  ? Icon(Icons.store,
+                                      size: 30,
+                                      color: theme.colorScheme.primary)
+                                  : null,
+                            ),
                           ),
                           const SizedBox(width: 16),
                           Expanded(
@@ -69,60 +110,140 @@ class BusinessProfileScreen extends ConsumerWidget {
                                   children: [
                                     Flexible(
                                       child: Text(business.businessName,
-                                          style: theme.textTheme.titleLarge
-                                              ?.copyWith(
-                                                  fontWeight:
-                                                      FontWeight.bold)),
+                                          style: const TextStyle(
+                                            fontSize: 22,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: -0.5,
+                                          )),
                                     ),
                                     if (business.isVerified) ...[
                                       const SizedBox(width: 6),
                                       Icon(Icons.verified,
+                                          size: 22,
                                           color: theme.colorScheme.primary),
                                     ],
                                   ],
                                 ),
-                                Text(
-                                  '${business.category} • ${business.membershipTier.toUpperCase()}',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: theme.colorScheme.outline),
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: theme
+                                            .colorScheme.primaryContainer,
+                                        borderRadius:
+                                            BorderRadius.circular(6),
+                                      ),
+                                      child: Text(business.category,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: theme.colorScheme.primary,
+                                          )),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFE8EAF6),
+                                        borderRadius:
+                                            BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                          business.membershipTier
+                                              .toUpperCase(),
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: Color(0xFF5C6BC0),
+                                          )),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
                           ),
                         ],
                       ),
+
+                      // Rating
                       if (business.ratingCount > 0) ...[
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            RatingBarIndicator(
-                              rating: business.ratingAvg,
-                              itemSize: 20,
-                              itemBuilder: (_, __) =>
-                                  const Icon(Icons.star, color: Colors.amber),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                                '${business.ratingAvg.toStringAsFixed(1)} (${business.ratingCount} reviews)'),
-                          ],
+                        const SizedBox(height: 20),
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF8E1),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Row(
+                            children: [
+                              RatingBarIndicator(
+                                rating: business.ratingAvg,
+                                itemSize: 22,
+                                itemBuilder: (_, _) => const Icon(
+                                    Icons.star_rounded,
+                                    color: Colors.amber),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                '${business.ratingAvg.toStringAsFixed(1)}',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.amber[800],
+                                ),
+                              ),
+                              Text(
+                                ' (${business.ratingCount} reviews)',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.amber[700],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
-                      const SizedBox(height: 16),
+
+                      // Description
+                      const SizedBox(height: 20),
                       Text(business.description,
-                          style: theme.textTheme.bodyMedium),
-                      const Divider(height: 32),
-                      _InfoRow(Icons.location_on, business.location),
-                      _InfoRow(Icons.phone, business.phone),
-                      _InfoRow(Icons.email, business.email),
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.6,
+                            color:
+                                theme.colorScheme.onSurface.withAlpha(180),
+                          )),
+
+                      const SizedBox(height: 24),
+                      Divider(color: theme.dividerTheme.color),
+                      const SizedBox(height: 16),
+
+                      // Contact info
+                      const Text('Contact',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.2,
+                          )),
+                      const SizedBox(height: 12),
+                      _InfoRow(
+                          Icons.location_on_outlined, business.location, theme),
+                      _InfoRow(Icons.phone_outlined, business.phone, theme),
+                      _InfoRow(Icons.email_outlined, business.email, theme),
                     ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
-      loading: () => const Scaffold(body: LoadingWidget()),
+      loading: () => const Scaffold(body: DetailSkeleton()),
       error: (e, _) =>
           Scaffold(body: AppErrorWidget(message: e.toString())),
     );
@@ -132,18 +253,33 @@ class BusinessProfileScreen extends ConsumerWidget {
 class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String value;
-  const _InfoRow(this.icon, this.value);
+  final ThemeData theme;
+  const _InfoRow(this.icon, this.value, this.theme);
 
   @override
   Widget build(BuildContext context) {
     if (value.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: Theme.of(context).colorScheme.outline),
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 18, color: theme.colorScheme.outline),
+          ),
           const SizedBox(width: 12),
-          Text(value),
+          Expanded(
+            child: Text(value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                )),
+          ),
         ],
       ),
     );

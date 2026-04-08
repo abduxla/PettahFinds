@@ -7,8 +7,7 @@ import '../../../models/business.dart';
 import '../../../models/category.dart' as cat;
 import '../../../models/product.dart';
 import '../../../widgets/cached_image.dart';
-import '../../../widgets/loading_widget.dart';
-import '../../../widgets/error_widget.dart';
+import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/empty_state_widget.dart';
 
 final _categoriesProvider = StreamProvider<List<cat.Category>>((ref) {
@@ -35,172 +34,251 @@ class HomeScreen extends ConsumerWidget {
     final appUser = ref.watch(appUserProvider).valueOrNull;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(AppConstants.appName,
-                style: theme.textTheme.titleLarge
-                    ?.copyWith(fontWeight: FontWeight.bold)),
-            if (appUser != null)
-              Text('Hello, ${appUser.displayName}',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.outline)),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () => context.go('/profile/notifications'),
-          ),
-        ],
-      ),
       body: RefreshIndicator(
+        color: theme.colorScheme.primary,
         onRefresh: () async {
           ref.invalidate(_categoriesProvider);
           ref.invalidate(_featuredBusinessesProvider);
           ref.invalidate(_recentProductsProvider);
         },
-        child: ListView(
-          padding: const EdgeInsets.only(bottom: 24),
-          children: [
-            // Search bar
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: GestureDetector(
-                onTap: () => context.go('/search'),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: CustomScrollView(
+          slivers: [
+            // Premium app bar
+            SliverAppBar(
+              floating: true,
+              snap: true,
+              toolbarHeight: 70,
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(AppConstants.appName,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.8,
+                      )),
+                  if (appUser != null)
+                    Text('Hello, ${appUser.displayName} 👋',
+                        style: TextStyle(
+                          color: theme.colorScheme.outline,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        )),
+                ],
+              ),
+              actions: [
+                Container(
+                  margin: const EdgeInsets.only(right: 12),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest
-                        .withAlpha(80),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: theme.colorScheme.outline.withAlpha(60)),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.search, color: theme.colorScheme.outline),
-                      const SizedBox(width: 12),
-                      Text('Search businesses & products...',
-                          style: theme.textTheme.bodyMedium
-                              ?.copyWith(color: theme.colorScheme.outline)),
+                    color: theme.colorScheme.surface,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(12),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
                     ],
+                  ),
+                  child: IconButton(
+                    icon: Badge(
+                      smallSize: 8,
+                      child: Icon(Icons.notifications_outlined,
+                          color: theme.colorScheme.onSurface),
+                    ),
+                    onPressed: () => context.go('/profile/notifications'),
+                  ),
+                ),
+              ],
+            ),
+
+            // Search bar
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+                child: GestureDetector(
+                  onTap: () => context.go('/search'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(8),
+                          blurRadius: 12,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.search_rounded,
+                            color: theme.colorScheme.outline, size: 22),
+                        const SizedBox(width: 12),
+                        Text('Search businesses & products...',
+                            style: TextStyle(
+                              color: theme.colorScheme.outline,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w400,
+                            )),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
 
             // Categories
-            _SectionHeader(
-              title: 'Categories',
-              onSeeAll: null, // categories don't have a separate list
-            ),
-            categories.when(
-              data: (cats) => cats.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text('No categories yet'))
-                  : SizedBox(
-                      height: 100,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        itemCount: cats.length,
-                        itemBuilder: (_, i) {
-                          final c = cats[i];
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: GestureDetector(
-                              onTap: () =>
-                                  context.go('/home/category/${c.name}'),
-                              child: SizedBox(
-                                width: 80,
-                                child: Column(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 28,
-                                      backgroundColor:
-                                          theme.colorScheme.primaryContainer,
-                                      child: Icon(
-                                          _getCategoryIcon(c.iconName),
-                                          color: theme.colorScheme.primary),
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  _SectionHeader(title: 'Categories'),
+                  categories.when(
+                    data: (cats) => cats.isEmpty
+                        ? const Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Text('No categories yet'))
+                        : SizedBox(
+                            height: 104,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              itemCount: cats.length,
+                              itemBuilder: (_, i) {
+                                final c = cats[i];
+                                return GestureDetector(
+                                  onTap: () =>
+                                      context.go('/home/category/${c.name}'),
+                                  child: Container(
+                                    width: 76,
+                                    margin: const EdgeInsets.only(right: 12),
+                                    child: Column(
+                                      children: [
+                                        Container(
+                                          width: 60,
+                                          height: 60,
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                              colors: [
+                                                theme.colorScheme.primaryContainer,
+                                                theme.colorScheme.primaryContainer
+                                                    .withAlpha(180),
+                                              ],
+                                            ),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(
+                                              _getCategoryIcon(c.iconName),
+                                              color: theme.colorScheme.primary,
+                                              size: 26),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(c.name,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: theme
+                                                  .colorScheme.onSurface,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis),
+                                      ],
                                     ),
-                                    const SizedBox(height: 8),
-                                    Text(c.name,
-                                        style: theme.textTheme.labelSmall,
-                                        textAlign: TextAlign.center,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis),
-                                  ],
-                                ),
-                              ),
+                                  ),
+                                );
+                              },
                             ),
-                          );
-                        },
-                      ),
-                    ),
-              loading: () => const SizedBox(
-                  height: 100,
-                  child: Center(child: CircularProgressIndicator())),
-              error: (e, _) => Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text('Error loading categories: $e')),
+                          ),
+                    loading: () => const CategorySkeleton(),
+                    error: (e, _) => Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text('Error: $e')),
+                  ),
+                ],
+              ),
             ),
 
-            const SizedBox(height: 8),
+            const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
             // Featured Businesses
-            _SectionHeader(
-              title: 'Featured Businesses',
-              onSeeAll: () => context.go('/home/businesses'),
-            ),
-            featured.when(
-              data: (businesses) => businesses.isEmpty
-                  ? const EmptyStateWidget(
-                      icon: Icons.store_outlined,
-                      title: 'No featured businesses yet')
-                  : ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: businesses.length > 5 ? 5 : businesses.length,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemBuilder: (_, i) =>
-                          _BusinessCard(business: businesses[i]),
-                    ),
-              loading: () => const SizedBox(
-                  height: 120, child: LoadingWidget()),
-              error: (e, _) => AppErrorWidget(message: e.toString()),
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  _SectionHeader(
+                    title: 'Featured Businesses',
+                    actionLabel: 'See all',
+                    onAction: () => context.go('/home/businesses'),
+                  ),
+                  featured.when(
+                    data: (businesses) => businesses.isEmpty
+                        ? const EmptyStateWidget(
+                            icon: Icons.store_outlined,
+                            title: 'No featured businesses yet')
+                        : ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount:
+                                businesses.length > 5 ? 5 : businesses.length,
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 20),
+                            itemBuilder: (_, i) =>
+                                _BusinessCard(business: businesses[i]),
+                          ),
+                    loading: () => const BusinessCardSkeleton(count: 2),
+                    error: (e, _) => Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text('Error: $e')),
+                  ),
+                ],
+              ),
             ),
 
-            const SizedBox(height: 8),
+            const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
             // Recent Products
-            _SectionHeader(
-              title: 'Recent Products',
-              onSeeAll: () => context.go('/home/products'),
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  _SectionHeader(
+                    title: 'Recent Products',
+                    actionLabel: 'See all',
+                    onAction: () => context.go('/home/products'),
+                  ),
+                  recentProducts.when(
+                    data: (products) => products.isEmpty
+                        ? const EmptyStateWidget(
+                            icon: Icons.inventory_2_outlined,
+                            title: 'No products yet')
+                        : SizedBox(
+                            height: 230,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              itemCount: products.length > 10
+                                  ? 10
+                                  : products.length,
+                              itemBuilder: (_, i) =>
+                                  _ProductCard(product: products[i]),
+                            ),
+                          ),
+                    loading: () => const ProductCardSkeleton(),
+                    error: (e, _) => Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text('Error: $e')),
+                  ),
+                ],
+              ),
             ),
-            recentProducts.when(
-              data: (products) => products.isEmpty
-                  ? const EmptyStateWidget(
-                      icon: Icons.inventory_2_outlined,
-                      title: 'No products yet')
-                  : SizedBox(
-                      height: 210,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        itemCount:
-                            products.length > 10 ? 10 : products.length,
-                        itemBuilder: (_, i) =>
-                            _ProductCard(product: products[i]),
-                      ),
-                    ),
-              loading: () => const SizedBox(
-                  height: 210, child: LoadingWidget()),
-              error: (e, _) => AppErrorWidget(message: e.toString()),
-            ),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
         ),
       ),
@@ -234,28 +312,45 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-// --- Section header with optional "See all" ---
 class _SectionHeader extends StatelessWidget {
   final String title;
-  final VoidCallback? onSeeAll;
-  const _SectionHeader({required this.title, this.onSeeAll});
+  final String? actionLabel;
+  final VoidCallback? onAction;
+  const _SectionHeader({required this.title, this.actionLabel, this.onAction});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+      padding: const EdgeInsets.fromLTRB(20, 12, 12, 10),
       child: Row(
         children: [
           Expanded(
             child: Text(title,
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.bold)),
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.4,
+                  color: theme.colorScheme.onSurface,
+                )),
           ),
-          if (onSeeAll != null)
+          if (actionLabel != null && onAction != null)
             TextButton(
-              onPressed: onSeeAll,
-              child: const Text('See all'),
+              onPressed: onAction,
+              style: TextButton.styleFrom(
+                foregroundColor: theme.colorScheme.primary,
+                textStyle: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(actionLabel!),
+                  const SizedBox(width: 2),
+                  Icon(Icons.arrow_forward_ios, size: 12,
+                      color: theme.colorScheme.primary),
+                ],
+              ),
             ),
         ],
       ),
@@ -263,7 +358,6 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-// --- Business card (vertical, used in featured list) ---
 class _BusinessCard extends StatelessWidget {
   final Business business;
   const _BusinessCard({required this.business});
@@ -271,36 +365,56 @@ class _BusinessCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(8),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => context.go('/home/business/${business.id}'),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             CachedImage(
               imageUrl: business.bannerUrl,
-              height: 130,
+              height: 140,
               width: double.infinity,
               borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(12)),
+                  const BorderRadius.vertical(top: Radius.circular(18)),
               placeholderIcon: Icons.storefront,
             ),
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(14),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 20,
-                    backgroundColor: theme.colorScheme.primaryContainer,
-                    backgroundImage: business.logoUrl.isNotEmpty
-                        ? NetworkImage(business.logoUrl)
-                        : null,
-                    child: business.logoUrl.isEmpty
-                        ? Icon(Icons.store,
-                            color: theme.colorScheme.primary, size: 20)
-                        : null,
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                          color: theme.colorScheme.primary.withAlpha(40),
+                          width: 2),
+                    ),
+                    child: CircleAvatar(
+                      radius: 20,
+                      backgroundColor: theme.colorScheme.primaryContainer,
+                      backgroundImage: business.logoUrl.isNotEmpty
+                          ? NetworkImage(business.logoUrl)
+                          : null,
+                      child: business.logoUrl.isEmpty
+                          ? Icon(Icons.store,
+                              color: theme.colorScheme.primary, size: 20)
+                          : null,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -311,24 +425,29 @@ class _BusinessCard extends StatelessWidget {
                           children: [
                             Flexible(
                               child: Text(business.businessName,
-                                  style: theme.textTheme.titleSmall
-                                      ?.copyWith(fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.2,
+                                  ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis),
                             ),
                             if (business.isVerified) ...[
                               const SizedBox(width: 4),
                               Icon(Icons.verified,
-                                  size: 16,
-                                  color: theme.colorScheme.primary),
+                                  size: 16, color: theme.colorScheme.primary),
                             ],
                           ],
                         ),
                         const SizedBox(height: 2),
                         Text(
                           '${business.category} • ${business.location}',
-                          style: theme.textTheme.bodySmall
-                              ?.copyWith(color: theme.colorScheme.outline),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.colorScheme.outline,
+                            fontWeight: FontWeight.w500,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -336,14 +455,27 @@ class _BusinessCard extends StatelessWidget {
                     ),
                   ),
                   if (business.ratingCount > 0)
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.star, size: 16, color: Colors.amber[700]),
-                        const SizedBox(width: 2),
-                        Text(business.ratingAvg.toStringAsFixed(1),
-                            style: theme.textTheme.labelMedium),
-                      ],
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF8E1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.star_rounded,
+                              size: 16, color: Colors.amber[700]),
+                          const SizedBox(width: 2),
+                          Text(business.ratingAvg.toStringAsFixed(1),
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.amber[800],
+                              )),
+                        ],
+                      ),
                     ),
                 ],
               ),
@@ -355,7 +487,6 @@ class _BusinessCard extends StatelessWidget {
   }
 }
 
-// --- Product card (horizontal scroll, compact) ---
 class _ProductCard extends StatelessWidget {
   final Product product;
   const _ProductCard({required this.product});
@@ -363,50 +494,66 @@ class _ProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return SizedBox(
+    return Container(
       width: 160,
-      child: Card(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        child: InkWell(
-          onTap: () => context.go('/home/product/${product.id}'),
-          borderRadius: BorderRadius.circular(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CachedImage(
-                imageUrl: product.image1Url,
-                height: 110,
-                width: double.infinity,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(12)),
-                placeholderIcon: Icons.shopping_bag_outlined,
-              ),
-              Padding(
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      product.shortTitle.isNotEmpty
-                          ? product.shortTitle
-                          : product.title,
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(fontWeight: FontWeight.w600),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'LKR ${product.priceLkr.toStringAsFixed(0)}',
-                      style: theme.textTheme.labelLarge?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+      margin: const EdgeInsets.only(right: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(8),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
           ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.go('/home/product/${product.id}'),
+        borderRadius: BorderRadius.circular(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CachedImage(
+              imageUrl: product.image1Url,
+              height: 140,
+              width: double.infinity,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(18)),
+              placeholderIcon: Icons.shopping_bag_outlined,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.shortTitle.isNotEmpty
+                        ? product.shortTitle
+                        : product.title,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'LKR ${product.priceLkr.toStringAsFixed(0)}',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: theme.colorScheme.primary,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

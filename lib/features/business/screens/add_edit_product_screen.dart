@@ -121,77 +121,141 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     if (_loadingProduct) {
       return Scaffold(
         appBar: AppBar(title: const Text('Loading...')),
-        body: const Center(child: CircularProgressIndicator()),
+        body: Center(
+          child: CircularProgressIndicator(color: theme.colorScheme.primary),
+        ),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-          title: Text(_isEditing ? 'Edit Product' : 'Add Product')),
+        title: Text(_isEditing ? 'Edit Product' : 'Add Product'),
+        titleTextStyle: TextStyle(
+          color: theme.colorScheme.onSurface,
+          fontSize: 20,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.5,
+        ),
+      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextFormField(
+              // Header icon
+              Center(
+                child: Container(
+                  width: 64,
+                  height: 64,
+                  margin: const EdgeInsets.only(bottom: 24),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _isEditing
+                        ? Icons.edit_rounded
+                        : Icons.add_shopping_cart_rounded,
+                    color: theme.colorScheme.primary,
+                    size: 28,
+                  ),
+                ),
+              ),
+
+              _buildField(
                 controller: _titleCtrl,
-                decoration: const InputDecoration(labelText: 'Product Title'),
+                label: 'Product Title',
+                icon: Icons.shopping_bag_outlined,
                 validator: (v) => Validators.required(v, 'Title'),
               ),
               const SizedBox(height: 16),
-              TextFormField(
+              _buildField(
                 controller: _shortTitleCtrl,
-                decoration:
-                    const InputDecoration(labelText: 'Short Title (optional)'),
+                label: 'Short Title (optional)',
+                icon: Icons.short_text_rounded,
               ),
               const SizedBox(height: 16),
-              TextFormField(
+              _buildField(
                 controller: _descCtrl,
-                decoration: const InputDecoration(labelText: 'Description'),
+                label: 'Description',
+                icon: Icons.description_outlined,
                 maxLines: 4,
                 validator: (v) => Validators.required(v, 'Description'),
               ),
               const SizedBox(height: 16),
-              TextFormField(
+              _buildField(
                 controller: _categoryCtrl,
-                decoration: const InputDecoration(labelText: 'Category'),
+                label: 'Category',
+                icon: Icons.category_outlined,
                 validator: (v) => Validators.required(v, 'Category'),
               ),
               const SizedBox(height: 16),
-              TextFormField(
+              _buildField(
                 controller: _priceCtrl,
-                decoration:
-                    const InputDecoration(labelText: 'Price (LKR)', prefixText: 'LKR '),
+                label: 'Price (LKR)',
+                icon: Icons.attach_money_rounded,
+                prefixText: 'LKR ',
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 validator: Validators.price,
               ),
               const SizedBox(height: 16),
-              TextFormField(
+              _buildField(
                 controller: _keywordsCtrl,
-                decoration: const InputDecoration(
-                    labelText: 'Keywords',
-                    hintText: 'Comma separated keywords for search'),
+                label: 'Keywords',
+                icon: Icons.tag_rounded,
+                hint: 'Comma separated keywords for search',
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 36),
               FilledButton(
                 onPressed: _loading ? null : _submit,
                 child: _loading
                     ? const SizedBox(
                         height: 20,
                         width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2))
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
                     : Text(_isEditing ? 'Save Changes' : 'Create Product'),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    String? hint,
+    String? prefixText,
+    int maxLines = 1,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixText: prefixText,
+        prefixIcon: Padding(
+          padding: const EdgeInsets.only(left: 14, right: 10),
+          child: Icon(icon, size: 20),
+        ),
+        prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+      ),
+      maxLines: maxLines,
+      keyboardType: keyboardType,
+      validator: validator,
     );
   }
 }

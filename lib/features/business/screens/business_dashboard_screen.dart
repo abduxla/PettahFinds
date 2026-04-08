@@ -4,7 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/providers/providers.dart';
 import '../../../models/business.dart';
 import '../../../models/product.dart';
-import '../../../widgets/loading_widget.dart';
+import '../../../widgets/cached_image.dart';
+import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
 
 class BusinessDashboardScreen extends ConsumerWidget {
@@ -20,16 +21,36 @@ class BusinessDashboardScreen extends ConsumerWidget {
         if (businessDynamic == null) {
           return Scaffold(
             body: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text('No business found'),
-                  const SizedBox(height: 16),
-                  FilledButton(
-                    onPressed: () => context.go('/business/setup'),
-                    child: const Text('Set Up Business'),
-                  ),
-                ],
+              child: Padding(
+                padding: const EdgeInsets.all(40),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primaryContainer,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.store_outlined,
+                          size: 36, color: theme.colorScheme.primary),
+                    ),
+                    const SizedBox(height: 20),
+                    const Text('Set up your business',
+                        style: TextStyle(
+                            fontSize: 20, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 8),
+                    Text('Create your business profile to start selling',
+                        style: TextStyle(color: theme.colorScheme.outline),
+                        textAlign: TextAlign.center),
+                    const SizedBox(height: 24),
+                    FilledButton(
+                      onPressed: () => context.go('/business/setup'),
+                      child: const Text('Set Up Business'),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -42,137 +63,318 @@ class BusinessDashboardScreen extends ConsumerWidget {
         );
 
         return Scaffold(
-          appBar: AppBar(
-            title: Text(business.businessName),
-            actions: [
-              if (business.isVerified)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Icon(Icons.verified,
-                      color: theme.colorScheme.primary),
+          body: CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                floating: true,
+                snap: true,
+                toolbarHeight: 70,
+                title: Row(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                            color: theme.colorScheme.primary.withAlpha(40),
+                            width: 2),
+                      ),
+                      child: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: theme.colorScheme.primaryContainer,
+                        backgroundImage: business.logoUrl.isNotEmpty
+                            ? NetworkImage(business.logoUrl)
+                            : null,
+                        child: business.logoUrl.isEmpty
+                            ? Icon(Icons.store,
+                                color: theme.colorScheme.primary, size: 18)
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(business.businessName,
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurface,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.5,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
+                              ),
+                              if (business.isVerified) ...[
+                                const SizedBox(width: 4),
+                                Icon(Icons.verified,
+                                    size: 18,
+                                    color: theme.colorScheme.primary),
+                              ],
+                            ],
+                          ),
+                          Text('Dashboard',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: theme.colorScheme.outline,
+                                fontWeight: FontWeight.w500,
+                              )),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-            ],
-          ),
-          body: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
+              ),
+
               // Stats cards
-              Row(
-                children: [
-                  Expanded(
-                    child: _StatCard(
-                      icon: Icons.star,
-                      label: 'Rating',
-                      value: business.ratingCount > 0
-                          ? business.ratingAvg.toStringAsFixed(1)
-                          : 'N/A',
-                      color: Colors.amber,
-                    ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _StatCard(
+                          icon: Icons.star_rounded,
+                          label: 'Rating',
+                          value: business.ratingCount > 0
+                              ? business.ratingAvg.toStringAsFixed(1)
+                              : 'N/A',
+                          gradient: const [Color(0xFFFFF8E1), Color(0xFFFFECB3)],
+                          iconColor: Colors.amber[700]!,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _StatCard(
+                          icon: Icons.reviews_rounded,
+                          label: 'Reviews',
+                          value: business.ratingCount.toString(),
+                          gradient: [
+                            theme.colorScheme.primaryContainer,
+                            theme.colorScheme.primaryContainer.withAlpha(180),
+                          ],
+                          iconColor: theme.colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _StatCard(
+                          icon: Icons.workspace_premium_rounded,
+                          label: 'Tier',
+                          value: business.membershipTier.toUpperCase(),
+                          gradient: const [
+                            Color(0xFFE8EAF6),
+                            Color(0xFFC5CAE9),
+                          ],
+                          iconColor: const Color(0xFF5C6BC0),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _StatCard(
-                      icon: Icons.reviews,
-                      label: 'Reviews',
-                      value: business.ratingCount.toString(),
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _StatCard(
-                      icon: Icons.workspace_premium,
-                      label: 'Tier',
-                      value: business.membershipTier.toUpperCase(),
-                      color: theme.colorScheme.tertiary,
-                    ),
-                  ),
-                ],
+                ),
               ),
-              const SizedBox(height: 24),
 
-              // Quick actions
-              Text('Quick Actions',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  _ActionChip(
-                    icon: Icons.add_box,
-                    label: 'Add Product',
-                    onTap: () => context.go('/business/products/add'),
+              // Quick Actions
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Quick Actions',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.4,
+                          )),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _QuickAction(
+                              icon: Icons.add_box_rounded,
+                              label: 'Add Product',
+                              color: theme.colorScheme.primary,
+                              onTap: () =>
+                                  context.go('/business/products/add'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _QuickAction(
+                              icon: Icons.inventory_2_rounded,
+                              label: 'Products',
+                              color: const Color(0xFF6366F1),
+                              onTap: () =>
+                                  context.go('/business/products'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _QuickAction(
+                              icon: Icons.edit_rounded,
+                              label: 'Edit Profile',
+                              color: const Color(0xFF22C55E),
+                              onTap: () =>
+                                  context.go('/business-profile/edit'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  _ActionChip(
-                    icon: Icons.inventory,
-                    label: 'Manage Products',
-                    onTap: () => context.go('/business/products'),
-                  ),
-                  _ActionChip(
-                    icon: Icons.edit,
-                    label: 'Edit Profile',
-                    onTap: () => context.go('/business-profile/edit'),
-                  ),
-                ],
+                ),
               ),
-              const SizedBox(height: 24),
 
-              // Recent products
-              Text('Your Products',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
+              // Recent Products
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 28, 20, 12),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Text('Your Products',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.4,
+                            )),
+                      ),
+                      TextButton(
+                        onPressed: () => context.go('/business/products'),
+                        child: const Text('View all'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
               productsAsync.when(
                 data: (products) => products.isEmpty
-                    ? Card(
+                    ? SliverToBoxAdapter(
                         child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            children: [
-                              Icon(Icons.inventory_2_outlined,
-                                  size: 48,
-                                  color: theme.colorScheme.outline),
-                              const SizedBox(height: 8),
-                              const Text('No products yet'),
-                              const SizedBox(height: 12),
-                              FilledButton.icon(
-                                onPressed: () =>
-                                    context.go('/business/products/add'),
-                                icon: const Icon(Icons.add),
-                                label: const Text('Add First Product'),
-                              ),
-                            ],
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Container(
+                            padding: const EdgeInsets.all(32),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surface,
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                            child: Column(
+                              children: [
+                                Icon(Icons.inventory_2_outlined,
+                                    size: 48,
+                                    color: theme.colorScheme.outline),
+                                const SizedBox(height: 12),
+                                const Text('No products yet',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 16),
+                                FilledButton.icon(
+                                  onPressed: () =>
+                                      context.go('/business/products/add'),
+                                  icon: const Icon(Icons.add),
+                                  label: const Text('Add First Product'),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       )
-                    : Column(
-                        children: products
-                            .take(5)
-                            .map((p) => Card(
-                                  margin: const EdgeInsets.only(bottom: 8),
-                                  child: ListTile(
-                                    title: Text(p.title),
-                                    subtitle: Text(
-                                        'LKR ${p.priceLkr.toStringAsFixed(2)}'),
-                                    trailing: Text(p.isActive
-                                        ? 'Active'
-                                        : 'Inactive'),
-                                    onTap: () => context.go(
-                                        '/business/products/edit/${p.id}'),
+                    : SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (_, i) {
+                            final p = products[i];
+                            return Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.surface,
+                                  borderRadius: BorderRadius.circular(14),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withAlpha(6),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 4),
+                                  leading: ClipRRect(
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: CachedImage(
+                                      imageUrl: p.image1Url,
+                                      width: 52,
+                                      height: 52,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
                                   ),
-                                ))
-                            .toList(),
+                                  title: Text(p.title,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis),
+                                  subtitle: Text(
+                                    'LKR ${p.priceLkr.toStringAsFixed(0)}',
+                                    style: TextStyle(
+                                      color: theme.colorScheme.primary,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  trailing: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: p.isActive
+                                          ? const Color(0xFFDCFCE7)
+                                          : const Color(0xFFFEE2E2),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      p.isActive ? 'Active' : 'Inactive',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: p.isActive
+                                            ? const Color(0xFF16A34A)
+                                            : const Color(0xFFDC2626),
+                                      ),
+                                    ),
+                                  ),
+                                  onTap: () => context
+                                      .go('/business/products/edit/${p.id}'),
+                                ),
+                              ),
+                            );
+                          },
+                          childCount:
+                              products.length > 5 ? 5 : products.length,
+                        ),
                       ),
-                loading: () => const LoadingWidget(),
-                error: (e, _) => AppErrorWidget(message: e.toString()),
+                loading: () => const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: ShimmerBox(height: 200),
+                  ),
+                ),
+                error: (e, _) => SliverToBoxAdapter(
+                    child: AppErrorWidget(message: e.toString())),
               ),
+
+              const SliverToBoxAdapter(child: SizedBox(height: 32)),
             ],
           ),
         );
       },
-      loading: () => const Scaffold(body: LoadingWidget()),
+      loading: () => const Scaffold(body: DetailSkeleton()),
       error: (e, _) =>
           Scaffold(body: AppErrorWidget(message: e.toString())),
     );
@@ -183,47 +385,87 @@ class _StatCard extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
-  final Color color;
-  const _StatCard(
-      {required this.icon,
-      required this.label,
-      required this.value,
-      required this.color});
+  final List<Color> gradient;
+  final Color iconColor;
+  const _StatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.gradient,
+    required this.iconColor,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 28),
-            const SizedBox(height: 8),
-            Text(value,
-                style: theme.textTheme.titleLarge
-                    ?.copyWith(fontWeight: FontWeight.bold)),
-            Text(label, style: theme.textTheme.labelSmall),
-          ],
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: gradient,
         ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: iconColor, size: 26),
+          const SizedBox(height: 8),
+          Text(value,
+              style: const TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+              )),
+          const SizedBox(height: 2),
+          Text(label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: iconColor.withAlpha(180),
+              )),
+        ],
       ),
     );
   }
 }
 
-class _ActionChip extends StatelessWidget {
+class _QuickAction extends StatelessWidget {
   final IconData icon;
   final String label;
+  final Color color;
   final VoidCallback onTap;
-  const _ActionChip(
-      {required this.icon, required this.label, required this.onTap});
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return ActionChip(
-      avatar: Icon(icon, size: 18),
-      label: Text(label),
-      onPressed: onTap,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: color.withAlpha(18),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withAlpha(40)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 26),
+            const SizedBox(height: 6),
+            Text(label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                )),
+          ],
+        ),
+      ),
     );
   }
 }
