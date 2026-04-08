@@ -1,0 +1,90 @@
+{
+  "project_info": {
+    "project_number": "263905072020",
+    "project_id": "pettahfinds-75075",
+    "storage_bucket": "pettahfinds-75075.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:263905072020:android:8e7314414fee06c47c3581",
+        "android_client_info": {
+          "package_name": "com.petafinds.petafinds"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "263905072020-70072lha7t7gd2hjpqd0rid10ha7ipbr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDRHZhkY9YrRBhaoS5fjUl5pcP4t4TvMN8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "263905072020-70072lha7t7gd2hjpqd0rid10ha7ipbr.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "263905072020-hm60uhgu6tqkugmkktcpqktvpgsno3ni.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.pettahfinds.app"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:263905072020:android:545529229a9b4b807c3581",
+        "android_client_info": {
+          "package_name": "com.pettahfinds.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "263905072020-v7lqqisasukaaj48k1g1rp7i4v93secd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pettahfinds.app",
+            "certificate_hash": "9bbb3186b2189ef16d8f272bdab59362c395cbb4"
+          }
+        },
+        {
+          "client_id": "263905072020-70072lha7t7gd2hjpqd0rid10ha7ipbr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDRHZhkY9YrRBhaoS5fjUl5pcP4t4TvMN8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "263905072020-70072lha7t7gd2hjpqd0rid10ha7ipbr.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "263905072020-hm60uhgu6tqkugmkktcpqktvpgsno3ni.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.pettahfinds.app"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
