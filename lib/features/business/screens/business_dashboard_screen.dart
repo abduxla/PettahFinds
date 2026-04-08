@@ -7,6 +7,7 @@ import '../../../models/product.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
+import '../../../widgets/empty_state_widget.dart';
 
 class BusinessDashboardScreen extends ConsumerWidget {
   const BusinessDashboardScreen({super.key});
@@ -20,38 +21,12 @@ class BusinessDashboardScreen extends ConsumerWidget {
       data: (businessDynamic) {
         if (businessDynamic == null) {
           return Scaffold(
-            body: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(40),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primaryContainer,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(Icons.store_outlined,
-                          size: 36, color: theme.colorScheme.primary),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text('Set up your business',
-                        style: TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 8),
-                    Text('Create your business profile to start selling',
-                        style: TextStyle(color: theme.colorScheme.outline),
-                        textAlign: TextAlign.center),
-                    const SizedBox(height: 24),
-                    FilledButton(
-                      onPressed: () => context.go('/business/setup'),
-                      child: const Text('Set Up Business'),
-                    ),
-                  ],
-                ),
-              ),
+            body: EmptyStateWidget(
+              icon: Icons.store_outlined,
+              title: 'Set up your business',
+              subtitle: 'Create your business profile to start selling',
+              actionLabel: 'Set Up Business',
+              onAction: () => context.go('/business/setup'),
             ),
           );
         }
@@ -366,7 +341,10 @@ class BusinessDashboardScreen extends ConsumerWidget {
                   ),
                 ),
                 error: (e, _) => SliverToBoxAdapter(
-                    child: AppErrorWidget(message: e.toString())),
+                    child: AppErrorWidget(
+                      message: e.toString(),
+                      onRetry: () => ref.invalidate(currentUserBusinessProvider),
+                    )),
               ),
 
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
@@ -375,8 +353,12 @@ class BusinessDashboardScreen extends ConsumerWidget {
         );
       },
       loading: () => const Scaffold(body: DetailSkeleton()),
-      error: (e, _) =>
-          Scaffold(body: AppErrorWidget(message: e.toString())),
+      error: (e, _) => Scaffold(
+        body: AppErrorWidget(
+          message: e.toString(),
+          onRetry: () => ref.invalidate(currentUserBusinessProvider),
+        ),
+      ),
     );
   }
 }

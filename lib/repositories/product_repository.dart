@@ -60,6 +60,15 @@ class ProductRepository {
         .map((snap) => snap.docs.map(Product.fromFirestore).toList());
   }
 
+  /// Streams ALL products for a business (including inactive) — for manage screen.
+  Stream<List<Product>> streamAllByBusiness(String businessId) {
+    return _ref
+        .where('businessId', isEqualTo: businessId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs.map(Product.fromFirestore).toList());
+  }
+
   Stream<List<Product>> streamAll() {
     return _ref
         .where('isActive', isEqualTo: true)
