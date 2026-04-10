@@ -30,6 +30,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   }
 
   Future<void> _signUp() async {
+    if (_loading) return;
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
@@ -46,7 +47,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         context.go('/home');
       }
     } catch (e) {
-      if (mounted) context.showSnackBar(e.toString(), isError: true);
+      if (mounted) context.showErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -72,13 +73,20 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text('Create Account',
-                      style: theme.textTheme.headlineMedium
-                          ?.copyWith(fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.8,
+                        color: theme.colorScheme.onSurface,
+                      ),
                       textAlign: TextAlign.center),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text('Join PetaFinds today',
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(color: theme.colorScheme.outline),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: theme.colorScheme.outline,
+                        fontWeight: FontWeight.w500,
+                      ),
                       textAlign: TextAlign.center),
                   const SizedBox(height: 32),
                   TextFormField(
@@ -118,10 +126,14 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     textInputAction: TextInputAction.done,
                     validator: Validators.password,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
                   Text('I am a:',
-                      style: theme.textTheme.titleSmall),
-                  const SizedBox(height: 8),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface,
+                      )),
+                  const SizedBox(height: 10),
                   SegmentedButton<String>(
                     segments: const [
                       ButtonSegment(
@@ -137,21 +149,23 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     onSelectionChanged: (sel) =>
                         setState(() => _selectedRole = sel.first),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 28),
                   FilledButton(
                     onPressed: _loading ? null : _signUp,
                     child: _loading
                         ? const SizedBox(
                             height: 20,
                             width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2))
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
                         : const Text('Sign Up'),
                   ),
                   const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text('Already have an account?'),
+                      Text('Already have an account?',
+                          style: TextStyle(color: theme.colorScheme.outline)),
                       TextButton(
                         onPressed: () => context.go('/sign-in'),
                         child: const Text('Sign In'),

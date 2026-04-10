@@ -28,6 +28,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   }
 
   Future<void> _signIn() async {
+    if (_loading) return;
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
@@ -48,7 +49,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         context.go('/home');
       }
     } catch (e) {
-      if (mounted) context.showSnackBar(e.toString(), isError: true);
+      if (mounted) context.showErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -68,17 +69,33 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(Icons.storefront,
-                      size: 64, color: theme.colorScheme.primary),
-                  const SizedBox(height: 12),
+                  Container(
+                    width: 72,
+                    height: 72,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.storefront_rounded,
+                        size: 36, color: theme.colorScheme.primary),
+                  ),
                   Text(AppConstants.appName,
-                      style: theme.textTheme.headlineMedium
-                          ?.copyWith(fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.8,
+                        color: theme.colorScheme.onSurface,
+                      ),
                       textAlign: TextAlign.center),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   Text('Sign in to continue',
-                      style: theme.textTheme.bodyMedium
-                          ?.copyWith(color: theme.colorScheme.outline),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: theme.colorScheme.outline,
+                        fontWeight: FontWeight.w500,
+                      ),
                       textAlign: TextAlign.center),
                   const SizedBox(height: 32),
                   TextFormField(
@@ -123,14 +140,16 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         ? const SizedBox(
                             height: 20,
                             width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2))
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
                         : const Text('Sign In'),
                   ),
                   const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text("Don't have an account?"),
+                      Text("Don't have an account?",
+                          style: TextStyle(color: theme.colorScheme.outline)),
                       TextButton(
                         onPressed: () => context.go('/sign-up'),
                         child: const Text('Sign Up'),

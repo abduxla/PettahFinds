@@ -36,6 +36,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
   }
 
   Future<void> _submit() async {
+    if (_loading) return;
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
@@ -62,9 +63,12 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                 businessId: business.id, onboardingCompleted: true),
           );
 
-      if (mounted) context.go('/business');
+      if (mounted) {
+        context.showSuccessSnackBar('Business created successfully!');
+        context.go('/business');
+      }
     } catch (e) {
-      if (mounted) context.showSnackBar(e.toString(), isError: true);
+      if (mounted) context.showErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -145,7 +149,8 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                     ? const SizedBox(
                         height: 20,
                         width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2))
+                        child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white))
                     : const Text('Create Business'),
               ),
             ],

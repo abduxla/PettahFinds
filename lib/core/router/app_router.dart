@@ -46,11 +46,15 @@ final routerProvider = Provider<GoRouter>((ref) {
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/splash',
     redirect: (context, state) {
+      final isAuthLoading = authState.isLoading;
       final isLoggedIn = authState.valueOrNull != null;
       final currentPath = state.uri.path;
 
-      // Allow splash always
+      // Allow splash always — it handles its own navigation
       if (currentPath == '/splash') return null;
+
+      // While auth is still initializing, don't redirect — stay put
+      if (isAuthLoading) return null;
 
       // Not logged in → sign in (unless already on auth pages)
       final authPaths = ['/sign-in', '/sign-up', '/forgot-password', '/onboarding'];
@@ -61,6 +65,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Logged in but on auth page → redirect to role home
       if (authPaths.contains(currentPath)) {
         final user = appUser.valueOrNull;
+        // AppUser still loading from Firestore — don't redirect yet,
+        // the splash screen or a future rebuild will handle it
         if (user == null) return null;
         if (user.isAdmin) return '/admin';
         if (user.isBusiness) {

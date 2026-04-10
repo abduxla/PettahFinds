@@ -1,5 +1,18 @@
 import 'package:flutter/material.dart';
 
+/// Strips Firebase error prefixes like `[firebase_auth/wrong-password] ...`
+String cleanErrorMessage(Object error) {
+  final raw = error.toString();
+  // Firebase errors: [firebase_auth/code] message
+  final regex = RegExp(r'\[[\w_/\-]+\]\s*');
+  var cleaned = raw.replaceAll(regex, '');
+  // Remove "Exception: " prefix
+  if (cleaned.startsWith('Exception: ')) {
+    cleaned = cleaned.substring(11);
+  }
+  return cleaned.trim();
+}
+
 extension BuildContextX on BuildContext {
   ThemeData get theme => Theme.of(this);
   ColorScheme get colorScheme => theme.colorScheme;
@@ -18,6 +31,10 @@ extension BuildContextX on BuildContext {
             : colorScheme.inverseSurface,
       ),
     );
+  }
+
+  void showErrorSnackBar(Object error) {
+    showSnackBar(cleanErrorMessage(error), isError: true);
   }
 
   void showSuccessSnackBar(String message) {

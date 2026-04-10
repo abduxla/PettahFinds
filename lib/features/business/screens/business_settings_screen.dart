@@ -10,59 +10,89 @@ class BusinessSettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(
+        title: const Text('Settings'),
+        titleTextStyle: TextStyle(
+          color: theme.colorScheme.onSurface,
+          fontSize: 20,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.5,
+        ),
+      ),
       body: ListView(
         children: [
-          const _Section(title: 'Business'),
-          ListTile(
-            leading: const Icon(Icons.edit),
-            title: const Text('Edit Business Profile'),
-            trailing: const Icon(Icons.chevron_right),
+          _Section(title: 'Business', theme: theme),
+          _SettingsTile(
+            icon: Icons.edit_rounded,
+            iconColor: theme.colorScheme.primary,
+            title: 'Edit Business Profile',
             onTap: () => context.go('/business-profile/edit'),
           ),
-          ListTile(
-            leading: const Icon(Icons.inventory),
-            title: const Text('Manage Products'),
-            trailing: const Icon(Icons.chevron_right),
+          _SettingsTile(
+            icon: Icons.inventory_2_rounded,
+            iconColor: const Color(0xFF6366F1),
+            title: 'Manage Products',
             onTap: () => context.go('/business/products'),
           ),
-          const _Section(title: 'Account'),
-          ListTile(
-            leading: const Icon(Icons.workspace_premium),
-            title: const Text('Membership & Billing'),
-            subtitle: const Text('Manage your subscription'),
-            trailing: const Icon(Icons.chevron_right),
+          _Section(title: 'Account', theme: theme),
+          _SettingsTile(
+            icon: Icons.workspace_premium_rounded,
+            iconColor: const Color(0xFFF59E0B),
+            title: 'Membership & Billing',
+            subtitle: 'Manage your subscription',
             onTap: () {
-              // TODO: payment/membership screen
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Coming soon')),
               );
             },
           ),
-          const _Section(title: 'Legal'),
-          ListTile(
-            leading: const Icon(Icons.description_outlined),
-            title: const Text('Terms of Service'),
+          _Section(title: 'Legal', theme: theme),
+          _SettingsTile(
+            icon: Icons.description_outlined,
+            iconColor: const Color(0xFF22C55E),
+            title: 'Terms of Service',
             onTap: () {},
           ),
-          ListTile(
-            leading: const Icon(Icons.privacy_tip_outlined),
-            title: const Text('Privacy Policy'),
+          _SettingsTile(
+            icon: Icons.privacy_tip_outlined,
+            iconColor: const Color(0xFF22C55E),
+            title: 'Privacy Policy',
             onTap: () {},
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20),
             child: OutlinedButton.icon(
               onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Sign Out'),
+                    content:
+                        const Text('Are you sure you want to sign out?'),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('Cancel')),
+                      FilledButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('Sign Out')),
+                    ],
+                  ),
+                );
+                if (confirm != true) return;
                 await ref.read(authRepositoryProvider).signOut();
                 if (context.mounted) context.go('/sign-in');
               },
-              icon: const Icon(Icons.logout),
+              icon: const Icon(Icons.logout_rounded, size: 18),
               label: const Text('Sign Out'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: theme.colorScheme.error,
-                side: BorderSide(color: theme.colorScheme.error),
+                side: BorderSide(
+                    color: theme.colorScheme.error.withAlpha(60)),
+                minimumSize: const Size.fromHeight(52),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
               ),
             ),
           ),
@@ -75,17 +105,69 @@ class BusinessSettingsScreen extends ConsumerWidget {
 
 class _Section extends StatelessWidget {
   final String title;
-  const _Section({required this.title});
+  final ThemeData theme;
+  const _Section({required this.title, required this.theme});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+      padding: const EdgeInsets.fromLTRB(20, 28, 20, 10),
       child: Text(title,
-          style: Theme.of(context)
-              .textTheme
-              .labelLarge
-              ?.copyWith(color: Theme.of(context).colorScheme.primary)),
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: theme.colorScheme.primary,
+            letterSpacing: 0.5,
+          )),
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String? subtitle;
+  final VoidCallback onTap;
+
+  const _SettingsTile({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ListTile(
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+      leading: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: iconColor.withAlpha(20),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: iconColor, size: 20),
+      ),
+      title: Text(title,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          )),
+      subtitle: subtitle != null
+          ? Text(subtitle!,
+              style: TextStyle(
+                fontSize: 12,
+                color: theme.colorScheme.outline,
+              ))
+          : null,
+      trailing: Icon(Icons.chevron_right_rounded,
+          color: theme.colorScheme.outline, size: 22),
+      onTap: onTap,
     );
   }
 }

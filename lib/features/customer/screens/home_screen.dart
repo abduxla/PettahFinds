@@ -9,6 +9,7 @@ import '../../../models/product.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/empty_state_widget.dart';
+import '../../../widgets/error_widget.dart';
 
 final _categoriesProvider = StreamProvider<List<cat.Category>>((ref) {
   return ref.watch(categoryRepositoryProvider).streamActive();
@@ -197,9 +198,9 @@ class HomeScreen extends ConsumerWidget {
                             ),
                           ),
                     loading: () => const CategorySkeleton(),
-                    error: (e, _) => Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text('Error: $e')),
+                    error: (e, _) => AppErrorWidget(
+                        message: e.toString(),
+                        onRetry: () => ref.invalidate(_categoriesProvider)),
                   ),
                 ],
               ),
@@ -232,9 +233,9 @@ class HomeScreen extends ConsumerWidget {
                                 _BusinessCard(business: businesses[i]),
                           ),
                     loading: () => const BusinessCardSkeleton(count: 2),
-                    error: (e, _) => Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text('Error: $e')),
+                    error: (e, _) => AppErrorWidget(
+                        message: e.toString(),
+                        onRetry: () => ref.invalidate(_featuredBusinessesProvider)),
                   ),
                 ],
               ),
@@ -270,9 +271,9 @@ class HomeScreen extends ConsumerWidget {
                             ),
                           ),
                     loading: () => const ProductCardSkeleton(),
-                    error: (e, _) => Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text('Error: $e')),
+                    error: (e, _) => AppErrorWidget(
+                        message: e.toString(),
+                        onRetry: () => ref.invalidate(_recentProductsProvider)),
                   ),
                 ],
               ),

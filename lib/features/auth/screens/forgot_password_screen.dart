@@ -26,6 +26,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   }
 
   Future<void> _submit() async {
+    if (_loading) return;
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
@@ -34,7 +35,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           .resetPassword(_emailCtrl.text);
       if (mounted) setState(() => _sent = true);
     } catch (e) {
-      if (mounted) context.showSnackBar(e.toString(), isError: true);
+      if (mounted) context.showErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -117,7 +118,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 ? const SizedBox(
                     height: 20,
                     width: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2))
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white))
                 : const Text('Send Reset Link'),
           ),
         ],

@@ -194,6 +194,23 @@ class ProfileScreen extends ConsumerWidget {
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Sign Out'),
+                            content: const Text(
+                                'Are you sure you want to sign out?'),
+                            actions: [
+                              TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: const Text('Cancel')),
+                              FilledButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  child: const Text('Sign Out')),
+                            ],
+                          ),
+                        );
+                        if (confirm != true) return;
                         await ref.read(authRepositoryProvider).signOut();
                         if (context.mounted) context.go('/sign-in');
                       },

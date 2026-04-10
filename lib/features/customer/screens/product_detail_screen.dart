@@ -72,7 +72,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                   targetType: 'product',
                                   targetId: product.id,
                                 );
-                            context.showSnackBar('Favorite toggled');
+                            context.showSuccessSnackBar('Favorite toggled');
                           },
                         ),
                       ),
@@ -263,8 +263,15 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         );
       },
       loading: () => const Scaffold(body: DetailSkeleton()),
-      error: (e, _) =>
-          Scaffold(body: AppErrorWidget(message: e.toString())),
+      error: (e, _) => Scaffold(
+        body: AppErrorWidget(
+          message: e.toString(),
+          onRetry: () => ref.invalidate(FutureProvider<Product>(
+              (ref) => ref
+                  .read(productRepositoryProvider)
+                  .getById(widget.productId))),
+        ),
+      ),
     );
   }
 }

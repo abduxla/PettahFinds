@@ -7,7 +7,7 @@ import '../../../models/business.dart';
 import '../../../models/product.dart';
 import '../../../models/review.dart';
 import '../../../widgets/cached_image.dart';
-import '../../../widgets/loading_widget.dart';
+import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/empty_state_widget.dart';
 import '../../../core/extensions/context_extensions.dart';
@@ -56,289 +56,662 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
       data: (business) => Scaffold(
         body: CustomScrollView(
           slivers: [
+            // Hero banner with overlay controls
             SliverAppBar(
-              expandedHeight: 200,
+              expandedHeight: 220,
               pinned: true,
-              flexibleSpace: FlexibleSpaceBar(
-                title: Text(business.businessName,
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold)),
-                background: CachedImage(
-                  imageUrl: business.bannerUrl,
-                  fit: BoxFit.cover,
+              backgroundColor: theme.colorScheme.surface,
+              leading: Padding(
+                padding: const EdgeInsets.all(6),
+                child: CircleAvatar(
+                  backgroundColor: Colors.black26,
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => context.pop(),
+                  ),
                 ),
               ),
               actions: [
                 if (appUser != null)
-                  IconButton(
-                    icon: const Icon(Icons.favorite_border),
-                    onPressed: () {
-                      ref.read(favoriteRepositoryProvider).toggle(
-                            userId: appUser.uid,
-                            targetType: 'business',
-                            targetId: business.id,
-                          );
-                      context.showSnackBar('Favorite toggled');
-                    },
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: CircleAvatar(
+                      backgroundColor: Colors.black26,
+                      child: IconButton(
+                        icon: const Icon(Icons.favorite_border,
+                            color: Colors.white),
+                        onPressed: () {
+                          ref.read(favoriteRepositoryProvider).toggle(
+                                userId: appUser.uid,
+                                targetType: 'business',
+                                targetId: business.id,
+                              );
+                          context.showSuccessSnackBar('Favorite toggled');
+                        },
+                      ),
+                    ),
                   ),
               ],
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              flexibleSpace: FlexibleSpaceBar(
+                background: Stack(
+                  fit: StackFit.expand,
                   children: [
-                    // Business info
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 28,
-                          backgroundImage: business.logoUrl.isNotEmpty
-                              ? NetworkImage(business.logoUrl)
-                              : null,
-                          child: business.logoUrl.isEmpty
-                              ? const Icon(Icons.store)
-                              : null,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Flexible(
-                                    child: Text(business.businessName,
-                                        style: theme.textTheme.titleLarge
-                                            ?.copyWith(
-                                                fontWeight: FontWeight.bold)),
-                                  ),
-                                  if (business.isVerified) ...[
-                                    const SizedBox(width: 6),
-                                    Icon(Icons.verified,
-                                        color: theme.colorScheme.primary),
-                                  ],
-                                ],
-                              ),
-                              Text(
-                                  '${business.category} • ${business.location}',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: theme.colorScheme.outline)),
-                            ],
-                          ),
-                        ),
-                      ],
+                    CachedImage(
+                      imageUrl: business.bannerUrl,
+                      fit: BoxFit.cover,
+                      placeholderIcon: Icons.storefront,
                     ),
-                    if (business.ratingCount > 0) ...[
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          RatingBarIndicator(
-                            rating: business.ratingAvg,
-                            itemSize: 20,
-                            itemBuilder: (_, __) =>
-                                const Icon(Icons.star, color: Colors.amber),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                              '${business.ratingAvg.toStringAsFixed(1)} (${business.ratingCount} reviews)',
-                              style: theme.textTheme.bodySmall),
-                        ],
+                    // Gradient overlay for readability
+                    const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Colors.transparent, Colors.black38],
+                        ),
                       ),
-                    ],
-                    const SizedBox(height: 16),
-                    Text(business.description,
-                        style: theme.textTheme.bodyMedium),
-                    const SizedBox(height: 16),
-                    // Contact info
-                    if (business.phone.isNotEmpty)
-                      ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.phone),
-                        title: Text(business.phone),
-                      ),
-                    if (business.email.isNotEmpty)
-                      ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.email),
-                        title: Text(business.email),
-                      ),
-                    const Divider(height: 32),
-                    // Products
-                    Text('Products',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
+                    ),
                   ],
                 ),
               ),
             ),
+
+            // Business info card
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                child: Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(8),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: theme.colorScheme.primary.withAlpha(40),
+                                  width: 2.5),
+                            ),
+                            child: CircleAvatar(
+                              radius: 28,
+                              backgroundColor:
+                                  theme.colorScheme.primaryContainer,
+                              backgroundImage: business.logoUrl.isNotEmpty
+                                  ? NetworkImage(business.logoUrl)
+                                  : null,
+                              child: business.logoUrl.isEmpty
+                                  ? Icon(Icons.store,
+                                      color: theme.colorScheme.primary,
+                                      size: 24)
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(business.businessName,
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: -0.5,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis),
+                                    ),
+                                    if (business.isVerified) ...[
+                                      const SizedBox(width: 6),
+                                      Icon(Icons.verified,
+                                          size: 20,
+                                          color: theme.colorScheme.primary),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: theme
+                                            .colorScheme.primaryContainer,
+                                        borderRadius:
+                                            BorderRadius.circular(6),
+                                      ),
+                                      child: Text(business.category,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color:
+                                                theme.colorScheme.primary,
+                                          )),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(business.location,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: theme.colorScheme.outline,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      // Rating
+                      if (business.ratingCount > 0) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF8E1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              RatingBarIndicator(
+                                rating: business.ratingAvg,
+                                itemSize: 18,
+                                itemBuilder: (_, __) => const Icon(
+                                    Icons.star_rounded,
+                                    color: Colors.amber),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${business.ratingAvg.toStringAsFixed(1)} (${business.ratingCount} reviews)',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.amber[800],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
+                      // Description
+                      if (business.description.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Text(business.description,
+                            style: TextStyle(
+                              fontSize: 14,
+                              height: 1.6,
+                              color:
+                                  theme.colorScheme.onSurface.withAlpha(180),
+                            )),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            // Contact info
+            if (business.phone.isNotEmpty || business.email.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(6),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        if (business.phone.isNotEmpty)
+                          ListTile(
+                            dense: true,
+                            leading: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFDCFCE7),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.phone_rounded,
+                                  size: 18, color: Color(0xFF16A34A)),
+                            ),
+                            title: Text(business.phone,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                )),
+                          ),
+                        if (business.phone.isNotEmpty &&
+                            business.email.isNotEmpty)
+                          Divider(
+                              height: 1,
+                              indent: 60,
+                              color: theme.dividerTheme.color),
+                        if (business.email.isNotEmpty)
+                          ListTile(
+                            dense: true,
+                            leading: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE8EAF6),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.email_rounded,
+                                  size: 18, color: Color(0xFF5C6BC0)),
+                            ),
+                            title: Text(business.email,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                )),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+            // Products section header
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                child: Text('Products',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.4,
+                      color: theme.colorScheme.onSurface,
+                    )),
+              ),
+            ),
+
+            // Products list
             productsAsync.when(
               data: (products) => products.isEmpty
                   ? const SliverToBoxAdapter(
                       child: EmptyStateWidget(
-                          icon: Icons.inventory_2_outlined,
-                          title: 'No products yet'))
+                        icon: Icons.inventory_2_outlined,
+                        title: 'No products yet',
+                        subtitle: 'This business hasn\'t added products yet.',
+                      ),
+                    )
                   : SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (_, i) {
                           final p = products[i];
-                          return ListTile(
-                            leading: CachedImage(
-                              imageUrl: p.image1Url,
-                              width: 56,
-                              height: 56,
-                              borderRadius: BorderRadius.circular(8),
+                          return Padding(
+                            padding:
+                                const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.surface,
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withAlpha(6),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: InkWell(
+                                onTap: () =>
+                                    context.go('/home/product/${p.id}'),
+                                borderRadius: BorderRadius.circular(14),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(10),
+                                  child: Row(
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius:
+                                            BorderRadius.circular(10),
+                                        child: CachedImage(
+                                          imageUrl: p.image1Url,
+                                          width: 64,
+                                          height: 64,
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                          placeholderIcon:
+                                              Icons.shopping_bag_outlined,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(p.title,
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                                maxLines: 1,
+                                                overflow:
+                                                    TextOverflow.ellipsis),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'LKR ${p.priceLkr.toStringAsFixed(0)}',
+                                              style: TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w800,
+                                                color: theme
+                                                    .colorScheme.primary,
+                                                letterSpacing: -0.3,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Icon(Icons.chevron_right_rounded,
+                                          color: theme.colorScheme.outline,
+                                          size: 22),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
-                            title: Text(p.title),
-                            subtitle: Text(
-                                'LKR ${p.priceLkr.toStringAsFixed(2)}'),
-                            onTap: () =>
-                                context.go('/home/product/${p.id}'),
                           );
                         },
                         childCount: products.length,
                       ),
                     ),
-              loading: () => const SliverToBoxAdapter(child: LoadingWidget()),
+              loading: () => const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    children: [
+                      ShimmerBox(height: 80),
+                      SizedBox(height: 10),
+                      ShimmerBox(height: 80),
+                      SizedBox(height: 10),
+                      ShimmerBox(height: 80),
+                    ],
+                  ),
+                ),
+              ),
               error: (e, _) => SliverToBoxAdapter(
                   child: AppErrorWidget(message: e.toString())),
             ),
-            // Reviews section
+
+            // Reviews section header
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Divider(),
-                    const SizedBox(height: 8),
-                    Text('Reviews',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 12),
-                    // Add review form
-                    if (appUser != null && appUser.isUser)
-                      _buildReviewForm(theme, appUser.uid),
-                  ],
-                ),
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                child: Text('Reviews',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.4,
+                      color: theme.colorScheme.onSurface,
+                    )),
               ),
             ),
+
+            // Review form
+            if (appUser != null && appUser.isUser)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 14),
+                  child: _buildReviewForm(theme, appUser.uid),
+                ),
+              ),
+
+            // Reviews list
             reviewsAsync.when(
               data: (reviews) => reviews.isEmpty
-                  ? const SliverToBoxAdapter(
+                  ? SliverToBoxAdapter(
                       child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        child: Text('No reviews yet. Be the first!'),
-                      ))
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                        child: Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.surface,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(Icons.rate_review_outlined,
+                                  size: 36,
+                                  color: theme.colorScheme.outline),
+                              const SizedBox(height: 8),
+                              Text('No reviews yet',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: theme.colorScheme.outline,
+                                  )),
+                              const SizedBox(height: 4),
+                              Text('Be the first to leave a review!',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: theme.colorScheme.outline,
+                                  )),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
                   : SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (_, i) {
                           final r = reviews[i];
-                          return ListTile(
-                            leading: const CircleAvatar(
-                                child: Icon(Icons.person)),
-                            title: RatingBarIndicator(
-                              rating: r.rating,
-                              itemSize: 16,
-                              itemBuilder: (_, __) =>
-                                  const Icon(Icons.star, color: Colors.amber),
+                          return Padding(
+                            padding:
+                                const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                            child: Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.surface,
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withAlpha(4),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 16,
+                                        backgroundColor: theme
+                                            .colorScheme.primaryContainer,
+                                        child: Icon(Icons.person_rounded,
+                                            size: 18,
+                                            color:
+                                                theme.colorScheme.primary),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      RatingBarIndicator(
+                                        rating: r.rating,
+                                        itemSize: 14,
+                                        itemBuilder: (_, __) => const Icon(
+                                            Icons.star_rounded,
+                                            color: Colors.amber),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(r.rating.toStringAsFixed(1),
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.amber[800],
+                                          )),
+                                    ],
+                                  ),
+                                  if (r.comment.isNotEmpty) ...[
+                                    const SizedBox(height: 10),
+                                    Text(r.comment,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          height: 1.5,
+                                          color: theme.colorScheme.onSurface
+                                              .withAlpha(200),
+                                        )),
+                                  ],
+                                ],
+                              ),
                             ),
-                            subtitle: Text(r.comment),
                           );
                         },
                         childCount: reviews.length,
                       ),
                     ),
-              loading: () => const SliverToBoxAdapter(child: LoadingWidget()),
+              loading: () => const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: ShimmerBox(height: 100),
+                ),
+              ),
               error: (e, _) => SliverToBoxAdapter(
                   child: AppErrorWidget(message: e.toString())),
             ),
+
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
         ),
       ),
-      loading: () => const Scaffold(body: LoadingWidget()),
-      error: (e, _) =>
-          Scaffold(body: AppErrorWidget(message: e.toString())),
+      loading: () => const Scaffold(body: DetailSkeleton()),
+      error: (e, _) => Scaffold(
+        body: AppErrorWidget(
+          message: e.toString(),
+          onRetry: () => ref.invalidate(FutureProvider<Business>(
+              (ref) => ref
+                  .read(businessRepositoryProvider)
+                  .getById(widget.businessId))),
+        ),
+      ),
     );
   }
 
   Widget _buildReviewForm(ThemeData theme, String userId) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _reviewFormKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Write a review', style: theme.textTheme.titleSmall),
-              const SizedBox(height: 8),
-              RatingBar.builder(
-                initialRating: _rating,
-                minRating: 1,
-                itemSize: 28,
-                itemBuilder: (_, __) =>
-                    const Icon(Icons.star, color: Colors.amber),
-                onRatingUpdate: (val) => _rating = val,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _commentCtrl,
-                decoration: const InputDecoration(hintText: 'Your review...'),
-                maxLines: 3,
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Enter a comment' : null,
-              ),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerRight,
-                child: FilledButton(
-                  onPressed: _submittingReview
-                      ? null
-                      : () async {
-                          if (!_reviewFormKey.currentState!.validate()) return;
-                          setState(() => _submittingReview = true);
-                          try {
-                            await ref.read(reviewRepositoryProvider).add(
-                                  Review(
-                                    id: '',
-                                    businessId: widget.businessId,
-                                    userId: userId,
-                                    rating: _rating,
-                                    comment: _commentCtrl.text.trim(),
-                                    createdAt: DateTime.now(),
-                                  ),
-                                );
-                            _commentCtrl.clear();
-                            if (mounted) {
-                              context.showSnackBar('Review submitted!');
-                            }
-                          } catch (e) {
-                            if (mounted) {
-                              context.showSnackBar(e.toString(),
-                                  isError: true);
-                            }
-                          } finally {
-                            if (mounted) {
-                              setState(() => _submittingReview = false);
-                            }
-                          }
-                        },
-                  child: _submittingReview
-                      ? const SizedBox(
-                          height: 16,
-                          width: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Text('Submit'),
-                ),
-              ),
-            ],
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(6),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
+        ],
+      ),
+      child: Form(
+        key: _reviewFormKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Write a review',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                )),
+            const SizedBox(height: 12),
+            RatingBar.builder(
+              initialRating: _rating,
+              minRating: 1,
+              itemSize: 28,
+              unratedColor: const Color(0xFFE8E8E8),
+              itemBuilder: (_, __) =>
+                  const Icon(Icons.star_rounded, color: Colors.amber),
+              onRatingUpdate: (val) => _rating = val,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _commentCtrl,
+              decoration: const InputDecoration(
+                hintText: 'Share your experience...',
+              ),
+              maxLines: 3,
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Enter a comment' : null,
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton(
+                onPressed: _submittingReview
+                    ? null
+                    : () async {
+                        if (!_reviewFormKey.currentState!.validate()) return;
+                        setState(() => _submittingReview = true);
+                        try {
+                          await ref.read(reviewRepositoryProvider).add(
+                                Review(
+                                  id: '',
+                                  businessId: widget.businessId,
+                                  userId: userId,
+                                  rating: _rating,
+                                  comment: _commentCtrl.text.trim(),
+                                  createdAt: DateTime.now(),
+                                ),
+                              );
+                          _commentCtrl.clear();
+                          if (mounted) {
+                            context.showSuccessSnackBar('Review submitted!');
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            context.showSnackBar(e.toString(), isError: true);
+                          }
+                        } finally {
+                          if (mounted) {
+                            setState(() => _submittingReview = false);
+                          }
+                        }
+                      },
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(120, 44),
+                ),
+                child: _submittingReview
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Submit'),
+              ),
+            ),
+          ],
         ),
       ),
     );
