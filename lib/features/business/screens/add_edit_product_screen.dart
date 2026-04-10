@@ -56,7 +56,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       _keywordsCtrl.text = product.keywords;
     } catch (e) {
       _loadError = true;
-      if (mounted) context.showSnackBar(e.toString(), isError: true);
+      if (mounted) context.showErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _loadingProduct = false);
     }
@@ -120,7 +120,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
         }
       }
     } catch (e) {
-      if (mounted) context.showSnackBar(e.toString(), isError: true);
+      if (mounted) context.showErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _saving = false);
     }

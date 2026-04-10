@@ -189,7 +189,7 @@ class BusinessProfileScreen extends ConsumerWidget {
                               ),
                               const SizedBox(width: 10),
                               Text(
-                                '${business.ratingAvg.toStringAsFixed(1)}',
+                                business.ratingAvg.toStringAsFixed(1),
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w800,

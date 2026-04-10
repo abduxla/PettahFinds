@@ -62,12 +62,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         return authPaths.contains(currentPath) ? null : '/sign-in';
       }
 
-      // Logged in but on auth page → redirect to role home
-      if (authPaths.contains(currentPath)) {
-        final user = appUser.valueOrNull;
-        // AppUser still loading from Firestore — don't redirect yet,
-        // the splash screen or a future rebuild will handle it
-        if (user == null) return null;
+      // Logged in. We need the AppUser to enforce role-based access.
+      final user = appUser.valueOrNull;
+      // AppUser still loading from Firestore — don't redirect yet
+      if (user == null) return null;
+
+      String roleHome() {
         if (user.isAdmin) return '/admin';
         if (user.isBusiness) {
           if (user.businessId == null || user.businessId!.isEmpty) {
@@ -75,6 +75,48 @@ final routerProvider = Provider<GoRouter>((ref) {
           }
           return '/business';
         }
+        return '/home';
+      }
+
+      // Logged in but on auth page → redirect to role home
+      if (authPaths.contains(currentPath)) {
+        return roleHome();
+      }
+
+      // Business user without a business doc must finish setup before
+      // accessing any business shell route.
+      final needsSetup = user.isBusiness &&
+          (user.businessId == null || user.businessId!.isEmpty);
+      if (needsSetup && currentPath != '/business/setup') {
+        // Allow them to bail out to /home or /sign-in only if explicitly
+        // chosen — otherwise force to setup.
+        if (currentPath.startsWith('/business') ||
+            currentPath.startsWith('/business-profile') ||
+            currentPath.startsWith('/business-settings') ||
+            currentPath.startsWith('/home') ||
+            currentPath.startsWith('/admin')) {
+          return '/business/setup';
+        }
+      }
+
+      // Role-shell mismatch guards: keep users inside their own shell.
+      final inAdminShell = currentPath.startsWith('/admin');
+      final inBusinessShell = currentPath == '/business/setup' ||
+          currentPath.startsWith('/business') ||
+          currentPath.startsWith('/business-profile') ||
+          currentPath.startsWith('/business-settings');
+      final inCustomerShell = currentPath.startsWith('/home') ||
+          currentPath.startsWith('/search') ||
+          currentPath.startsWith('/favorites') ||
+          currentPath.startsWith('/profile');
+
+      if (user.isAdmin && !inAdminShell) {
+        return '/admin';
+      }
+      if (user.isBusiness && !inBusinessShell) {
+        return roleHome();
+      }
+      if (user.isUser && !inCustomerShell) {
         return '/home';
       }
 

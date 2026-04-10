@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/extensions/context_extensions.dart';
 
 class AppErrorWidget extends StatelessWidget {
   final String message;
@@ -9,6 +10,7 @@ class AppErrorWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cleaned = cleanErrorMessage(message);
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 48),
@@ -31,7 +33,7 @@ class AppErrorWidget extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.3)),
             const SizedBox(height: 8),
-            Text(message,
+            Text(cleaned.isEmpty ? 'Please try again.' : cleaned,
                 style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.outline,
                     height: 1.4),

@@ -93,35 +93,12 @@ class _ProductGridCard extends StatelessWidget {
           children: [
             Expanded(
               flex: 3,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  CachedImage(
-                    imageUrl: product.image1Url,
-                    width: double.infinity,
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(18)),
-                    placeholderIcon: Icons.shopping_bag_outlined,
-                  ),
-                  if (!product.isActive)
-                    Positioned(
-                      top: 8,
-                      left: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.black54,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text('Inactive',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600)),
-                      ),
-                    ),
-                ],
+              child: CachedImage(
+                imageUrl: product.image1Url,
+                width: double.infinity,
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(18)),
+                placeholderIcon: Icons.shopping_bag_outlined,
               ),
             ),
             Expanded(

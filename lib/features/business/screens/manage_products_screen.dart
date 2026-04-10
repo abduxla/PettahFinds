@@ -238,7 +238,7 @@ class _ProductTileState extends State<_ProductTile> {
                         }
                       } catch (e) {
                         if (context.mounted) {
-                          context.showSnackBar(e.toString(), isError: true);
+                          context.showErrorSnackBar(e);
                         }
                       } finally {
                         if (mounted) setState(() => _toggling = false);

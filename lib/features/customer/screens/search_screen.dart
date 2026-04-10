@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
 import '../../../models/business.dart';
 import '../../../models/product.dart';
@@ -37,11 +38,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   }
 
   Future<void> _search() async {
+    if (_loading) return;
     final query = _searchCtrl.text.trim();
     if (query.isEmpty) return;
+    FocusScope.of(context).unfocus();
     setState(() {
       _loading = true;
       _searched = true;
+      _businesses = [];
+      _products = [];
     });
     try {
       final results = await Future.wait([
@@ -54,6 +59,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           _products = results[1] as List<Product>;
         });
       }
+    } catch (e) {
+      if (mounted) context.showErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }

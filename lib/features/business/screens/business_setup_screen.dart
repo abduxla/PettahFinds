@@ -131,7 +131,11 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                 decoration: const InputDecoration(
                     labelText: 'Phone', prefixIcon: Icon(Icons.phone)),
                 keyboardType: TextInputType.phone,
-                validator: Validators.phone,
+                validator: (v) {
+                  final req = Validators.required(v, 'Phone');
+                  if (req != null) return req;
+                  return Validators.phone(v);
+                },
               ),
               const SizedBox(height: 16),
               TextFormField(

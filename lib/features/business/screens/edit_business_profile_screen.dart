@@ -51,6 +51,7 @@ class _EditBusinessProfileScreenState
   }
 
   Future<void> _save(Business business) async {
+    if (_loading) return;
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
@@ -64,12 +65,14 @@ class _EditBusinessProfileScreenState
               category: _categoryCtrl.text.trim(),
             ),
           );
+      // Refresh the cached business so the dashboard reflects changes
+      ref.invalidate(currentUserBusinessProvider);
       if (mounted) {
-        context.showSnackBar('Profile updated');
+        context.showSuccessSnackBar('Profile updated');
         context.pop();
       }
     } catch (e) {
-      if (mounted) context.showSnackBar(e.toString(), isError: true);
+      if (mounted) context.showErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -148,8 +151,8 @@ class _EditBusinessProfileScreenState
                         ? const SizedBox(
                             height: 20,
                             width: 20,
-                            child:
-                                CircularProgressIndicator(strokeWidth: 2))
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
                         : const Text('Save Changes'),
                   ),
                 ],
