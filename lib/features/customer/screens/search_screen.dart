@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../models/business.dart';
 import '../../../models/product.dart';
 import '../../../widgets/cached_image.dart';
@@ -69,96 +70,380 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
     return Scaffold(
-      appBar: AppBar(
-        title: TextField(
-          controller: _searchCtrl,
-          decoration: const InputDecoration(
-            hintText: 'Search businesses & products...',
-            border: InputBorder.none,
-            contentPadding: EdgeInsets.zero,
-          ),
-          textInputAction: TextInputAction.search,
-          onSubmitted: (_) => _search(),
-          autofocus: true,
-        ),
-        actions: [
-          IconButton(icon: const Icon(Icons.search), onPressed: _search),
-        ],
-        bottom: TabBar(
-          controller: _tabCtrl,
-          tabs: [
-            Tab(text: 'Businesses (${_businesses.length})'),
-            Tab(text: 'Products (${_products.length})'),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header: back + floating search pill
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => context.go('/home'),
+                    child: Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surface,
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(14),
+                            blurRadius: 12,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Icon(Icons.arrow_back_rounded,
+                          size: 22, color: theme.colorScheme.onSurface),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Container(
+                      height: 52,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(14),
+                            blurRadius: 14,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.search_rounded,
+                              color: theme.colorScheme.outline, size: 22),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: TextField(
+                              controller: _searchCtrl,
+                              autofocus: true,
+                              textInputAction: TextInputAction.search,
+                              onSubmitted: (_) => _search(),
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              decoration: const InputDecoration(
+                                hintText:
+                                    'Search businesses & products...',
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                contentPadding: EdgeInsets.zero,
+                                isDense: true,
+                                filled: false,
+                              ),
+                            ),
+                          ),
+                          if (_searchCtrl.text.isNotEmpty)
+                            GestureDetector(
+                              onTap: () {
+                                _searchCtrl.clear();
+                                setState(() {});
+                              },
+                              child: Icon(Icons.close_rounded,
+                                  color: theme.colorScheme.outline,
+                                  size: 20),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Segmented tabs
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                height: 48,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: TabBar(
+                  controller: _tabCtrl,
+                  indicator: BoxDecoration(
+                    color: theme.colorScheme.primary,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  indicatorPadding: const EdgeInsets.all(4),
+                  dividerColor: Colors.transparent,
+                  labelColor: Colors.white,
+                  unselectedLabelColor: theme.colorScheme.outline,
+                  labelStyle: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  unselectedLabelStyle: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  tabs: [
+                    Tab(text: 'Businesses (${_businesses.length})'),
+                    Tab(text: 'Products (${_products.length})'),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Results
+            Expanded(
+              child: _loading
+                  ? Center(
+                      child: CircularProgressIndicator(
+                          color: theme.colorScheme.primary),
+                    )
+                  : !_searched
+                      ? const EmptyStateWidget(
+                          icon: Icons.search_rounded,
+                          title: 'Start searching',
+                          subtitle:
+                              'Find nearby businesses and products near you.',
+                        )
+                      : TabBarView(
+                          controller: _tabCtrl,
+                          children: [
+                            _businesses.isEmpty
+                                ? const EmptyStateWidget(
+                                    icon: Icons.store_outlined,
+                                    title: 'No businesses found',
+                                    subtitle:
+                                        'Try a different keyword or spelling.',
+                                  )
+                                : ListView.builder(
+                                    itemCount: _businesses.length,
+                                    padding: const EdgeInsets.fromLTRB(
+                                        16, 4, 16, 120),
+                                    itemBuilder: (_, i) => _BusinessResultCard(
+                                        business: _businesses[i]),
+                                  ),
+                            _products.isEmpty
+                                ? const EmptyStateWidget(
+                                    icon: Icons.shopping_bag_outlined,
+                                    title: 'No products found',
+                                    subtitle:
+                                        'Try a different keyword or spelling.',
+                                  )
+                                : GridView.builder(
+                                    padding: const EdgeInsets.fromLTRB(
+                                        16, 4, 16, 120),
+                                    gridDelegate:
+                                        const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 2,
+                                      childAspectRatio: 0.68,
+                                      mainAxisSpacing: 14,
+                                      crossAxisSpacing: 14,
+                                    ),
+                                    itemCount: _products.length,
+                                    itemBuilder: (_, i) => _ProductResultCard(
+                                        product: _products[i]),
+                                  ),
+                          ],
+                        ),
+            ),
           ],
         ),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : !_searched
-              ? const EmptyStateWidget(
-                  icon: Icons.search,
-                  title: 'Search for businesses or products',
-                  subtitle: 'Enter a keyword to get started')
-              : TabBarView(
-                  controller: _tabCtrl,
+    );
+  }
+}
+
+class _BusinessResultCard extends StatelessWidget {
+  final Business business;
+  const _BusinessResultCard({required this.business});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onTap: () => context.go('/home/business/${business.id}'),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(10),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: CachedImage(
+                imageUrl: business.bannerUrl.isNotEmpty
+                    ? business.bannerUrl
+                    : business.logoUrl,
+                width: 72,
+                height: 72,
+                placeholderIcon: Icons.storefront,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(business.businessName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.3,
+                            )),
+                      ),
+                      if (business.isVerified) ...[
+                        const SizedBox(width: 4),
+                        Icon(Icons.verified,
+                            size: 15, color: theme.colorScheme.primary),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(business.category,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.colorScheme.outline,
+                        fontWeight: FontWeight.w500,
+                      )),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(Icons.location_on_rounded,
+                          size: 13, color: theme.colorScheme.primary),
+                      const SizedBox(width: 2),
+                      Flexible(
+                        child: Text(business.location,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.textSub,
+                              fontWeight: FontWeight.w500,
+                            )),
+                      ),
+                      if (business.ratingCount > 0) ...[
+                        const SizedBox(width: 10),
+                        const Icon(Icons.star_rounded,
+                            size: 13, color: Color(0xFFE0A500)),
+                        const SizedBox(width: 2),
+                        Text(business.ratingAvg.toStringAsFixed(1),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFFB8860B),
+                              fontWeight: FontWeight.w700,
+                            )),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProductResultCard extends StatelessWidget {
+  final Product product;
+  const _ProductResultCard({required this.product});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onTap: () => context.go('/home/product/${product.id}'),
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(10),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 3,
+              child: CachedImage(
+                imageUrl: product.image1Url,
+                width: double.infinity,
+                placeholderIcon: Icons.shopping_bag_outlined,
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _businesses.isEmpty
-                        ? const EmptyStateWidget(
-                            icon: Icons.store_outlined,
-                            title: 'No businesses found')
-                        : ListView.builder(
-                            itemCount: _businesses.length,
-                            padding: const EdgeInsets.all(16),
-                            itemBuilder: (_, i) {
-                              final b = _businesses[i];
-                              return ListTile(
-                                leading: CircleAvatar(
-                                  backgroundImage: b.logoUrl.isNotEmpty
-                                      ? NetworkImage(b.logoUrl)
-                                      : null,
-                                  child: b.logoUrl.isEmpty
-                                      ? const Icon(Icons.store)
-                                      : null,
-                                ),
-                                title: Text(b.businessName),
-                                subtitle: Text('${b.category} • ${b.location}'),
-                                trailing: b.isVerified
-                                    ? Icon(Icons.verified,
-                                        color: theme.colorScheme.primary,
-                                        size: 20)
-                                    : null,
-                                onTap: () =>
-                                    context.go('/home/business/${b.id}'),
-                              );
-                            },
-                          ),
-                    _products.isEmpty
-                        ? const EmptyStateWidget(
-                            icon: Icons.shopping_bag_outlined,
-                            title: 'No products found')
-                        : ListView.builder(
-                            itemCount: _products.length,
-                            padding: const EdgeInsets.all(16),
-                            itemBuilder: (_, i) {
-                              final p = _products[i];
-                              return ListTile(
-                                leading: CachedImage(
-                                  imageUrl: p.image1Url,
-                                  width: 48,
-                                  height: 48,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                title: Text(p.title),
-                                subtitle:
-                                    Text('LKR ${p.priceLkr.toStringAsFixed(2)}'),
-                                onTap: () =>
-                                    context.go('/home/product/${p.id}'),
-                              );
-                            },
-                          ),
+                    Text(product.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                        )),
+                    const Spacer(),
+                    Text(
+                      'LKR ${product.priceLkr.toStringAsFixed(0)}',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: theme.colorScheme.primary,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(product.category,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: theme.colorScheme.outline,
+                          fontWeight: FontWeight.w500,
+                        )),
                   ],
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

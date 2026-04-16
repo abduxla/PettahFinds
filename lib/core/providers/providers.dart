@@ -10,6 +10,8 @@ import '../../repositories/favorite_repository.dart';
 import '../../repositories/report_repository.dart';
 import '../../repositories/notification_repository.dart';
 import '../../services/storage_service.dart';
+import '../../services/recently_viewed_service.dart';
+import '../../models/product.dart';
 
 // --- Repositories ---
 final authRepositoryProvider = Provider((ref) => AuthRepository());
@@ -24,6 +26,27 @@ final notificationRepositoryProvider =
 
 // --- Services ---
 final storageServiceProvider = Provider((ref) => StorageService());
+final recentlyViewedServiceProvider =
+    Provider((ref) => RecentlyViewedService());
+
+/// Resolves recently-viewed product IDs into full Product objects.
+/// Silently skips deleted / inactive products so the UI never breaks.
+final recentlyViewedProductsProvider =
+    FutureProvider<List<Product>>((ref) async {
+  final ids = await ref.watch(recentlyViewedServiceProvider).getIds();
+  if (ids.isEmpty) return const [];
+  final repo = ref.watch(productRepositoryProvider);
+  final results = <Product>[];
+  for (final id in ids) {
+    try {
+      final p = await repo.getById(id);
+      if (p.isActive) results.add(p);
+    } catch (_) {
+      // Skip missing products.
+    }
+  }
+  return results;
+});
 
 // --- Auth State ---
 final authStateProvider = StreamProvider<User?>((ref) {

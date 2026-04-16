@@ -9,6 +9,7 @@ import '../../features/auth/screens/sign_up_screen.dart';
 import '../../features/auth/screens/forgot_password_screen.dart';
 import '../../features/customer/screens/customer_shell.dart';
 import '../../features/customer/screens/home_screen.dart';
+import '../../features/customer/screens/map_screen.dart';
 import '../../features/customer/screens/search_screen.dart';
 import '../../features/customer/screens/category_businesses_screen.dart';
 import '../../features/customer/screens/businesses_list_screen.dart';
@@ -107,6 +108,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           currentPath.startsWith('/business-settings');
       final inCustomerShell = currentPath.startsWith('/home') ||
           currentPath.startsWith('/search') ||
+          currentPath.startsWith('/map') ||
           currentPath.startsWith('/favorites') ||
           currentPath.startsWith('/profile');
 
@@ -175,6 +177,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           StatefulShellBranch(routes: [
             GoRoute(path: '/search', builder: (_, __) => const SearchScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/map', builder: (_, __) => const MapScreen()),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(

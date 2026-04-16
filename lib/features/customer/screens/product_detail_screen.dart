@@ -22,6 +22,18 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   int _currentImageIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    // Record this product as recently viewed. Fire-and-forget — best effort only.
+    ref
+        .read(recentlyViewedServiceProvider)
+        .record(widget.productId)
+        .then((_) {
+      if (mounted) ref.invalidate(recentlyViewedProductsProvider);
+    }).catchError((_) {});
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final productAsync = ref.watch(
