@@ -18,7 +18,9 @@ abstract class FirestorePaths {
       'businesses/$businessId/logo';
   static String businessBanner(String businessId) =>
       'businesses/$businessId/banner';
-  static String productImage(String productId, int index) =>
-      'products/$productId/image_$index';
+  // Scoped under businessId so Storage rules can authorize by business
+  // ownership without an extra Firestore lookup per productId.
+  static String productImage(String businessId, String productId, int index) =>
+      'products/$businessId/$productId/image_$index';
   static String userPhoto(String uid) => 'users/$uid/photo';
 }

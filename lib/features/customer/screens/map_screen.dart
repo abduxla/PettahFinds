@@ -331,7 +331,11 @@ class _MarkerTapListener extends mbx.OnPointAnnotationClickListener {
 }
 
 // =====================================================================
-// Fallback when MAPBOX_ACCESS_TOKEN isn't configured.
+// Graceful preview backdrop shown when no Mapbox token is configured.
+// It is NOT a fake map — just a calm premium surface that lets the
+// bottom business strip take focus until the live map is enabled.
+// (Configure MAPBOX_ACCESS_TOKEN via --dart-define to swap this out
+// for the real map.)
 // =====================================================================
 class _NoTokenFallback extends StatelessWidget {
   const _NoTokenFallback();
@@ -339,44 +343,85 @@ class _NoTokenFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppTheme.bgAlt,
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: AppTheme.accentLight,
-              shape: BoxShape.circle,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [AppTheme.bgAlt, AppTheme.bg],
+        ),
+      ),
+      child: CustomPaint(
+        painter: _SoftGridPainter(),
+        size: Size.infinite,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(32, 0, 32, 220),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 76,
+                  height: 76,
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentLight,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.accent.withAlpha(50),
+                        blurRadius: 22,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.explore_rounded,
+                      size: 34, color: AppTheme.accent),
+                ),
+                const SizedBox(height: 20),
+                const Text('Explore nearby',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.4,
+                      color: AppTheme.text,
+                    )),
+                const SizedBox(height: 8),
+                const Text(
+                  'Browse local businesses around Pettah and Colombo '
+                  'from the list below.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.textSub,
+                    height: 1.5,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
-            child: const Icon(Icons.map_rounded,
-                size: 32, color: AppTheme.accent),
           ),
-          const SizedBox(height: 18),
-          const Text('Map unavailable',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.3,
-              )),
-          const SizedBox(height: 8),
-          const Text(
-            'Configure a Mapbox access token to see the live map. '
-            'You can still browse businesses below.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              color: AppTheme.textSub,
-              height: 1.5,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
+}
+
+class _SoftGridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppTheme.border.withAlpha(90)
+      ..strokeWidth = 1;
+    const step = 48.0;
+    for (double x = 0; x < size.width; x += step) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+    for (double y = 0; y < size.height; y += step) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // =====================================================================

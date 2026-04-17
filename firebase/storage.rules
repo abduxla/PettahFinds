@@ -2,30 +2,60 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Users can upload their own photos
-    match /users/{uid}/{allPaths=**} {
-      allow read: if true;
-      allow write: if request.auth != null && request.auth.uid == uid
-                   && request.resource.size < 5 * 1024 * 1024
-                   && request.resource.contentType.matches('image/.*');
+    // ---------- Helpers ----------
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // Business owners can upload business assets
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
+    // Owns the referenced business doc (Firestore lookup).
+    function ownsBusiness(businessId) {
+      return isSignedIn()
+        && firestore.exists(/databases/(default)/documents/businesses/$(businessId))
+        && firestore.get(/databases/(default)/documents/businesses/$(businessId))
+             .data.ownerUid == request.auth.uid;
+    }
+
+    // Standard image constraints: ≤ 5 MB, image/* only.
+    function isValidImage() {
+      return request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // ---------- User photos ----------
+    match /users/{uid}/{allPaths=**} {
+      allow read: if true; // profile photos are public
+      allow write: if isSignedIn()
+                   && request.auth.uid == uid
+                   && isValidImage();
+      allow delete: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // ---------- Business assets (logo, banner) ----------
     match /businesses/{businessId}/{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null
-                   && request.resource.size < 5 * 1024 * 1024
-                   && request.resource.contentType.matches('image/.*');
-      // NOTE: For production, add check that request.auth.uid == business.ownerUid
-      // via a Cloud Function or custom claims
+      allow write: if (ownsBusiness(businessId) || isAdmin())
+                   && isValidImage();
+      allow delete: if ownsBusiness(businessId) || isAdmin();
     }
 
-    // Business owners upload product images
-    match /products/{productId}/{allPaths=**} {
+    // ---------- Product images ----------
+    // Product paths must be scoped to the business that owns them. The app
+    // uploads to /products/{businessId}/{productId}/... so that the rule
+    // can authorize by owning business, not by arbitrary productId.
+    match /products/{businessId}/{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null
-                   && request.resource.size < 5 * 1024 * 1024
-                   && request.resource.contentType.matches('image/.*');
+      allow write: if (ownsBusiness(businessId) || isAdmin())
+                   && isValidImage();
+      allow delete: if ownsBusiness(businessId) || isAdmin();
+    }
+
+    // Deny everything else by default.
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }

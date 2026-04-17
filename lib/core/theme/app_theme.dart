@@ -2,17 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 abstract class AppTheme {
-  // Premium turquoise-teal + warm neutral palette
-  static const accent = Color(0xFF0EB8A1);          // premium turquoise-teal
-  static const accentDark = Color(0xFF0A8F7E);      // deep teal
-  static const accentLight = Color(0xFFDFF5F1);     // soft teal tint
-  static const bg = Color(0xFFF6F5F1);              // soft warm gray-beige
-  static const bgAlt = Color(0xFFFBFAF7);           // lighter warm gray
+  // Warm stone + copper reference palette
+  static const accent = Color(0xFFC89A74);          // warm copper-tan
+  static const accentDark = Color(0xFFB88A62);      // deeper warm tan
+  static const accentLight = Color(0xFFF1E4D7);     // soft copper tint
+  static const accentCool = Color(0xFFA9B9C9);      // alt cool slate-blue accent
+  static const bg = Color(0xFFE6E1DA);              // warm stone background
+  static const bgAlt = Color(0xFFF3EFE9);           // soft secondary background
+  static const inputBg = Color(0xFFFBF8F3);         // soft input background
   static const card = Colors.white;
-  static const text = Color(0xFF141A1D);            // deep charcoal
-  static const textSub = Color(0xFF4F5861);         // mid charcoal
-  static const textMuted = Color(0xFF8F98A0);       // soft gray
-  static const border = Color(0xFFE8E6DF);          // warm neutral border
+  static const text = Color(0xFF25232B);            // primary charcoal
+  static const textSub = Color(0xFF7E7882);         // secondary text
+  static const textMuted = Color(0xFF9A94A0);       // muted / inactive
+  static const border = Color(0xFFD9D2C8);          // warm border
   static const success = Color(0xFF22C55E);
 
   static ThemeData get light {
@@ -64,7 +66,7 @@ abstract class AppTheme {
 
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: card,
+        fillColor: inputBg,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: border, width: 1.5),

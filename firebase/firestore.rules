@@ -2,6 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ---------- Helpers ----------
     function isSignedIn() {
       return request.auth != null;
     }
@@ -10,72 +11,211 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
-    // ---- Users ----
+    // Relies on Firebase Auth custom claims. Set via Admin SDK / a trusted
+    // backend: admin.auth().setCustomUserClaims(uid, { admin: true }).
+    // Until a user has this claim set, no client-side admin privilege exists.
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
+    // True if the given businessId doc exists and is owned by the caller.
+    function ownsBusiness(businessId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/businesses/$(businessId))
+        && get(/databases/$(database)/documents/businesses/$(businessId))
+             .data.ownerUid == request.auth.uid;
+    }
+
+    // Fields a user is allowed to change on their own profile.
+    function userSelfMutableFields() {
+      return ['displayName', 'phoneNumber', 'photoUrl',
+              'onboardingCompleted', 'businessId'];
+    }
+
+    // Fields a business owner is allowed to edit on their own business doc
+    // (excludes isVerified, membershipTier, ratingAvg, ratingCount, ownerUid).
+    function businessOwnerMutableFields() {
+      return ['businessName', 'location', 'description', 'phone', 'email',
+              'category', 'logoUrl', 'bannerUrl', 'latitude', 'longitude'];
+    }
+
+    // ---------- Users ----------
     match /users/{uid} {
-      allow read: if isSignedIn();
-      allow create: if isOwner(uid);
-      allow update: if isOwner(uid);
-      allow delete: if false;
+      // Users can read only their own profile. Admins can read any.
+      allow read: if isOwner(uid) || isAdmin();
+
+      // Create: only the authenticated user, and role must be 'user' or
+      // 'business' (never 'admin' — that is set via custom claims only).
+      allow create: if isOwner(uid)
+                    && request.resource.data.role in ['user', 'business'];
+
+      // Update: owner may only change non-privileged fields. role and any
+      // other privileged field stay frozen for the client; admins can change
+      // anything. businessId change is allowed only to a business the caller
+      // actually owns.
+      allow update: if isAdmin()
+                    || (
+                      isOwner(uid)
+                      && request.resource.data.diff(resource.data)
+                           .affectedKeys()
+                           .hasOnly(userSelfMutableFields())
+                      && (
+                        request.resource.data.businessId == resource.data.businessId
+                        || request.resource.data.businessId == null
+                        || request.resource.data.businessId == ''
+                        || ownsBusiness(request.resource.data.businessId)
+                      )
+                    );
+
+      allow delete: if isAdmin();
     }
 
-    // ---- Businesses ----
+    // ---------- Businesses ----------
     match /businesses/{businessId} {
+      // Public directory — anyone can read business listings.
       allow read: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && resource.data.ownerUid == request.auth.uid;
-      allow delete: if false;
+
+      // Create: caller must stamp themselves as ownerUid and cannot set
+      // privileged fields to anything other than defaults.
+      allow create: if isSignedIn()
+                    && request.resource.data.ownerUid == request.auth.uid
+                    && request.resource.data.isVerified == false
+                    && request.resource.data.membershipTier == 'free'
+                    && request.resource.data.ratingAvg == 0
+                    && request.resource.data.ratingCount == 0;
+
+      // Update paths:
+      //   1. Admin — unrestricted.
+      //   2. Owner — may edit profile fields only (no isVerified / tier /
+      //      rating changes, ownerUid frozen).
+      //   3. Any signed-in user — only when the diff is exactly the rating
+      //      fields (needed for review aggregation). This is a pragmatic
+      //      compromise; the proper long-term fix is to move rating
+      //      aggregation to a Cloud Function so clients don't touch it.
+      allow update: if isAdmin()
+                    || (
+                      isSignedIn()
+                      && resource.data.ownerUid == request.auth.uid
+                      && request.resource.data.ownerUid == resource.data.ownerUid
+                      && request.resource.data.diff(resource.data)
+                           .affectedKeys()
+                           .hasOnly(businessOwnerMutableFields())
+                    )
+                    || (
+                      isSignedIn()
+                      && request.resource.data.diff(resource.data)
+                           .affectedKeys()
+                           .hasOnly(['ratingAvg', 'ratingCount'])
+                    );
+
+      allow delete: if isAdmin();
     }
 
-    // ---- Categories ----
+    // ---------- Categories ----------
     match /categories/{categoryId} {
       allow read: if true;
-      allow write: if false; // admin-only via console
+      allow write: if isAdmin();
     }
 
-    // ---- Products ----
+    // ---------- Products ----------
     match /products/{productId} {
       allow read: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if false;
+
+      // Create: only the owner of the referenced business.
+      allow create: if ownsBusiness(request.resource.data.businessId)
+                    && request.resource.data.businessId is string;
+
+      // Update / soft-delete (isActive = false) by business owner or admin.
+      // businessId must not change to move a product under another business.
+      allow update: if isAdmin()
+                    || (
+                      ownsBusiness(resource.data.businessId)
+                      && request.resource.data.businessId == resource.data.businessId
+                    );
+
+      // Hard delete is admin-only; normal delete flow is soft-delete via update.
+      allow delete: if isAdmin();
     }
 
-    // ---- Offers ----
+    // ---------- Offers ----------
     match /offers/{offerId} {
       allow read: if true;
-      allow create, update: if isSignedIn();
-      allow delete: if false;
+      allow create: if ownsBusiness(request.resource.data.businessId);
+      allow update: if isAdmin()
+                    || (
+                      ownsBusiness(resource.data.businessId)
+                      && request.resource.data.businessId == resource.data.businessId
+                    );
+      allow delete: if isAdmin() || ownsBusiness(resource.data.businessId);
     }
 
-    // ---- Reviews ----
+    // ---------- Reviews ----------
     match /reviews/{reviewId} {
       allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if false;
+
+      // Create: caller must stamp themselves as the reviewer. Prevents
+      // impersonation / spamming reviews under someone else's userId.
+      allow create: if isSignedIn()
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.businessId is string
+                    && request.resource.data.rating is number
+                    && request.resource.data.rating >= 1
+                    && request.resource.data.rating <= 5;
+
+      // No edits from clients. Moderation = admin; author can re-review by
+      // submitting a new review (or via admin tooling).
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
-    // ---- Favorites ----
+    // ---------- Favorites ----------
     match /favorites/{favoriteId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow delete: if isSignedIn();
+      // Reads restricted to the favorite's owner — favorites are personal.
+      allow read: if isSignedIn()
+                  && resource.data.userId == request.auth.uid;
+
+      allow create: if isSignedIn()
+                    && request.resource.data.userId == request.auth.uid;
+
+      allow delete: if isSignedIn()
+                    && resource.data.userId == request.auth.uid;
+
       allow update: if false;
     }
 
-    // ---- Reports ----
+    // ---------- Reports ----------
     match /reports/{reportId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if false;
+      // Reports are for moderation — only the submitter and admins read.
+      allow read: if isAdmin()
+                  || (isSignedIn() && resource.data.userId == request.auth.uid);
+
+      allow create: if isSignedIn()
+                    && request.resource.data.userId == request.auth.uid;
+
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
-    // ---- Notifications ----
+    // ---------- Notifications ----------
     match /notifications/{notificationId} {
-      allow read: if isSignedIn();
-      allow update: if isSignedIn();
-      allow create: if false;
-      allow delete: if false;
+      // Users can only read their own notifications.
+      allow read: if isSignedIn()
+                  && resource.data.userId == request.auth.uid;
+
+      // Create is server-only (Cloud Functions / Admin SDK). Clients never
+      // mint notifications for other users.
+      allow create: if isAdmin();
+
+      // Users can mark their own notifications read, but not change userId
+      // or the notification content.
+      allow update: if isSignedIn()
+                    && resource.data.userId == request.auth.uid
+                    && request.resource.data.userId == resource.data.userId
+                    && request.resource.data.diff(resource.data)
+                         .affectedKeys()
+                         .hasOnly(['read', 'readAt']);
+
+      allow delete: if isAdmin();
     }
   }
 }

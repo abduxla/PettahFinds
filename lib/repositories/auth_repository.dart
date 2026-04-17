@@ -7,6 +7,22 @@ class AuthRepository {
   final FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
 
+  // Roles the client is ever allowed to self-assign. 'admin' is intentionally
+  // excluded — admin is granted via Firebase Auth custom claims by a trusted
+  // backend, never by the client.
+  static const _allowedSignupRoles = {'user', 'business'};
+
+  // Profile fields a user may update about themselves. role / email / uid /
+  // createdAt are all frozen at the repository level so we never accidentally
+  // hand the server a payload that tries to mutate them.
+  static const _selfMutableFields = {
+    'displayName',
+    'phoneNumber',
+    'photoUrl',
+    'onboardingCompleted',
+    'businessId',
+  };
+
   AuthRepository({FirebaseAuth? auth, FirebaseFirestore? firestore})
       : _auth = auth ?? FirebaseAuth.instance,
         _firestore = firestore ?? FirebaseFirestore.instance;
@@ -20,6 +36,8 @@ class AuthRepository {
     required String displayName,
     String role = 'user',
   }) async {
+    final safeRole = _allowedSignupRoles.contains(role) ? role : 'user';
+
     final cred = await _auth.createUserWithEmailAndPassword(
       email: email.trim(),
       password: password,
@@ -31,7 +49,7 @@ class AuthRepository {
       uid: user.uid,
       email: email.trim(),
       displayName: displayName.trim(),
-      role: role,
+      role: safeRole,
       createdAt: DateTime.now(),
     );
 
@@ -73,11 +91,19 @@ class AuthRepository {
     return AppUser.fromFirestore(doc);
   }
 
+  /// Updates only the self-mutable profile fields. role / email / createdAt
+  /// are never sent from the client — even if the caller tries. This matches
+  /// the Firestore rule which rejects any diff that touches other fields.
   Future<void> updateUser(AppUser user) async {
+    final full = user.toMap();
+    final safe = <String, dynamic>{
+      for (final key in _selfMutableFields)
+        if (full.containsKey(key)) key: full[key],
+    };
     await _firestore
         .collection(AppConstants.usersCollection)
         .doc(user.uid)
-        .update(user.toMap());
+        .update(safe);
   }
 
   Stream<AppUser?> streamAppUser(String uid) {
