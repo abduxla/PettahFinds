@@ -29,6 +29,12 @@ final storageServiceProvider = Provider((ref) => StorageService());
 final recentlyViewedServiceProvider =
     Provider((ref) => RecentlyViewedService());
 
+/// Shared stream of all active products. Used by home and products list
+/// so we keep a single Firestore subscription instead of duplicating.
+final allActiveProductsProvider = StreamProvider<List<Product>>((ref) {
+  return ref.watch(productRepositoryProvider).streamAll();
+});
+
 /// Resolves recently-viewed product IDs into full Product objects.
 /// Silently skips deleted / inactive products so the UI never breaks.
 final recentlyViewedProductsProvider =

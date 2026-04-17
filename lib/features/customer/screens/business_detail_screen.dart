@@ -12,6 +12,24 @@ import '../../../widgets/error_widget.dart';
 import '../../../widgets/empty_state_widget.dart';
 import '../../../core/extensions/context_extensions.dart';
 
+// Stable family providers — defined top-level so `ref.invalidate` targets
+// the same instance the UI is watching and rebuilds don't re-subscribe.
+final _businessByIdProvider =
+    FutureProvider.autoDispose.family<Business, String>((ref, id) {
+  if (id.isEmpty) throw Exception('Invalid business');
+  return ref.watch(businessRepositoryProvider).getById(id);
+});
+
+final _businessProductsProvider =
+    StreamProvider.autoDispose.family<List<Product>, String>((ref, id) {
+  return ref.watch(productRepositoryProvider).streamByBusiness(id);
+});
+
+final _businessReviewsProvider =
+    StreamProvider.autoDispose.family<List<Review>, String>((ref, id) {
+  return ref.watch(reviewRepositoryProvider).streamByBusiness(id);
+});
+
 class BusinessDetailScreen extends ConsumerStatefulWidget {
   final String businessId;
   const BusinessDetailScreen({super.key, required this.businessId});
@@ -36,20 +54,12 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final businessAsync = ref.watch(
-      FutureProvider<Business>(
-          (ref) => ref.read(businessRepositoryProvider).getById(widget.businessId)),
-    );
-    final productsAsync = ref.watch(
-      StreamProvider<List<Product>>((ref) => ref
-          .read(productRepositoryProvider)
-          .streamByBusiness(widget.businessId)),
-    );
-    final reviewsAsync = ref.watch(
-      StreamProvider<List<Review>>((ref) => ref
-          .read(reviewRepositoryProvider)
-          .streamByBusiness(widget.businessId)),
-    );
+    final businessAsync =
+        ref.watch(_businessByIdProvider(widget.businessId));
+    final productsAsync =
+        ref.watch(_businessProductsProvider(widget.businessId));
+    final reviewsAsync =
+        ref.watch(_businessReviewsProvider(widget.businessId));
     final appUser = ref.watch(appUserProvider).valueOrNull;
 
     return businessAsync.when(
@@ -611,10 +621,8 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
       error: (e, _) => Scaffold(
         body: AppErrorWidget(
           message: e.toString(),
-          onRetry: () => ref.invalidate(FutureProvider<Business>(
-              (ref) => ref
-                  .read(businessRepositoryProvider)
-                  .getById(widget.businessId))),
+          onRetry: () =>
+              ref.invalidate(_businessByIdProvider(widget.businessId)),
         ),
       ),
     );

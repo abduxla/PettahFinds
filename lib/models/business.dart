@@ -15,6 +15,8 @@ class Business {
   final String membershipTier;
   final double ratingAvg;
   final int ratingCount;
+  final double? latitude;
+  final double? longitude;
   final DateTime createdAt;
 
   const Business({
@@ -32,8 +34,12 @@ class Business {
     this.membershipTier = 'free',
     this.ratingAvg = 0.0,
     this.ratingCount = 0,
+    this.latitude,
+    this.longitude,
     required this.createdAt,
   });
+
+  bool get hasCoordinates => latitude != null && longitude != null;
 
   factory Business.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -52,6 +58,8 @@ class Business {
       membershipTier: data['membershipTier'] ?? 'free',
       ratingAvg: (data['ratingAvg'] ?? 0.0).toDouble(),
       ratingCount: data['ratingCount'] ?? 0,
+      latitude: (data['latitude'] as num?)?.toDouble(),
+      longitude: (data['longitude'] as num?)?.toDouble(),
       createdAt:
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
@@ -71,6 +79,8 @@ class Business {
         'membershipTier': membershipTier,
         'ratingAvg': ratingAvg,
         'ratingCount': ratingCount,
+        if (latitude != null) 'latitude': latitude,
+        if (longitude != null) 'longitude': longitude,
         'createdAt': Timestamp.fromDate(createdAt),
       };
 
@@ -87,6 +97,8 @@ class Business {
     String? membershipTier,
     double? ratingAvg,
     int? ratingCount,
+    double? latitude,
+    double? longitude,
   }) =>
       Business(
         id: id,
@@ -103,6 +115,8 @@ class Business {
         membershipTier: membershipTier ?? this.membershipTier,
         ratingAvg: ratingAvg ?? this.ratingAvg,
         ratingCount: ratingCount ?? this.ratingCount,
+        latitude: latitude ?? this.latitude,
+        longitude: longitude ?? this.longitude,
         createdAt: createdAt,
       );
 }

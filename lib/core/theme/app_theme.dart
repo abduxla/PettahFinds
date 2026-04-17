@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 abstract class AppTheme {
-  // Premium purple + warm beige palette
-  static const accent = Color(0xFF7C5CFF);          // premium purple
-  static const accentDark = Color(0xFF5B3BE8);      // deep purple
-  static const accentLight = Color(0xFFEFE9FF);     // soft purple tint
-  static const bg = Color(0xFFF7F4EE);              // warm beige
-  static const bgAlt = Color(0xFFFBF9F5);           // lighter beige
+  // Premium turquoise-teal + warm neutral palette
+  static const accent = Color(0xFF0EB8A1);          // premium turquoise-teal
+  static const accentDark = Color(0xFF0A8F7E);      // deep teal
+  static const accentLight = Color(0xFFDFF5F1);     // soft teal tint
+  static const bg = Color(0xFFF6F5F1);              // soft warm gray-beige
+  static const bgAlt = Color(0xFFFBFAF7);           // lighter warm gray
   static const card = Colors.white;
-  static const text = Color(0xFF1B1B25);            // deep charcoal
-  static const textSub = Color(0xFF5B5B6E);         // mid charcoal
-  static const textMuted = Color(0xFF9A9AAE);       // soft gray
-  static const border = Color(0xFFEDEAE2);          // warm beige border
+  static const text = Color(0xFF141A1D);            // deep charcoal
+  static const textSub = Color(0xFF4F5861);         // mid charcoal
+  static const textMuted = Color(0xFF8F98A0);       // soft gray
+  static const border = Color(0xFFE8E6DF);          // warm neutral border
   static const success = Color(0xFF22C55E);
 
   static ThemeData get light {

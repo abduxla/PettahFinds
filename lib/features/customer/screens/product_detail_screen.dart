@@ -9,6 +9,24 @@ import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
 
+// Stable family providers — defined at top-level so retry (ref.invalidate)
+// targets the same instance the UI is watching.
+final _productDetailProvider =
+    FutureProvider.autoDispose.family<Product, String>((ref, id) async {
+  if (id.isEmpty) throw Exception('Invalid product');
+  final product = await ref.watch(productRepositoryProvider).getById(id);
+  if (!product.isActive) {
+    throw Exception('This product is no longer available');
+  }
+  return product;
+});
+
+final _productSellerProvider =
+    FutureProvider.autoDispose.family<Business, String>((ref, businessId) {
+  if (businessId.isEmpty) throw Exception('Missing seller');
+  return ref.watch(businessRepositoryProvider).getById(businessId);
+});
+
 class ProductDetailScreen extends ConsumerStatefulWidget {
   final String productId;
   const ProductDetailScreen({super.key, required this.productId});
@@ -36,25 +54,19 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final productAsync = ref.watch(
-      FutureProvider<Product>(
-          (ref) => ref.read(productRepositoryProvider).getById(widget.productId)),
-    );
+    final productAsync =
+        ref.watch(_productDetailProvider(widget.productId));
     final appUser = ref.watch(appUserProvider).valueOrNull;
 
     return productAsync.when(
       data: (product) {
-        final businessAsync = ref.watch(
-          FutureProvider<Business>((ref) => ref
-              .read(businessRepositoryProvider)
-              .getById(product.businessId)),
-        );
+        final businessAsync =
+            ref.watch(_productSellerProvider(product.businessId));
 
         return Scaffold(
           backgroundColor: theme.scaffoldBackgroundColor,
           body: CustomScrollView(
             slivers: [
-              // Image hero with back button overlay
               SliverAppBar(
                 expandedHeight: 340,
                 pinned: true,
@@ -105,7 +117,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                 height: 340,
                               ),
                             ),
-                            // Page dots
                             if (product.imageUrls.length > 1)
                               Positioned(
                                 bottom: 16,
@@ -143,7 +154,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 ),
               ),
 
-              // Content
               SliverToBoxAdapter(
                 child: Container(
                   decoration: BoxDecoration(
@@ -156,8 +166,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Title
-                        Text(product.title,
+                        Text(
+                            product.title.isNotEmpty
+                                ? product.title
+                                : 'Untitled product',
                             style: const TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.w800,
@@ -176,7 +188,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
                         const SizedBox(height: 16),
 
-                        // Price badge
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 10),
@@ -196,34 +207,34 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
                         const SizedBox(height: 16),
 
-                        // Category chip
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(8),
+                        if (product.category.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color:
+                                  theme.colorScheme.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.category_rounded,
+                                    size: 14,
+                                    color: theme.colorScheme.outline),
+                                const SizedBox(width: 6),
+                                Text(product.category,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: theme.colorScheme.onSurface,
+                                    )),
+                              ],
+                            ),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.category_rounded,
-                                  size: 14,
-                                  color: theme.colorScheme.outline),
-                              const SizedBox(width: 6),
-                              Text(product.category,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: theme.colorScheme.onSurface,
-                                  )),
-                            ],
-                          ),
-                        ),
 
                         const SizedBox(height: 24),
 
-                        // Description
                         Text('Description',
                             style: TextStyle(
                               fontSize: 16,
@@ -232,7 +243,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                               letterSpacing: -0.2,
                             )),
                         const SizedBox(height: 8),
-                        Text(product.description,
+                        Text(
+                            product.description.isNotEmpty
+                                ? product.description
+                                : 'No description provided.',
                             style: TextStyle(
                               fontSize: 14,
                               height: 1.6,
@@ -244,7 +258,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         Divider(color: theme.dividerTheme.color),
                         const SizedBox(height: 16),
 
-                        // Sold by section
                         Text('Sold by',
                             style: TextStyle(
                               fontSize: 16,
@@ -257,8 +270,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           data: (business) => _SellerCard(business: business),
                           loading: () => const ShimmerBox(height: 80),
                           error: (_, _) => OutlinedButton.icon(
-                            onPressed: () => context.go(
-                                '/home/business/${product.businessId}'),
+                            onPressed: product.businessId.isEmpty
+                                ? null
+                                : () => context.go(
+                                    '/home/business/${product.businessId}'),
                             icon: const Icon(Icons.store),
                             label: const Text('View Business'),
                           ),
@@ -276,12 +291,18 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       },
       loading: () => const Scaffold(body: DetailSkeleton()),
       error: (e, _) => Scaffold(
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.pop(),
+          ),
+        ),
         body: AppErrorWidget(
           message: e.toString(),
-          onRetry: () => ref.invalidate(FutureProvider<Product>(
-              (ref) => ref
-                  .read(productRepositoryProvider)
-                  .getById(widget.productId))),
+          onRetry: () =>
+              ref.invalidate(_productDetailProvider(widget.productId)),
         ),
       ),
     );

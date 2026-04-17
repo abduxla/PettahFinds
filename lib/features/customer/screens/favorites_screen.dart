@@ -7,6 +7,11 @@ import '../../../widgets/loading_widget.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/empty_state_widget.dart';
 
+final _userFavoritesProvider =
+    StreamProvider.autoDispose.family<List<Favorite>, String>((ref, uid) {
+  return ref.watch(favoriteRepositoryProvider).streamByUser(uid);
+});
+
 class FavoritesScreen extends ConsumerWidget {
   const FavoritesScreen({super.key});
 
@@ -19,10 +24,7 @@ class FavoritesScreen extends ConsumerWidget {
       return const Scaffold(body: LoadingWidget());
     }
 
-    final favoritesAsync = ref.watch(
-      StreamProvider<List<Favorite>>(
-          (ref) => ref.read(favoriteRepositoryProvider).streamByUser(appUser.uid)),
-    );
+    final favoritesAsync = ref.watch(_userFavoritesProvider(appUser.uid));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Favorites')),
@@ -80,7 +82,10 @@ class FavoritesScreen extends ConsumerWidget {
                 },
               ),
         loading: () => const LoadingWidget(),
-        error: (e, _) => AppErrorWidget(message: e.toString()),
+        error: (e, _) => AppErrorWidget(
+          message: e.toString(),
+          onRetry: () => ref.invalidate(_userFavoritesProvider(appUser.uid)),
+        ),
       ),
     );
   }

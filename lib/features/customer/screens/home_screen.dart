@@ -10,11 +10,6 @@ import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
 
-/// All active products, newest-first. Single source of truth for the home sections.
-final _allProductsProvider = StreamProvider<List<Product>>((ref) {
-  return ref.watch(productRepositoryProvider).streamAll();
-});
-
 /// Category docs (used to decide section order when available).
 final _categoriesProvider = StreamProvider<List<cat.Category>>((ref) {
   return ref.watch(categoryRepositoryProvider).streamActive();
@@ -26,7 +21,7 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final productsAsync = ref.watch(_allProductsProvider);
+    final productsAsync = ref.watch(allActiveProductsProvider);
     final categoriesAsync = ref.watch(_categoriesProvider);
     final recentViewedAsync = ref.watch(recentlyViewedProductsProvider);
     final appUser = ref.watch(appUserProvider).valueOrNull;
@@ -35,7 +30,7 @@ class HomeScreen extends ConsumerWidget {
       body: RefreshIndicator(
         color: theme.colorScheme.primary,
         onRefresh: () async {
-          ref.invalidate(_allProductsProvider);
+          ref.invalidate(allActiveProductsProvider);
           ref.invalidate(_categoriesProvider);
           ref.invalidate(recentlyViewedProductsProvider);
         },
@@ -184,7 +179,7 @@ class HomeScreen extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: AppErrorWidget(
                     message: e.toString(),
-                    onRetry: () => ref.invalidate(_allProductsProvider),
+                    onRetry: () => ref.invalidate(allActiveProductsProvider),
                   ),
                 ),
               ),
@@ -278,7 +273,7 @@ class HomeScreen extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: AppErrorWidget(
                     message: e.toString(),
-                    onRetry: () => ref.invalidate(_allProductsProvider),
+                    onRetry: () => ref.invalidate(allActiveProductsProvider),
                   ),
                 ),
               ),

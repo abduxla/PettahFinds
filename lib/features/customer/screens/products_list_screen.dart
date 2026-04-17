@@ -8,17 +8,13 @@ import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/empty_state_widget.dart';
 
-final _allProductsProvider = StreamProvider<List<Product>>((ref) {
-  return ref.watch(productRepositoryProvider).streamAll();
-});
-
 class ProductsListScreen extends ConsumerWidget {
   const ProductsListScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final productsAsync = ref.watch(_allProductsProvider);
+    final productsAsync = ref.watch(allActiveProductsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -41,7 +37,7 @@ class ProductsListScreen extends ConsumerWidget {
           }
           return RefreshIndicator(
             color: theme.colorScheme.primary,
-            onRefresh: () async => ref.invalidate(_allProductsProvider),
+            onRefresh: () async => ref.invalidate(allActiveProductsProvider),
             child: GridView.builder(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -58,7 +54,7 @@ class ProductsListScreen extends ConsumerWidget {
         loading: () => const ProductGridSkeleton(),
         error: (e, _) => AppErrorWidget(
           message: e.toString(),
-          onRetry: () => ref.invalidate(_allProductsProvider),
+          onRetry: () => ref.invalidate(allActiveProductsProvider),
         ),
       ),
     );

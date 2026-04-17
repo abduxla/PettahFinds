@@ -1,22 +1,41 @@
-// Premium map placeholder screen.
+// Real interactive Mapbox map screen.
 //
-// To wire up a real map in production, add one of:
-//   - google_maps_flutter (needs API keys in AndroidManifest / AppDelegate)
-//   - flutter_map (OpenStreetMap, no key required)
-// Then replace the `_MapCanvas` widget below with the real map widget.
-// All business data wiring, markers, bottom sheets are already scaffolded.
+// Token: pass via `flutter run --dart-define=MAPBOX_ACCESS_TOKEN=pk.xxxx`
+// (see lib/main.dart). When a token is missing, the screen degrades
+// to a clean "configure to see live map" info state and still lists
+// nearby businesses along the bottom.
+//
+// Platform setup (must be done manually):
+//  - Android: add a public Mapbox download token to
+//      android/gradle.properties as:
+//        MAPBOX_DOWNLOADS_TOKEN=sk.xxxxx (secret, download-only)
+//    and permission block is required in AndroidManifest.xml
+//    (ACCESS_FINE_LOCATION / ACCESS_COARSE_LOCATION — only needed for
+//    the optional "my location" puck).
+//  - iOS: add NSLocationWhenInUseUsageDescription in Info.plist if
+//    you want location; add MBXAccessToken in Info.plist or pass via
+//    --dart-define (we use --dart-define here).
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mbx;
+import 'package:geolocator/geolocator.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../main.dart' show hasMapboxToken;
 import '../../../models/business.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/empty_state_widget.dart';
 
-final _mapBusinessesProvider = StreamProvider<List<Business>>((ref) {
+// Pettah, Colombo — default map center.
+const _defaultLng = 79.8542;
+const _defaultLat = 6.9388;
+
+final _mapBusinessesProvider =
+    StreamProvider.autoDispose<List<Business>>((ref) {
   return ref.watch(businessRepositoryProvider).streamAll();
 });
 
@@ -28,32 +47,159 @@ class MapScreen extends ConsumerStatefulWidget {
 }
 
 class _MapScreenState extends ConsumerState<MapScreen> {
+  mbx.MapboxMap? _map;
+  mbx.PointAnnotationManager? _markers;
+  final Map<String, Business> _annotationToBusiness = {};
   Business? _selected;
+  bool _locating = false;
+
+  @override
+  void dispose() {
+    _markers = null;
+    _map = null;
+    super.dispose();
+  }
+
+  Future<void> _onMapCreated(mbx.MapboxMap mapboxMap) async {
+    _map = mapboxMap;
+    await mapboxMap.logo.updateSettings(mbx.LogoSettings(
+      marginBottom: 140,
+      marginLeft: 8,
+    ));
+    await mapboxMap.attribution.updateSettings(mbx.AttributionSettings(
+      marginBottom: 140,
+    ));
+    await mapboxMap.scaleBar
+        .updateSettings(mbx.ScaleBarSettings(enabled: false));
+    await mapboxMap.compass
+        .updateSettings(mbx.CompassSettings(enabled: false));
+
+    final mgr = await mapboxMap.annotations.createPointAnnotationManager();
+    mgr.addOnPointAnnotationClickListener(_MarkerTapListener(this));
+    _markers = mgr;
+
+    // If businesses are already loaded, paint markers now.
+    final current = ref.read(_mapBusinessesProvider).valueOrNull;
+    if (current != null) {
+      await _syncMarkers(current);
+    }
+  }
+
+  Future<void> _syncMarkers(List<Business> businesses) async {
+    final mgr = _markers;
+    if (mgr == null) return;
+    await mgr.deleteAll();
+    _annotationToBusiness.clear();
+    final withCoords = businesses.where((b) => b.hasCoordinates).toList();
+    if (withCoords.isEmpty) return;
+    for (final b in withCoords) {
+      final annotation = await mgr.create(mbx.PointAnnotationOptions(
+        geometry: mbx.Point(
+          coordinates: mbx.Position(b.longitude!, b.latitude!),
+        ),
+        iconSize: 1.6,
+        iconImage: 'marker-15',
+        iconColor: AppTheme.accent.toARGB32(),
+      ));
+      _annotationToBusiness[annotation.id] = b;
+    }
+  }
+
+  void _onMarkerTap(mbx.PointAnnotation annotation) {
+    final business = _annotationToBusiness[annotation.id];
+    if (business == null) return;
+    setState(() => _selected = business);
+    _map?.flyTo(
+      mbx.CameraOptions(
+        center: annotation.geometry,
+        zoom: 15,
+      ),
+      mbx.MapAnimationOptions(duration: 600),
+    );
+  }
+
+  Future<void> _goToMyLocation() async {
+    if (_locating) return;
+    setState(() => _locating = true);
+    try {
+      final enabled = await Geolocator.isLocationServiceEnabled();
+      if (!enabled) {
+        if (mounted) _snack('Turn on device location to use this.');
+        return;
+      }
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (mounted) _snack('Location permission denied.');
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition();
+      await _map?.flyTo(
+        mbx.CameraOptions(
+          center: mbx.Point(
+            coordinates: mbx.Position(pos.longitude, pos.latitude),
+          ),
+          zoom: 14,
+        ),
+        mbx.MapAnimationOptions(duration: 700),
+      );
+    } catch (e) {
+      if (mounted) _snack('Could not get your location.');
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  void _snack(String msg) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final businessesAsync = ref.watch(_mapBusinessesProvider);
+
+    // Repaint markers when the business list updates. `ref.listen` keeps
+    // the subscription out of the build path so it doesn't cause rebuilds.
+    ref.listen<AsyncValue<List<Business>>>(_mapBusinessesProvider,
+        (_, next) {
+      final list = next.valueOrNull;
+      if (list != null) _syncMarkers(list);
+    });
 
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: AppTheme.bg,
       body: Stack(
         children: [
-          // Faux premium map canvas
-          const _MapCanvas(),
-
-          // Floating markers (scaled to screen, for visual scaffolding)
-          businessesAsync.when(
-            data: (all) => _MarkerLayer(
-              businesses: all.take(8).toList(),
-              selectedId: _selected?.id,
-              onTap: (b) => setState(() => _selected = b),
-            ),
-            loading: () => const SizedBox.shrink(),
-            error: (_, _) => const SizedBox.shrink(),
+          // Real map (or token-missing info card)
+          Positioned.fill(
+            child: hasMapboxToken
+                ? mbx.MapWidget(
+                    key: const ValueKey('mapbox-map'),
+                    cameraOptions: mbx.CameraOptions(
+                      center: mbx.Point(
+                        coordinates:
+                            mbx.Position(_defaultLng, _defaultLat),
+                      ),
+                      zoom: 12.5,
+                    ),
+                    styleUri: mbx.MapboxStyles.MAPBOX_STREETS,
+                    onMapCreated: _onMapCreated,
+                  )
+                : const _NoTokenFallback(),
           ),
 
-          // Top bar (floating)
+          // Top bar
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
@@ -65,48 +211,40 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Container(
-                      height: 52,
-                      padding: const EdgeInsets.symmetric(horizontal: 18),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withAlpha(18),
-                            blurRadius: 18,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.search_rounded,
-                              color: AppTheme.textMuted, size: 22),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Search this area',
-                              style: TextStyle(
-                                color: AppTheme.textMuted,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w500,
+                    child: GestureDetector(
+                      onTap: () => context.go('/search'),
+                      child: Container(
+                        height: 52,
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 18),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withAlpha(18),
+                              blurRadius: 18,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.search_rounded,
+                                color: AppTheme.textMuted, size: 22),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Search businesses',
+                                style: TextStyle(
+                                  color: AppTheme.textMuted,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
-                          ),
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [AppTheme.accent, AppTheme.accentDark],
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(Icons.tune_rounded,
-                                color: Colors.white, size: 18),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -115,7 +253,21 @@ class _MapScreenState extends ConsumerState<MapScreen> {
             ),
           ),
 
-          // Bottom floating business list / preview
+          // My location FAB (right side, above bottom strip)
+          if (hasMapboxToken)
+            Positioned(
+              right: 16,
+              bottom: 240,
+              child: _FloatingIconButton(
+                icon: _locating
+                    ? Icons.more_horiz_rounded
+                    : Icons.my_location_rounded,
+                onTap: _goToMyLocation,
+                tint: AppTheme.accent,
+              ),
+            ),
+
+          // Bottom business strip / preview
           Align(
             alignment: Alignment.bottomCenter,
             child: Padding(
@@ -133,11 +285,26 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                             )
                           : _NearbyStrip(
                               businesses: list.take(6).toList(),
-                              onTap: (b) => setState(() => _selected = b),
+                              onTap: (b) {
+                                setState(() => _selected = b);
+                                if (b.hasCoordinates) {
+                                  _map?.flyTo(
+                                    mbx.CameraOptions(
+                                      center: mbx.Point(
+                                        coordinates: mbx.Position(
+                                            b.longitude!, b.latitude!),
+                                      ),
+                                      zoom: 15,
+                                    ),
+                                    mbx.MapAnimationOptions(duration: 600),
+                                  );
+                                }
+                              },
                             ),
                       loading: () => const _NearbyStripSkeleton(),
                       error: (e, _) => Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 16),
                         child: AppErrorWidget(
                           message: e.toString(),
                           onRetry: () =>
@@ -153,166 +320,60 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 }
 
+class _MarkerTapListener extends mbx.OnPointAnnotationClickListener {
+  final _MapScreenState state;
+  _MarkerTapListener(this.state);
+
+  @override
+  void onPointAnnotationClick(mbx.PointAnnotation annotation) {
+    state._onMarkerTap(annotation);
+  }
+}
+
 // =====================================================================
-// Faux map canvas — premium placeholder until a real map SDK is wired up
+// Fallback when MAPBOX_ACCESS_TOKEN isn't configured.
 // =====================================================================
-class _MapCanvas extends StatelessWidget {
-  const _MapCanvas();
+class _NoTokenFallback extends StatelessWidget {
+  const _NoTokenFallback();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFE9E6DD),
-            Color(0xFFF2EFE6),
-            Color(0xFFE9E6DD),
-          ],
-        ),
-      ),
-      child: CustomPaint(
-        painter: _MapGridPainter(),
-        size: Size.infinite,
-      ),
-    );
-  }
-}
-
-class _MapGridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Subtle diagonal beige "streets"
-    final streets = Paint()
-      ..color = const Color(0xFFDDD9CC)
-      ..strokeWidth = 10
-      ..style = PaintingStyle.stroke;
-
-    canvas.drawLine(
-        Offset(0, size.height * 0.22), Offset(size.width, size.height * 0.38),
-        streets);
-    canvas.drawLine(
-        Offset(size.width * 0.1, 0), Offset(size.width * 0.3, size.height),
-        streets);
-    canvas.drawLine(
-        Offset(size.width * 0.7, 0), Offset(size.width * 0.55, size.height),
-        streets);
-    canvas.drawLine(
-        Offset(0, size.height * 0.7), Offset(size.width, size.height * 0.85),
-        streets);
-
-    // Faux park/water blobs
-    final park = Paint()..color = const Color(0xFFD9E4D2);
-    canvas.drawCircle(
-        Offset(size.width * 0.78, size.height * 0.25), 60, park);
-
-    final water = Paint()..color = const Color(0xFFC7D8E0);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(
-            size.width * 0.05, size.height * 0.55, 120, 80),
-        const Radius.circular(40),
-      ),
-      water,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-// =====================================================================
-// Marker layer (placeholder positions derived from index)
-// =====================================================================
-class _MarkerLayer extends StatelessWidget {
-  final List<Business> businesses;
-  final String? selectedId;
-  final ValueChanged<Business> onTap;
-
-  const _MarkerLayer({
-    required this.businesses,
-    required this.selectedId,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final screen = MediaQuery.of(context).size;
-    return Stack(
-      children: [
-        for (int i = 0; i < businesses.length; i++)
-          Positioned(
-            left: (screen.width * _positions[i % _positions.length].dx) - 26,
-            top: (screen.height * _positions[i % _positions.length].dy) - 26,
-            child: _Marker(
-              business: businesses[i],
-              selected: businesses[i].id == selectedId,
-              onTap: () => onTap(businesses[i]),
+      color: AppTheme.bgAlt,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: AppTheme.accentLight,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.map_rounded,
+                size: 32, color: AppTheme.accent),
+          ),
+          const SizedBox(height: 18),
+          const Text('Map unavailable',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
+              )),
+          const SizedBox(height: 8),
+          const Text(
+            'Configure a Mapbox access token to see the live map. '
+            'You can still browse businesses below.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: AppTheme.textSub,
+              height: 1.5,
             ),
           ),
-      ],
-    );
-  }
-
-  // Spread of relative screen positions for visual scaffolding.
-  static const _positions = [
-    Offset(0.25, 0.30),
-    Offset(0.62, 0.28),
-    Offset(0.80, 0.42),
-    Offset(0.40, 0.48),
-    Offset(0.18, 0.55),
-    Offset(0.55, 0.62),
-    Offset(0.75, 0.58),
-    Offset(0.35, 0.38),
-  ];
-}
-
-class _Marker extends StatelessWidget {
-  final Business business;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _Marker({
-    required this.business,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final size = selected ? 56.0 : 44.0;
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: selected ? AppTheme.accent : Colors.white,
-            width: 3,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.accent.withAlpha(selected ? 120 : 60),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: ClipOval(
-          child: business.logoUrl.isNotEmpty
-              ? CachedImage(imageUrl: business.logoUrl, fit: BoxFit.cover)
-              : Container(
-                  color: AppTheme.accentLight,
-                  child: const Icon(Icons.store_rounded,
-                      color: AppTheme.accent, size: 22),
-                ),
-        ),
+        ],
       ),
     );
   }
@@ -324,8 +385,13 @@ class _Marker extends StatelessWidget {
 class _FloatingIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
+  final Color? tint;
 
-  const _FloatingIconButton({required this.icon, required this.onTap});
+  const _FloatingIconButton({
+    required this.icon,
+    required this.onTap,
+    this.tint,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -345,7 +411,7 @@ class _FloatingIconButton extends StatelessWidget {
             ),
           ],
         ),
-        child: Icon(icon, color: AppTheme.text, size: 22),
+        child: Icon(icon, color: tint ?? AppTheme.text, size: 22),
       ),
     );
   }
@@ -389,9 +455,8 @@ class _NearbyStrip extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(14),
                     child: CachedImage(
-                      imageUrl: b.bannerUrl.isNotEmpty
-                          ? b.bannerUrl
-                          : b.logoUrl,
+                      imageUrl:
+                          b.bannerUrl.isNotEmpty ? b.bannerUrl : b.logoUrl,
                       width: 68,
                       height: 68,
                       placeholderIcon: Icons.storefront,
@@ -462,7 +527,7 @@ class _NearbyStripSkeleton extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: 3,
-        itemBuilder: (_, __) => Container(
+        itemBuilder: (_, i) => Container(
           width: 260,
           margin: const EdgeInsets.only(right: 12),
           padding: const EdgeInsets.all(12),
