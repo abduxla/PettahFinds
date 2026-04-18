@@ -35,6 +35,23 @@ final allActiveProductsProvider = StreamProvider<List<Product>>((ref) {
   return ref.watch(productRepositoryProvider).streamAll();
 });
 
+/// All products (active + inactive) for a specific business. Used by the
+/// business Manage Products screen. Top-level autoDispose.family so the
+/// subscription is stable across rebuilds and invalidation actually works.
+final businessProductsProvider =
+    StreamProvider.autoDispose.family<List<Product>, String>((ref, businessId) {
+  if (businessId.isEmpty) return Stream.value(const []);
+  return ref.watch(productRepositoryProvider).streamAllByBusiness(businessId);
+});
+
+/// Active-only products for a specific business. Used by the business
+/// dashboard "Your Products" preview.
+final businessActiveProductsProvider =
+    StreamProvider.autoDispose.family<List<Product>, String>((ref, businessId) {
+  if (businessId.isEmpty) return Stream.value(const []);
+  return ref.watch(productRepositoryProvider).streamByBusiness(businessId);
+});
+
 /// Resolves recently-viewed product IDs into full Product objects.
 /// Silently skips deleted / inactive products so the UI never breaks.
 final recentlyViewedProductsProvider =

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/constants/categories.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/category.dart' as cat;
@@ -297,8 +298,11 @@ class HomeScreen extends ConsumerWidget {
     return source.take(6).toList();
   }
 
-  /// Group products into category sections. Order by category docs when
-  /// available, otherwise alphabetically. Skip categories with no products.
+  /// Group products into category sections using the allowed list as the
+  /// canonical set. Products with unrecognized / empty categories fall into
+  /// 'Other' so we never explode into one-off subcategory sections. Order
+  /// follows `categories` collection first (for admin-curated priority),
+  /// then the remaining allowed categories in their declared order.
   static List<_CategoryBucket> _buildCategorySections(
     List<Product> products,
     List<cat.Category> categoryDocs,
@@ -306,28 +310,34 @@ class HomeScreen extends ConsumerWidget {
     if (products.isEmpty) return const [];
     final byCategory = <String, List<Product>>{};
     for (final p in products) {
-      if (p.category.trim().isEmpty) continue;
-      byCategory.putIfAbsent(p.category, () => <Product>[]).add(p);
+      final key = AppCategories.normalize(p.category);
+      byCategory.putIfAbsent(key, () => <Product>[]).add(p);
     }
     if (byCategory.isEmpty) return const [];
 
     final ordered = <_CategoryBucket>[];
     final seen = <String>{};
 
-    // 1. Follow categories-collection order for categories that have products.
+    // 1. Follow categories-collection order when the doc name is an allowed
+    //    category and has products.
     for (final c in categoryDocs) {
-      final bucket = byCategory[c.name];
+      final name = AppCategories.normalize(c.name);
+      if (seen.contains(name)) continue;
+      final bucket = byCategory[name];
       if (bucket != null && bucket.isNotEmpty) {
-        ordered.add(_CategoryBucket(c.name, bucket));
-        seen.add(c.name);
+        ordered.add(_CategoryBucket(name, bucket));
+        seen.add(name);
       }
     }
-    // 2. Append any categories found in products but not in the docs list,
-    //    sorted alphabetically.
-    final leftovers = byCategory.keys.where((k) => !seen.contains(k)).toList()
-      ..sort();
-    for (final name in leftovers) {
-      ordered.add(_CategoryBucket(name, byCategory[name]!));
+    // 2. Fall back to the declared allowed-category order for any remaining
+    //    buckets.
+    for (final name in AppCategories.all) {
+      if (seen.contains(name)) continue;
+      final bucket = byCategory[name];
+      if (bucket != null && bucket.isNotEmpty) {
+        ordered.add(_CategoryBucket(name, bucket));
+        seen.add(name);
+      }
     }
     return ordered;
   }

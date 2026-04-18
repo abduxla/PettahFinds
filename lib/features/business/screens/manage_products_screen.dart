@@ -32,11 +32,8 @@ class ManageProductsScreen extends ConsumerWidget {
         }
         final business = businessDynamic as Business;
         // Use streamAllByBusiness so inactive products still appear
-        final productsAsync = ref.watch(
-          StreamProvider<List<Product>>((ref) => ref
-              .read(productRepositoryProvider)
-              .streamAllByBusiness(business.id)),
-        );
+        final productsAsync =
+            ref.watch(businessProductsProvider(business.id));
 
         return Scaffold(
           appBar: AppBar(

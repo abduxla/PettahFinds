@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/providers/providers.dart';
 import '../../../models/business.dart';
-import '../../../models/product.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
@@ -31,11 +30,8 @@ class BusinessDashboardScreen extends ConsumerWidget {
           );
         }
         final business = businessDynamic as Business;
-        final productsAsync = ref.watch(
-          StreamProvider<List<Product>>((ref) => ref
-              .read(productRepositoryProvider)
-              .streamByBusiness(business.id)),
-        );
+        final productsAsync =
+            ref.watch(businessActiveProductsProvider(business.id));
 
         return Scaffold(
           body: CustomScrollView(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/constants/categories.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
 import '../../../models/business.dart';
@@ -22,9 +23,9 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
   final _titleCtrl = TextEditingController();
   final _shortTitleCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
-  final _categoryCtrl = TextEditingController();
   final _priceCtrl = TextEditingController();
   final _keywordsCtrl = TextEditingController();
+  String? _selectedCategory;
   bool _saving = false;
   bool _loadingProduct = false;
   bool _loadError = false;
@@ -51,7 +52,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       _titleCtrl.text = product.title;
       _shortTitleCtrl.text = product.shortTitle;
       _descCtrl.text = product.description;
-      _categoryCtrl.text = product.category;
+      _selectedCategory = AppCategories.normalize(product.category);
       _priceCtrl.text = product.priceLkr.toString();
       _keywordsCtrl.text = product.keywords;
     } catch (e) {
@@ -67,7 +68,6 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     _titleCtrl.dispose();
     _shortTitleCtrl.dispose();
     _descCtrl.dispose();
-    _categoryCtrl.dispose();
     _priceCtrl.dispose();
     _keywordsCtrl.dispose();
     super.dispose();
@@ -76,6 +76,11 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
   Future<void> _submit() async {
     if (_saving) return; // prevent double tap
     if (!_formKey.currentState!.validate()) return;
+    if (_selectedCategory == null ||
+        !AppCategories.isAllowed(_selectedCategory!)) {
+      context.showErrorSnackBar('Please select a category');
+      return;
+    }
     setState(() => _saving = true);
     try {
       final businessDynamic =
@@ -90,12 +95,13 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                 title: _titleCtrl.text.trim(),
                 shortTitle: _shortTitleCtrl.text.trim(),
                 description: _descCtrl.text.trim(),
-                category: _categoryCtrl.text.trim(),
+                category: _selectedCategory!,
                 priceLkr: double.parse(_priceCtrl.text.trim()),
                 keywords: _keywordsCtrl.text.trim(),
               ),
             );
         if (mounted) {
+          _refreshBusinessProducts(business.id);
           context.showSuccessSnackBar('Product updated successfully');
           context.pop();
         }
@@ -107,7 +113,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                 title: _titleCtrl.text.trim(),
                 shortTitle: _shortTitleCtrl.text.trim(),
                 description: _descCtrl.text.trim(),
-                category: _categoryCtrl.text.trim(),
+                category: _selectedCategory!,
                 priceLkr: double.parse(_priceCtrl.text.trim()),
                 keywords: _keywordsCtrl.text.trim(),
                 createdAt: now,
@@ -115,6 +121,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
               ),
             );
         if (mounted) {
+          _refreshBusinessProducts(business.id);
           context.showSuccessSnackBar('Product created successfully');
           context.pop();
         }
@@ -124,6 +131,12 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  void _refreshBusinessProducts(String businessId) {
+    ref.invalidate(businessProductsProvider(businessId));
+    ref.invalidate(businessActiveProductsProvider(businessId));
+    ref.invalidate(allActiveProductsProvider);
   }
 
   @override
@@ -236,11 +249,28 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
               validator: (v) => Validators.required(v, 'Description'),
             ),
             const SizedBox(height: 16),
-            _buildField(
-              controller: _categoryCtrl,
-              label: 'Category',
-              icon: Icons.category_outlined,
-              validator: (v) => Validators.required(v, 'Category'),
+            DropdownButtonFormField<String>(
+              initialValue: _selectedCategory,
+              isExpanded: true,
+              decoration: InputDecoration(
+                labelText: 'Category',
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.only(left: 14, right: 10),
+                  child:
+                      Icon(Icons.category_outlined, size: 20),
+                ),
+                prefixIconConstraints:
+                    const BoxConstraints(minWidth: 0, minHeight: 0),
+              ),
+              items: AppCategories.all
+                  .map((c) => DropdownMenuItem<String>(
+                        value: c,
+                        child: Text(c),
+                      ))
+                  .toList(),
+              onChanged: (v) => setState(() => _selectedCategory = v),
+              validator: (v) =>
+                  v == null || v.isEmpty ? 'Please select a category' : null,
             ),
             const SizedBox(height: 16),
             _buildField(
