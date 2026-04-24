@@ -1,12 +1,17 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/categories.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../models/business.dart';
 import '../../../models/product.dart';
 import '../../../utils/validators.dart';
+import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 
 class AddEditProductScreen extends ConsumerStatefulWidget {
@@ -30,6 +35,12 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
   bool _loadingProduct = false;
   bool _loadError = false;
   Product? _existingProduct;
+
+  // Up to 4 product images. `_existingUrls` holds already-uploaded URLs
+  // (from Firestore on edit). `_newFiles` holds new picks pending upload.
+  final List<String> _existingUrls = [];
+  final List<XFile> _newFiles = [];
+  static const int _maxImages = 4;
 
   bool get _isEditing => widget.productId != null;
 
@@ -55,6 +66,9 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       _selectedCategory = AppCategories.normalize(product.category);
       _priceCtrl.text = product.priceLkr.toString();
       _keywordsCtrl.text = product.keywords;
+      _existingUrls
+        ..clear()
+        ..addAll(product.imageUrls);
     } catch (e) {
       _loadError = true;
       if (mounted) context.showErrorSnackBar(e);
@@ -73,8 +87,85 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     super.dispose();
   }
 
+  Future<void> _pickImage() async {
+    if (_existingUrls.length + _newFiles.length >= _maxImages) {
+      context.showErrorSnackBar('Maximum $_maxImages images allowed');
+      return;
+    }
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 1600,
+      );
+      if (picked == null) return;
+      setState(() => _newFiles.add(picked));
+    } catch (e) {
+      if (mounted) context.showErrorSnackBar(e);
+    }
+  }
+
+  void _removeExistingUrl(int i) =>
+      setState(() => _existingUrls.removeAt(i));
+  void _removeNewFile(int i) => setState(() => _newFiles.removeAt(i));
+
+  /// Upload pending files to Storage and return their download URLs in
+  /// the same order they were picked. Stores the actual file in Firebase
+  /// Storage; only the https download URL goes into Firestore.
+  Future<List<String>> _uploadNewImages(String businessId) async {
+    if (_newFiles.isEmpty) return const [];
+    final storage = ref.read(storageServiceProvider);
+    final urls = <String>[];
+    for (var i = 0; i < _newFiles.length; i++) {
+      final file = _newFiles[i];
+      final bytes = await file.readAsBytes();
+      // Pick sensible contentType + extension from the picked file.
+      final mime = (file.mimeType ?? '').isNotEmpty
+          ? file.mimeType!
+          : _mimeFromName(file.name);
+      final ext = _extFromMime(mime);
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      final url = await storage
+          .uploadBytes(
+            path: 'products/$businessId/${ts}_$i.$ext',
+            bytes: bytes,
+            contentType: mime,
+          )
+          .timeout(const Duration(seconds: 45),
+              onTimeout: () => throw Exception(
+                  'Image upload timed out. Try a smaller image.'));
+      if (url.isEmpty) {
+        throw Exception('Image upload failed (empty URL)');
+      }
+      urls.add(url);
+    }
+    return urls;
+  }
+
+  String _mimeFromName(String name) {
+    final n = name.toLowerCase();
+    if (n.endsWith('.png')) return 'image/png';
+    if (n.endsWith('.webp')) return 'image/webp';
+    if (n.endsWith('.gif')) return 'image/gif';
+    return 'image/jpeg';
+  }
+
+  String _extFromMime(String mime) {
+    switch (mime) {
+      case 'image/png':
+        return 'png';
+      case 'image/webp':
+        return 'webp';
+      case 'image/gif':
+        return 'gif';
+      default:
+        return 'jpg';
+    }
+  }
+
   Future<void> _submit() async {
-    if (_saving) return; // prevent double tap
+    if (_saving) return;
     if (!_formKey.currentState!.validate()) return;
     if (_selectedCategory == null ||
         !AppCategories.isAllowed(_selectedCategory!)) {
@@ -83,14 +174,31 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     }
     setState(() => _saving = true);
     try {
-      final businessDynamic =
-          await ref.read(currentUserBusinessProvider.future);
+      // Resolve business without blocking on a possibly-stale FutureProvider.
+      final cached = ref.read(currentUserBusinessProvider).valueOrNull;
+      final businessDynamic = cached ??
+          await ref
+              .read(currentUserBusinessProvider.future)
+              .timeout(const Duration(seconds: 15),
+                  onTimeout: () =>
+                      throw Exception('Could not load business. Try again.'));
       if (businessDynamic == null) throw Exception('No business found');
       final business = businessDynamic as Business;
 
+      // Upload any new files first (with a per-file timeout so a hung
+      // Storage request can't freeze the save forever).
+      final uploaded = await _uploadNewImages(business.id);
+      final allUrls = [..._existingUrls, ...uploaded];
+      final img1 = allUrls.isNotEmpty ? allUrls[0] : '';
+      final img2 = allUrls.length > 1 ? allUrls[1] : '';
+      final img3 = allUrls.length > 2 ? allUrls[2] : '';
+      final img4 = allUrls.length > 3 ? allUrls[3] : '';
+
       final now = DateTime.now();
       if (_isEditing && _existingProduct != null) {
-        await ref.read(productRepositoryProvider).update(
+        await ref
+            .read(productRepositoryProvider)
+            .update(
               _existingProduct!.copyWith(
                 title: _titleCtrl.text.trim(),
                 shortTitle: _shortTitleCtrl.text.trim(),
@@ -98,38 +206,56 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                 category: _selectedCategory!,
                 priceLkr: double.parse(_priceCtrl.text.trim()),
                 keywords: _keywordsCtrl.text.trim(),
+                image1Url: img1,
+                image2Url: img2,
+                image3Url: img3,
+                image4Url: img4,
               ),
-            );
-        if (mounted) {
-          _refreshBusinessProducts(business.id);
-          context.showSuccessSnackBar('Product updated successfully');
-          context.pop();
-        }
-      } else {
-        await ref.read(productRepositoryProvider).create(
-              Product(
-                id: '',
-                businessId: business.id,
-                title: _titleCtrl.text.trim(),
-                shortTitle: _shortTitleCtrl.text.trim(),
-                description: _descCtrl.text.trim(),
-                category: _selectedCategory!,
-                priceLkr: double.parse(_priceCtrl.text.trim()),
-                keywords: _keywordsCtrl.text.trim(),
-                createdAt: now,
-                updatedAt: now,
-              ),
-            );
-        if (mounted) {
-          _refreshBusinessProducts(business.id);
-          context.showSuccessSnackBar('Product created successfully');
-          context.pop();
-        }
+            )
+            .timeout(const Duration(seconds: 20),
+                onTimeout: () =>
+                    throw Exception('Saving timed out. Check connection.'));
+        if (!mounted) return;
+        setState(() => _saving = false);
+        _refreshBusinessProducts(business.id);
+        context.showSuccessSnackBar('Product updated successfully');
+        context.pop();
+        return;
       }
+
+      await ref
+          .read(productRepositoryProvider)
+          .create(
+            Product(
+              id: '',
+              businessId: business.id,
+              title: _titleCtrl.text.trim(),
+              shortTitle: _shortTitleCtrl.text.trim(),
+              description: _descCtrl.text.trim(),
+              category: _selectedCategory!,
+              priceLkr: double.parse(_priceCtrl.text.trim()),
+              keywords: _keywordsCtrl.text.trim(),
+              image1Url: img1,
+              image2Url: img2,
+              image3Url: img3,
+              image4Url: img4,
+              createdAt: now,
+              updatedAt: now,
+            ),
+          )
+          .timeout(const Duration(seconds: 20),
+              onTimeout: () =>
+                  throw Exception('Saving timed out. Check connection.'));
+      if (!mounted) return;
+      setState(() => _saving = false);
+      _refreshBusinessProducts(business.id);
+      context.showSuccessSnackBar('Product created successfully');
+      context.pop();
     } catch (e) {
-      if (mounted) context.showErrorSnackBar(e);
-    } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() => _saving = false);
+        context.showErrorSnackBar(e);
+      }
     }
   }
 
@@ -144,14 +270,16 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
+      backgroundColor: AppColors.bgSection,
       appBar: AppBar(
-        title: Text(_isEditing ? 'Edit Product' : 'Add Product'),
-        titleTextStyle: TextStyle(
-          color: theme.colorScheme.onSurface,
-          fontSize: 20,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.5,
-        ),
+        backgroundColor: AppColors.bgSection,
+        title: Text(_isEditing ? 'Edit Product' : 'Add Product',
+            style: GoogleFonts.nunito(
+              color: AppColors.text1,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+            )),
       ),
       body: _buildBody(theme),
     );
@@ -161,7 +289,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     // Loading state — shimmer skeleton that matches the form layout
     if (_loadingProduct) {
       return const SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(20, 24, 20, 40),
+        padding: EdgeInsets.fromLTRB(20, 24, 20, 120),
         child: _FormSkeleton(),
       );
     }
@@ -202,7 +330,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
 
     // Form
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
       child: Form(
         key: _formKey,
         child: Column(
@@ -227,6 +355,17 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                 ),
               ),
             ),
+
+            // ---- Image picker grid (up to 4 images) ----
+            _ImagePickerGrid(
+              existingUrls: _existingUrls,
+              newFiles: _newFiles,
+              maxImages: _maxImages,
+              onPick: _pickImage,
+              onRemoveExisting: _removeExistingUrl,
+              onRemoveNew: _removeNewFile,
+            ),
+            const SizedBox(height: 20),
 
             _buildField(
               controller: _titleCtrl,
@@ -343,6 +482,176 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       maxLines: maxLines,
       keyboardType: keyboardType,
       validator: validator,
+    );
+  }
+}
+
+/// Web-safe preview for a picked XFile. Uses `readAsBytes()` +
+/// `Image.memory` because `Image.file` doesn't work on Flutter Web.
+class _XFilePreview extends StatelessWidget {
+  final XFile file;
+  const _XFilePreview({required this.file});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Uint8List>(
+      future: file.readAsBytes(),
+      builder: (_, snap) {
+        if (!snap.hasData) {
+          return Container(color: AppColors.bgSection);
+        }
+        return Image.memory(snap.data!, fit: BoxFit.cover);
+      },
+    );
+  }
+}
+
+/// Image picker grid — shows existing uploaded URLs and newly-picked
+/// local files in a 4-slot grid. Tapping an empty slot opens the picker;
+/// the × on a tile removes it.
+class _ImagePickerGrid extends StatelessWidget {
+  final List<String> existingUrls;
+  final List<XFile> newFiles;
+  final int maxImages;
+  final VoidCallback onPick;
+  final void Function(int) onRemoveExisting;
+  final void Function(int) onRemoveNew;
+
+  const _ImagePickerGrid({
+    required this.existingUrls,
+    required this.newFiles,
+    required this.maxImages,
+    required this.onPick,
+    required this.onRemoveExisting,
+    required this.onRemoveNew,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final totalFilled = existingUrls.length + newFiles.length;
+    final slots = <Widget>[];
+
+    for (var i = 0; i < existingUrls.length; i++) {
+      slots.add(_ImageTile(
+        child: CachedImage(
+          imageUrl: existingUrls[i],
+          width: double.infinity,
+          height: double.infinity,
+          placeholderIcon: Icons.image_outlined,
+        ),
+        onRemove: () => onRemoveExisting(i),
+      ));
+    }
+    for (var i = 0; i < newFiles.length; i++) {
+      slots.add(_ImageTile(
+        child: _XFilePreview(file: newFiles[i]),
+        onRemove: () => onRemoveNew(i),
+      ));
+    }
+    if (totalFilled < maxImages) {
+      slots.add(_AddImageTile(onTap: onPick));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Product Images',
+          style: GoogleFonts.nunito(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: AppColors.text1,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Add up to $maxImages images. First image is the cover.',
+          style: GoogleFonts.dmSans(
+            fontSize: 11.5,
+            color: AppColors.text3,
+          ),
+        ),
+        const SizedBox(height: 10),
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 4,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 8,
+          children: slots,
+        ),
+      ],
+    );
+  }
+}
+
+class _ImageTile extends StatelessWidget {
+  final Widget child;
+  final VoidCallback onRemove;
+  const _ImageTile({required this.child, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Container(color: AppColors.bgSection, child: child),
+          ),
+        ),
+        Positioned(
+          top: 2,
+          right: 2,
+          child: GestureDetector(
+            onTap: onRemove,
+            child: Container(
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.6),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.close, color: Colors.white, size: 14),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AddImageTile extends StatelessWidget {
+  final VoidCallback onTap;
+  const _AddImageTile({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppColors.bg,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: AppColors.border, width: 1.5),
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add_photo_alternate_outlined,
+                color: AppColors.teal, size: 24),
+            SizedBox(height: 4),
+            Text(
+              'Add',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: AppColors.teal,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

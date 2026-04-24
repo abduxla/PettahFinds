@@ -1,173 +1,226 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/providers.dart';
+import '../../../core/theme/app_colors.dart';
 
 class BusinessSettingsScreen extends ConsumerWidget {
   const BusinessSettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     return Scaffold(
+      backgroundColor: AppColors.bgSection,
       appBar: AppBar(
-        title: const Text('Settings'),
-        titleTextStyle: TextStyle(
-          color: theme.colorScheme.onSurface,
-          fontSize: 20,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.5,
-        ),
+        backgroundColor: AppColors.bgSection,
+        title: Text('Settings',
+            style: GoogleFonts.nunito(
+              color: AppColors.text1,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+            )),
       ),
       body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
-          _Section(title: 'Business', theme: theme),
-          _SettingsTile(
-            icon: Icons.edit_rounded,
-            iconColor: theme.colorScheme.primary,
-            title: 'Edit Business Profile',
-            onTap: () => context.go('/business-profile/edit'),
-          ),
-          _SettingsTile(
-            icon: Icons.inventory_2_rounded,
-            iconColor: const Color(0xFF6366F1),
-            title: 'Manage Products',
-            onTap: () => context.go('/business/products'),
-          ),
-          _Section(title: 'Account', theme: theme),
-          _SettingsTile(
-            icon: Icons.workspace_premium_rounded,
-            iconColor: const Color(0xFFF59E0B),
-            title: 'Membership & Billing',
-            subtitle: 'Manage your subscription',
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Coming soon')),
-              );
-            },
-          ),
-          _Section(title: 'Legal', theme: theme),
-          _SettingsTile(
-            icon: Icons.description_outlined,
-            iconColor: const Color(0xFF22C55E),
-            title: 'Terms of Service',
-            onTap: () {},
-          ),
-          _SettingsTile(
-            icon: Icons.privacy_tip_outlined,
-            iconColor: const Color(0xFF22C55E),
-            title: 'Privacy Policy',
-            onTap: () {},
-          ),
-          const SizedBox(height: 28),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: OutlinedButton.icon(
-              onPressed: () async {
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Sign Out'),
-                    content:
-                        const Text('Are you sure you want to sign out?'),
-                    actions: [
-                      TextButton(
-                          onPressed: () => Navigator.pop(ctx, false),
-                          child: const Text('Cancel')),
-                      FilledButton(
-                          onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text('Sign Out')),
-                    ],
-                  ),
-                );
-                if (confirm != true) return;
-                await ref.read(authRepositoryProvider).signOut();
-                if (context.mounted) context.go('/sign-in');
-              },
-              icon: const Icon(Icons.logout_rounded, size: 18),
-              label: const Text('Sign Out'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: theme.colorScheme.error,
-                side: BorderSide(
-                    color: theme.colorScheme.error.withAlpha(60)),
-                minimumSize: const Size.fromHeight(52),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+          // ---- BUSINESS ----
+          _SectionCard(
+            label: 'BUSINESS',
+            items: [
+              _MenuItem(
+                icon: Icons.edit_rounded,
+                label: 'Edit Business Profile',
+                onTap: () => context.go('/business-profile/edit'),
               ),
+              _MenuItem(
+                icon: Icons.inventory_2_rounded,
+                label: 'Manage Products',
+                onTap: () => context.go('/business/products'),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 18),
+
+          // ---- ACCOUNT ----
+          _SectionCard(
+            label: 'ACCOUNT',
+            items: [
+              _MenuItem(
+                icon: Icons.workspace_premium_rounded,
+                label: 'Membership & Billing',
+                subtitle: 'Manage your subscription',
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Coming soon')),
+                  );
+                },
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 18),
+
+          // ---- LEGAL ----
+          _SectionCard(
+            label: 'LEGAL',
+            items: [
+              _MenuItem(
+                icon: Icons.description_outlined,
+                label: 'Terms of Service',
+                onTap: () {},
+              ),
+              _MenuItem(
+                icon: Icons.privacy_tip_outlined,
+                label: 'Privacy Policy',
+                onTap: () {},
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+
+          // ---- Sign Out ----
+          OutlinedButton.icon(
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Sign Out'),
+                  content:
+                      const Text('Are you sure you want to sign out?'),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Cancel')),
+                    FilledButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Sign Out')),
+                  ],
+                ),
+              );
+              if (confirm != true) return;
+              await ref.read(authRepositoryProvider).signOut();
+              if (context.mounted) context.go('/sign-in');
+            },
+            icon: const Icon(Icons.logout_rounded, size: 18),
+            label: const Text('Sign Out'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.red,
+              side: BorderSide(
+                  color: AppColors.red.withAlpha(60)),
+              minimumSize: const Size.fromHeight(52),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
             ),
           ),
-          const SizedBox(height: 32),
         ],
       ),
     );
   }
 }
 
-class _Section extends StatelessWidget {
-  final String title;
-  final ThemeData theme;
-  const _Section({required this.title, required this.theme});
+// =========================================================================
+// Section Card — Labeled group of menu items (same pattern as Profile)
+// =========================================================================
+class _SectionCard extends StatelessWidget {
+  final String label;
+  final List<_MenuItem> items;
+  const _SectionCard({required this.label, required this.items});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 28, 20, 10),
-      child: Text(title,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: theme.colorScheme.primary,
-            letterSpacing: 0.5,
-          )),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 10),
+          child: Text(
+            label,
+            style: GoogleFonts.dmSans(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: AppColors.text3,
+              letterSpacing: 1.2,
+            ),
+          ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(6),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            children: List.generate(items.length, (i) {
+              final item = items[i];
+              return Column(
+                children: [
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 4),
+                    leading: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: AppColors.tealLight,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(item.icon,
+                          color: AppColors.teal, size: 20),
+                    ),
+                    title: Text(
+                      item.label,
+                      style: GoogleFonts.dmSans(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.text1,
+                      ),
+                    ),
+                    subtitle: item.subtitle != null
+                        ? Text(item.subtitle!,
+                            style: GoogleFonts.dmSans(
+                              fontSize: 12,
+                              color: AppColors.text3,
+                            ))
+                        : null,
+                    trailing: const Icon(Icons.chevron_right_rounded,
+                        color: AppColors.text4, size: 22),
+                    onTap: item.onTap,
+                  ),
+                  if (i < items.length - 1)
+                    const Divider(
+                      height: 1,
+                      indent: 70,
+                      color: AppColors.border,
+                    ),
+                ],
+              );
+            }),
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _SettingsTile extends StatelessWidget {
+class _MenuItem {
   final IconData icon;
-  final Color iconColor;
-  final String title;
+  final String label;
   final String? subtitle;
   final VoidCallback onTap;
-
-  const _SettingsTile({
+  const _MenuItem({
     required this.icon,
-    required this.iconColor,
-    required this.title,
+    required this.label,
     this.subtitle,
     required this.onTap,
   });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return ListTile(
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
-      leading: Container(
-        width: 38,
-        height: 38,
-        decoration: BoxDecoration(
-          color: iconColor.withAlpha(20),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(icon, color: iconColor, size: 20),
-      ),
-      title: Text(title,
-          style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-          )),
-      subtitle: subtitle != null
-          ? Text(subtitle!,
-              style: TextStyle(
-                fontSize: 12,
-                color: theme.colorScheme.outline,
-              ))
-          : null,
-      trailing: Icon(Icons.chevron_right_rounded,
-          color: theme.colorScheme.outline, size: 22),
-      onTap: onTap,
-    );
-  }
 }

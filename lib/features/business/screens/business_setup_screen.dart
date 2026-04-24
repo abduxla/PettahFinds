@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../models/business.dart';
 import '../../../utils/validators.dart';
 
@@ -76,22 +78,67 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Set Up Your Business')),
+      backgroundColor: AppColors.bgSection,
+      appBar: AppBar(
+        backgroundColor: AppColors.bgSection,
+        title: Text('Set Up Your Business',
+            style: GoogleFonts.nunito(
+              color: AppColors.text1,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+            )),
+      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Icon(Icons.store, size: 64, color: theme.colorScheme.primary),
-              const SizedBox(height: 16),
-              Text("Let's get your business on PetaFinds",
-                  style: theme.textTheme.titleMedium,
-                  textAlign: TextAlign.center),
-              const SizedBox(height: 24),
+              // ---- PetaFinds branded logo ----
+              Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'PetaFinds',
+                      style: GoogleFonts.nunito(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 28,
+                        color: AppColors.teal,
+                        letterSpacing: -0.8,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 5, left: 2),
+                      child: Container(
+                        width: 7,
+                        height: 7,
+                        decoration: const BoxDecoration(
+                          color: AppColors.orange,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "Let's get your business on PetaFinds",
+                style: GoogleFonts.dmSans(
+                  fontSize: 14,
+                  color: AppColors.text3,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 28),
+
+              // ---- Form fields ----
               TextFormField(
                 controller: _nameCtrl,
                 decoration: const InputDecoration(

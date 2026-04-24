@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PettahFinds - Admin Businesses List</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@400;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "inverse-primary": "#84d4d3",
+                      "outline-variant": "#bec9c8",
+                      "surface-variant": "#e5e2e0",
+                      "on-primary": "#ffffff",
+                      "surface-dim": "#dcd9d7",
+                      "on-tertiary": "#ffffff",
+                      "on-background": "#1c1c1a",
+                      "primary-fixed": "#a0f0f0",
+                      "secondary-fixed-dim": "#ffb77e",
+                      "surface-container": "#f0edeb",
+                      "primary-container": "#0d6e6e",
+                      "error": "#ba1a1a",
+                      "secondary": "#914c00",
+                      "surface-tint": "#016a6a",
+                      "on-tertiary-container": "#a9ebea",
+                      "on-tertiary-fixed": "#002020",
+                      "on-error": "#ffffff",
+                      "inverse-surface": "#31302f",
+                      "surface-container-highest": "#e5e2e0",
+                      "surface-container-high": "#ebe7e5",
+                      "on-surface-variant": "#3e4948",
+                      "surface": "#fcf9f6",
+                      "on-primary-container": "#9dedec",
+                      "primary": "#005454",
+                      "inverse-on-surface": "#f3f0ee",
+                      "on-secondary": "#ffffff",
+                      "tertiary-fixed": "#aceeee",
+                      "tertiary-container": "#286c6c",
+                      "surface-container-low": "#f6f3f1",
+                      "tertiary": "#005454",
+                      "secondary-fixed": "#ffdcc3",
+                      "on-primary-fixed-variant": "#004f50",
+                      "on-error-container": "#93000a",
+                      "background": "#fcf9f6",
+                      "surface-bright": "#fcf9f6",
+                      "error-container": "#ffdad6",
+                      "surface-container-lowest": "#ffffff",
+                      "secondary-container": "#fe932d",
+                      "on-surface": "#1c1c1a",
+                      "on-secondary-fixed-variant": "#6e3900",
+                      "primary-fixed-dim": "#84d4d3",
+                      "tertiary-fixed-dim": "#91d2d1",
+                      "on-primary-fixed": "#002020",
+                      "outline": "#6e7979",
+                      "on-secondary-fixed": "#2f1500",
+                      "on-secondary-container": "#663400",
+                      "on-tertiary-fixed-variant": "#004f50"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "unit": "4px",
+                      "sm": "8px",
+                      "lg": "24px",
+                      "gutter": "12px",
+                      "xs": "4px",
+                      "xl": "40px",
+                      "container-padding": "16px",
+                      "md": "16px"
+              },
+              "fontFamily": {
+                      "price-xl": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "label-bold": [
+                              "Be Vietnam Pro"
+                      ],
+                      "display-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body-lg": [
+                              "Be Vietnam Pro"
+                      ],
+                      "display-md": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body-md": [
+                              "Be Vietnam Pro"
+                      ],
+                      "label-sm": [
+                              "Be Vietnam Pro"
+                      ],
+                      "caption": [
+                              "Be Vietnam Pro"
+                      ]
+              },
+              "fontSize": {
+                      "price-xl": [
+                              "20px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "fontWeight": "800"
+                              }
+                      ],
+                      "label-bold": [
+                              "14px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "letterSpacing": "0.02em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "fontWeight": "800"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "1.6",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "display-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "fontWeight": "800"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "1.5",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "caption": [
+                              "11px",
+                              {
+                                      "lineHeight": "1.3",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background antialiased selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopAppBar -->
+<header class="bg-[#FAFAF8] dark:bg-stone-950 font-['Plus_Jakarta_Sans'] font-bold text-lg tracking-tight docked full-width top-0 border-b border-[#E8E8E4] dark:border-stone-800 flat no shadows flex justify-between items-center w-full px-4 h-16 sticky z-40">
+<div class="flex items-center gap-4">
+<button class="text-[#0D6E6E] dark:text-teal-500 hover:bg-[#F2F2EF] dark:hover:bg-stone-800 transition-colors active:scale-95 duration-150 p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">menu</span>
+</button>
+<h1 class="text-xl font-extrabold text-[#0D6E6E] dark:text-teal-400">Merchant Hub</h1>
+</div>
+<button class="text-[#0D6E6E] dark:text-teal-500 hover:bg-[#F2F2EF] dark:hover:bg-stone-800 transition-colors active:scale-95 duration-150 p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">notifications</span>
+</button>
+</header>
+<div class="flex">
+<!-- NavigationDrawer (Web only, hidden on mobile) -->
+<aside class="hidden md:flex bg-white dark:bg-stone-900 font-['Plus_Jakarta_Sans'] text-sm font-semibold h-full w-80 rounded-r-none divide-y divide-[#E8E8E4] dark:divide-stone-800 shadow-2xl fixed inset-y-0 left-0 z-50 flex-col overflow-y-auto">
+<div class="px-6 py-4 border-b border-[#E8E8E4]">
+<h2 class="text-[#0D6E6E] font-black text-2xl">Merchant Hub</h2>
+</div>
+<div class="p-6 flex items-center gap-4">
+<img alt="Colombo Wholesale" class="w-12 h-12 rounded-full object-cover border border-[#E8E8E4]" data-alt="Headshot of a middle-aged Sri Lankan man in a white button-down shirt smiling warmly against a neutral background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAnODT_ahy1fK2UHcLSRb1xFQ6GrFVfUO1g1B8UGEzzyZqq8bAmNq6OzdSJnUWB7lEy5kB827OXTZt5h4JP3KflhZH9hDhE-jdTTyk3D4ZXBr7XJ86GmC9kx2qvW4AsN9DfVoTNEnco4su6otnP7jBUeR2-H9DJV0uL3XSb86OTXqeu3E8kAkHFe-Jvqw9RCqOaarUs247GgPZUhETgM2B7zV26SAjGrouWJ75MSx3Fe4IqcekkEQ2aUhepHCfilKVNLre0wwQDXIY"/>
+<div>
+<h3 class="font-bold text-[#3D3D3A]">Colombo Wholesale</h3>
+<p class="text-xs font-medium text-[#AEAEA4]">Verified Merchant</p>
+</div>
+</div>
+<nav class="flex-1 py-4">
+<ul class="space-y-1 px-3">
+<li>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-[#3D3D3A] dark:text-stone-300 hover:bg-[#FAFAF8] dark:hover:bg-stone-800/50 hover:pl-2 transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-[#AEAEA4]">storefront</span>
+                            Business Profile
+                        </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-[#3D3D3A] dark:text-stone-300 hover:bg-[#FAFAF8] dark:hover:bg-stone-800/50 hover:pl-2 transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-[#AEAEA4]">settings</span>
+                            Store Settings
+                        </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-[#3D3D3A] dark:text-stone-300 hover:bg-[#FAFAF8] dark:hover:bg-stone-800/50 hover:pl-2 transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-[#AEAEA4]">group</span>
+                            Staff Access
+                        </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-[#3D3D3A] dark:text-stone-300 hover:bg-[#FAFAF8] dark:hover:bg-stone-800/50 hover:pl-2 transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-[#AEAEA4]">payments</span>
+                            Billing
+                        </a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-[#3D3D3A] dark:text-stone-300 hover:bg-[#FAFAF8] dark:hover:bg-stone-800/50 hover:pl-2 transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined text-[#AEAEA4]">help_outline</span>
+                            Support
+                        </a>
+</li>
+<!-- Inject Admin specifically since it's the requested intent -->
+<li>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#F2F2EF] dark:bg-stone-800 text-[#0D6E6E] dark:text-teal-400 border-l-4 border-[#0D6E6E]" href="#">
+<span class="material-symbols-outlined text-[#0D6E6E]">manage_accounts</span>
+                            Admin
+                        </a>
+</li>
+</ul>
+</nav>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 md:ml-80 pb-24 md:pb-0 min-h-screen">
+<!-- Page Header & Actions -->
+<div class="px-container-padding py-lg bg-surface-container-lowest border-b border-surface-variant">
+<div class="max-w-5xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div>
+<h2 class="font-display-md text-display-md text-on-surface">Businesses</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Review and verify merchant applications.</p>
+</div>
+<div class="flex flex-col sm:flex-row gap-3">
+<div class="relative w-full sm:w-64">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container rounded-lg border-none text-on-surface focus:ring-2 focus:ring-primary-container font-body-md text-body-md placeholder:text-outline-variant" placeholder="Search businesses..." type="text"/>
+</div>
+<button class="flex items-center justify-center gap-2 px-4 py-2 bg-surface-container rounded-lg text-on-surface font-label-bold text-label-bold hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+                            Filter
+                        </button>
+</div>
+</div>
+</div>
+<!-- Bento Grid Content Area -->
+<div class="max-w-5xl mx-auto px-container-padding py-lg">
+<!-- Status Summary Cards -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-gutter mb-lg">
+<div class="bg-surface-container-lowest p-4 rounded-xl border border-surface-variant shadow-[0px_4px_20px_rgba(17,17,16,0.06)]">
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Total</p>
+<p class="font-display-lg text-display-lg text-on-surface mt-1">142</p>
+</div>
+<div class="bg-surface-container-lowest p-4 rounded-xl border border-surface-variant shadow-[0px_4px_20px_rgba(17,17,16,0.06)]">
+<p class="font-label-sm text-label-sm text-secondary uppercase tracking-wider">Pending</p>
+<p class="font-display-lg text-display-lg text-secondary mt-1">28</p>
+</div>
+<div class="bg-surface-container-lowest p-4 rounded-xl border border-surface-variant shadow-[0px_4px_20px_rgba(17,17,16,0.06)]">
+<p class="font-label-sm text-label-sm text-primary-container uppercase tracking-wider">Verified</p>
+<p class="font-display-lg text-display-lg text-primary-container mt-1">110</p>
+</div>
+<div class="bg-surface-container-lowest p-4 rounded-xl border border-surface-variant shadow-[0px_4px_20px_rgba(17,17,16,0.06)]">
+<p class="font-label-sm text-label-sm text-error uppercase tracking-wider">Rejected</p>
+<p class="font-display-lg text-display-lg text-error mt-1">4</p>
+</div>
+</div>
+<!-- Business List (Bento Style Cards) -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gutter">
+<!-- Card 1: Pending -->
+<div class="bg-surface-container-lowest rounded-xl border border-surface-variant shadow-[0px_4px_20px_rgba(17,17,16,0.06)] overflow-hidden flex flex-col">
+<div class="p-4 border-b border-surface-variant flex justify-between items-start">
+<div class="w-16 h-16 rounded-lg bg-surface-container overflow-hidden shrink-0 border border-surface-variant">
+<img alt="Storefront" class="w-full h-full object-cover" data-alt="Close up of a modern retail storefront window with clean branding and warm interior lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCGBQaPS3ZgTCkeeBOUGSo1SeeX2tGTLzIRTpEbUUqq_L5DLUHmRxnoo3OxrDI_7J-BaaTqPugSWI2M3x9GbYOy5rU_IDAcFzVss_BBQqze8KcVwQxWtAApqlRQ8P4pe9ApTURJ5_iC0rWXzaf5r2pvsMft3sMzMIbhfpHCctjM_oOqN2mpNzcUQZVJOAaJGYXOXq_OMSIgcGFVEbE6eofyWrkMTL9GYYs7wofHaSaF7haM9EPmoUiLl29glbFDoTUVUI1kj-gwMoU"/>
+</div>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-secondary-fixed text-on-secondary-fixed-variant">
+                                Pending
+                            </span>
+</div>
+<div class="p-4 flex-1">
+<h3 class="font-label-bold text-label-bold text-on-surface line-clamp-1">Perera Traders</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Textiles &amp; Fabrics</p>
+<div class="mt-3 flex items-center gap-2 font-caption text-caption text-outline">
+<span class="material-symbols-outlined text-[14px]">location_on</span>
+                                Main Street, Colombo 11
+                            </div>
+<div class="mt-1 flex items-center gap-2 font-caption text-caption text-outline">
+<span class="material-symbols-outlined text-[14px]">calendar_today</span>
+                                Applied: Oct 24, 2023
+                            </div>
+</div>
+<div class="p-4 bg-surface-container-low border-t border-surface-variant flex gap-2">
+<button class="flex-1 bg-primary-container text-on-primary-container font-label-bold text-label-bold py-2 px-4 rounded-lg hover:bg-primary transition-colors text-center">
+                                Verify
+                            </button>
+<button class="flex-1 bg-surface-container text-primary-container font-label-bold text-label-bold py-2 px-4 rounded-lg hover:bg-surface-container-high transition-colors text-center">
+                                Details
+                            </button>
+</div>
+</div>
+<!-- Card 2: Verified -->
+<div class="bg-surface-container-lowest rounded-xl border border-surface-variant shadow-[0px_4px_20px_rgba(17,17,16,0.06)] overflow-hidden flex flex-col opacity-80">
+<div class="p-4 border-b border-surface-variant flex justify-between items-start">
+<div class="w-16 h-16 rounded-lg bg-surface-container overflow-hidden shrink-0 border border-surface-variant">
+<img alt="Spices" class="w-full h-full object-cover" data-alt="Macro shot of colorful spices piled high in traditional metal bowls in a bustling market setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBJCH4Ue5cwW275zgPvVYNkxSjiGjHF6RGvfk0hNIC_a-tt4i-ke_zV6HBNzsglBzm38F32JUDoESuqK2wjGwGOHy678Nvffyv9CnG2eVpei-Kka58cZPc0wxLhkgaEBI6iwD4oZmvChyKDo-ql-F1_n3_TOH4ZQNJkT9YcHApyUtJbXLs6529ethRS0gRyKPK59g2wJKE6iySk8KXf2EEi6q2mOWsW-So6v20uu4ljib6kN57MWBBslfjVPu4m214CTOwhcyOg-v0"/>
+</div>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-tertiary-fixed text-on-tertiary-fixed-variant">
+                                Verified
+                            </span>
+</div>
+<div class="p-4 flex-1">
+<h3 class="font-label-bold text-label-bold text-on-surface line-clamp-1">Ceylon Spice Co.</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Spices &amp; Condiments</p>
+<div class="mt-3 flex items-center gap-2 font-caption text-caption text-outline">
+<span class="material-symbols-outlined text-[14px]">location_on</span>
+                                Sea Street, Colombo 11
+                            </div>
+<div class="mt-1 flex items-center gap-2 font-caption text-caption text-outline">
+<span class="material-symbols-outlined text-[14px]">calendar_today</span>
+                                Verified: Oct 10, 2023
+                            </div>
+</div>
+<div class="p-4 bg-surface-container-low border-t border-surface-variant">
+<button class="w-full bg-surface-container text-on-surface font-label-bold text-label-bold py-2 px-4 rounded-lg hover:bg-surface-container-high transition-colors text-center">
+                                View Details
+                            </button>
+</div>
+</div>
+<!-- Card 3: Pending -->
+<div class="bg-surface-container-lowest rounded-xl border border-surface-variant shadow-[0px_4px_20px_rgba(17,17,16,0.06)] overflow-hidden flex flex-col">
+<div class="p-4 border-b border-surface-variant flex justify-between items-start">
+<div class="w-16 h-16 rounded-lg bg-surface-container overflow-hidden shrink-0 border border-surface-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-display-lg text-outline-variant">devices</span>
+</div>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-secondary-fixed text-on-secondary-fixed-variant">
+                                Pending
+                            </span>
+</div>
+<div class="p-4 flex-1">
+<h3 class="font-label-bold text-label-bold text-on-surface line-clamp-1">Tech Hub Importers</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Electronics</p>
+<div class="mt-3 flex items-center gap-2 font-caption text-caption text-outline">
+<span class="material-symbols-outlined text-[14px]">location_on</span>
+                                1st Cross St, Colombo 11
+                            </div>
+<div class="mt-1 flex items-center gap-2 font-caption text-caption text-outline">
+<span class="material-symbols-outlined text-[14px]">calendar_today</span>
+                                Applied: Oct 25, 2023
+                            </div>
+</div>
+<div class="p-4 bg-surface-container-low border-t border-surface-variant flex gap-2">
+<button class="flex-1 bg-primary-container text-on-primary-container font-label-bold text-label-bold py-2 px-4 rounded-lg hover:bg-primary transition-colors text-center">
+                                Verify
+                            </button>
+<button class="flex-1 bg-surface-container text-primary-container font-label-bold text-label-bold py-2 px-4 rounded-lg hover:bg-surface-container-high transition-colors text-center">
+                                Details
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- BottomNavBar (Mobile only) -->
+<nav class="md:hidden bg-white dark:bg-stone-900 font-['Plus_Jakarta_Sans'] text-[11px] font-medium fixed bottom-0 w-full border-t border-[#E8E8E4] dark:border-stone-800 shadow-[0px_-4px_20px_rgba(17,17,16,0.04)] fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3">
+<a class="flex flex-col items-center justify-center text-[#AEAEA4] dark:text-stone-500 hover:text-[#0D6E6E] dark:hover:text-teal-400 tap-highlight-transparent transition-all" href="#">
+<span class="material-symbols-outlined mb-1">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#AEAEA4] dark:text-stone-500 hover:text-[#0D6E6E] dark:hover:text-teal-400 tap-highlight-transparent transition-all" href="#">
+<span class="material-symbols-outlined mb-1">inventory_2</span>
+<span>Inventory</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#AEAEA4] dark:text-stone-500 hover:text-[#0D6E6E] dark:hover:text-teal-400 tap-highlight-transparent transition-all" href="#">
+<span class="material-symbols-outlined mb-1">receipt_long</span>
+<span>Orders</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#0D6E6E] dark:text-teal-400 bg-[#F2F2EF] dark:bg-stone-800 rounded-xl px-3 py-1 tap-highlight-transparent transition-all" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">manage_accounts</span>
+<span>Admin</span>
+</a>
+</nav>
+</body></html>

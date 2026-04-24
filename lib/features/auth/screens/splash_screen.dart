@@ -1,10 +1,15 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/constants/app_constants.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/providers.dart';
+import '../../../core/theme/app_colors.dart';
 
+/// Splash — solid Teal-Dark field, centered "PetaFinds." wordmark
+/// (Nunito 900, orange period) and tagline. Fades in on mount, fades
+/// out before routing so the transition into /home feels seamless.
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
@@ -12,19 +17,33 @@ class SplashScreen extends ConsumerStatefulWidget {
   ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends ConsumerState<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen>
+    with SingleTickerProviderStateMixin {
   bool _navigated = false;
   Timer? _timeoutTimer;
+
+  late final AnimationController _fadeController;
+  late final Animation<double> _fadeAnim;
 
   @override
   void initState() {
     super.initState();
-    // Timeout fallback: if nothing resolves in 8s, go to sign-in
-    _timeoutTimer = Timer(const Duration(seconds: 8), () {
-      _go('/sign-in');
-    });
-    // Minimum splash display time, then start checking
-    Future.delayed(const Duration(milliseconds: 1500), () {
+
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+      value: 0,
+    );
+    _fadeAnim = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeOut,
+      reverseCurve: Curves.easeIn,
+    );
+    _fadeController.forward();
+
+    _timeoutTimer = Timer(const Duration(seconds: 8), () => _go('/home'));
+
+    Future.delayed(const Duration(milliseconds: 1600), () {
       if (mounted) _tryNavigate();
     });
   }
@@ -32,13 +51,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void dispose() {
     _timeoutTimer?.cancel();
+    _fadeController.dispose();
     super.dispose();
   }
 
-  void _go(String path) {
+  Future<void> _go(String path) async {
     if (_navigated || !mounted) return;
     _navigated = true;
     _timeoutTimer?.cancel();
+    await _fadeController.reverse();
+    if (!mounted) return;
     context.go(path);
   }
 
@@ -47,17 +69,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     authState.when(
       data: (firebaseUser) {
         if (firebaseUser == null) {
-          _go('/onboarding');
+          _go('/home');
           return;
         }
-        // Firebase user exists — now wait for AppUser from Firestore
         _waitForAppUser();
       },
-      loading: () {
-        // Auth still loading — listen for changes
-        _listenAuth();
-      },
-      error: (_, __) => _go('/sign-in'),
+      loading: _listenAuth,
+      error: (_, __) => _go('/home'),
     );
   }
 
@@ -66,25 +84,23 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       next.when(
         data: (firebaseUser) {
           if (firebaseUser == null) {
-            _go('/onboarding');
+            _go('/home');
           } else {
             _waitForAppUser();
           }
         },
         loading: () {},
-        error: (_, __) => _go('/sign-in'),
+        error: (_, __) => _go('/home'),
       );
     });
   }
 
   void _waitForAppUser() {
-    // Check if already available
     final appUser = ref.read(appUserProvider).valueOrNull;
     if (appUser != null) {
       _routeByRole(appUser);
       return;
     }
-    // Listen for it
     ref.listenManual(appUserProvider, (prev, next) {
       final user = next.valueOrNull;
       if (user != null) _routeByRole(user);
@@ -108,47 +124,62 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 96,
-              height: 96,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.storefront_rounded,
-                  size: 48, color: theme.colorScheme.primary),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: AppColors.tealDark,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: AppColors.tealDark,
+      ),
+      child: Scaffold(
+        backgroundColor: AppColors.tealDark,
+        body: FadeTransition(
+          opacity: _fadeAnim,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'PetaFinds',
+                      style: GoogleFonts.nunito(
+                        fontSize: 36,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: -0.8,
+                        height: 1.0,
+                      ),
+                    ),
+                    Padding(
+                      padding:
+                          const EdgeInsets.only(left: 2, bottom: 6),
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: const BoxDecoration(
+                          color: AppColors.orange,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  "Colombo's wholesale marketplace",
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.dmSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.white.withValues(alpha: 0.55),
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 20),
-            Text(AppConstants.appName,
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.8,
-                  color: theme.colorScheme.primary,
-                )),
-            const SizedBox(height: 6),
-            Text(AppConstants.appTagline,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: theme.colorScheme.outline,
-                  fontWeight: FontWeight.w500,
-                )),
-            const SizedBox(height: 48),
-            SizedBox(
-              width: 28,
-              height: 28,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.5,
-                color: theme.colorScheme.primary,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

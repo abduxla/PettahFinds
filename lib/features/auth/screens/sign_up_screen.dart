@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../utils/validators.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
@@ -72,23 +74,57 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // ---- PetaFinds branded logo ----
+                  Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          'PetaFinds',
+                          style: GoogleFonts.nunito(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 28,
+                            color: AppColors.teal,
+                            letterSpacing: -0.8,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 5, left: 2),
+                          child: Container(
+                            width: 7,
+                            height: 7,
+                            decoration: const BoxDecoration(
+                              color: AppColors.orange,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ---- Create Account heading ----
                   Text('Create Account',
-                      style: TextStyle(
+                      style: GoogleFonts.nunito(
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.8,
-                        color: theme.colorScheme.onSurface,
+                        color: AppColors.text1,
                       ),
                       textAlign: TextAlign.center),
                   const SizedBox(height: 6),
                   Text('Join PetaFinds today',
-                      style: TextStyle(
+                      style: GoogleFonts.dmSans(
                         fontSize: 14,
-                        color: theme.colorScheme.outline,
+                        color: AppColors.text3,
                         fontWeight: FontWeight.w500,
                       ),
                       textAlign: TextAlign.center),
                   const SizedBox(height: 32),
+
+                  // ---- Form fields ----
                   TextFormField(
                     controller: _nameCtrl,
                     decoration: const InputDecoration(
@@ -128,10 +164,10 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   ),
                   const SizedBox(height: 20),
                   Text('I am a:',
-                      style: TextStyle(
+                      style: GoogleFonts.dmSans(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: theme.colorScheme.onSurface,
+                        color: AppColors.text1,
                       )),
                   const SizedBox(height: 10),
                   SegmentedButton<String>(

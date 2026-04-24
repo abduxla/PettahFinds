@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/providers.dart';
-import '../../../core/extensions/context_extensions.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../models/business.dart';
+import '../../../models/favorite.dart';
 import '../../../models/product.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
+import '../../../widgets/sign_in_required.dart';
 
-// Stable family providers — defined at top-level so retry (ref.invalidate)
-// targets the same instance the UI is watching.
 final _productDetailProvider =
     FutureProvider.autoDispose.family<Product, String>((ref, id) async {
   if (id.isEmpty) throw Exception('Invalid product');
@@ -25,6 +26,11 @@ final _productSellerProvider =
     FutureProvider.autoDispose.family<Business, String>((ref, businessId) {
   if (businessId.isEmpty) throw Exception('Missing seller');
   return ref.watch(businessRepositoryProvider).getById(businessId);
+});
+
+final _userFavoritesProvider =
+    StreamProvider.autoDispose.family<List<Favorite>, String>((ref, uid) {
+  return ref.watch(favoriteRepositoryProvider).streamByUser(uid);
 });
 
 class ProductDetailScreen extends ConsumerStatefulWidget {
@@ -42,7 +48,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   @override
   void initState() {
     super.initState();
-    // Record this product as recently viewed. Fire-and-forget — best effort only.
     ref
         .read(recentlyViewedServiceProvider)
         .record(widget.productId)
@@ -53,7 +58,6 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final productAsync =
         ref.watch(_productDetailProvider(widget.productId));
     final appUser = ref.watch(appUserProvider).valueOrNull;
@@ -63,44 +67,65 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         final businessAsync =
             ref.watch(_productSellerProvider(product.businessId));
 
+        final isFavorited = appUser == null
+            ? false
+            : (ref.watch(_userFavoritesProvider(appUser.uid)).valueOrNull ?? [])
+                .any((f) =>
+                    f.targetType == 'product' && f.targetId == product.id);
+
         return Scaffold(
-          backgroundColor: theme.scaffoldBackgroundColor,
+          backgroundColor: AppColors.bgSection,
           body: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
             slivers: [
               SliverAppBar(
                 expandedHeight: 340,
                 pinned: true,
-                backgroundColor: theme.colorScheme.surface,
+                backgroundColor: AppColors.white,
+                surfaceTintColor: Colors.transparent,
                 leading: Padding(
                   padding: const EdgeInsets.all(6),
                   child: CircleAvatar(
-                    backgroundColor: Colors.black26,
+                    backgroundColor: Colors.black.withValues(alpha: 0.35),
                     child: IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      icon: const Icon(Icons.arrow_back,
+                          color: Colors.white),
                       onPressed: () => context.pop(),
                     ),
                   ),
                 ),
                 actions: [
-                  if (appUser != null)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: CircleAvatar(
-                        backgroundColor: Colors.black26,
-                        child: IconButton(
-                          icon: const Icon(Icons.favorite_border,
-                              color: Colors.white),
-                          onPressed: () {
-                            ref.read(favoriteRepositoryProvider).toggle(
-                                  userId: appUser.uid,
-                                  targetType: 'product',
-                                  targetId: product.id,
-                                );
-                            context.showSuccessSnackBar('Favorite toggled');
-                          },
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: CircleAvatar(
+                      backgroundColor: Colors.black.withValues(alpha: 0.35),
+                      child: IconButton(
+                        icon: Icon(
+                          isFavorited
+                              ? Icons.favorite
+                              : Icons.favorite_border,
+                          color: isFavorited
+                              ? AppColors.red
+                              : Colors.white,
                         ),
+                        onPressed: () {
+                          if (appUser == null) {
+                            ScaffoldMessenger.of(context)
+                                .clearSnackBars();
+                            showSignInRequiredSheet(context);
+                            return;
+                          }
+                          ref.read(favoriteRepositoryProvider).toggle(
+                                userId: appUser.uid,
+                                targetType: 'product',
+                                targetId: product.id,
+                              );
+                        },
                       ),
                     ),
+                  ),
                 ],
                 flexibleSpace: FlexibleSpaceBar(
                   background: product.imageUrls.isNotEmpty
@@ -123,22 +148,25 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                 left: 0,
                                 right: 0,
                                 child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.center,
                                   children: List.generate(
                                     product.imageUrls.length,
                                     (i) => AnimatedContainer(
-                                      duration:
-                                          const Duration(milliseconds: 300),
-                                      width: _currentImageIndex == i ? 24 : 8,
-                                      height: 8,
+                                      duration: const Duration(
+                                          milliseconds: 300),
+                                      width:
+                                          _currentImageIndex == i ? 22 : 8,
+                                      height: 4,
                                       margin: const EdgeInsets.symmetric(
                                           horizontal: 3),
                                       decoration: BoxDecoration(
                                         color: _currentImageIndex == i
                                             ? Colors.white
-                                            : Colors.white54,
+                                            : Colors.white
+                                                .withValues(alpha: 0.55),
                                         borderRadius:
-                                            BorderRadius.circular(4),
+                                            BorderRadius.circular(2),
                                       ),
                                     ),
                                   ),
@@ -146,129 +174,144 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                               ),
                           ],
                         )
-                      : CachedImage(
-                          height: 340,
-                          width: double.infinity,
-                          placeholderIcon: Icons.shopping_bag,
+                      : Container(
+                          color: AppColors.bgSection,
+                          child: const Center(
+                            child: Icon(Icons.shopping_bag_outlined,
+                                size: 64, color: AppColors.text4),
+                          ),
                         ),
                 ),
               ),
 
+              // ---- Body ----
               SliverToBoxAdapter(
                 child: Container(
-                  decoration: BoxDecoration(
-                    color: theme.scaffoldBackgroundColor,
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(24)),
+                  decoration: const BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(20),
+                    ),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                            product.title.isNotEmpty
-                                ? product.title
-                                : 'Untitled product',
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.5,
-                              height: 1.2,
-                            )),
+                          product.title.isNotEmpty
+                              ? product.title
+                              : 'Untitled product',
+                          style: GoogleFonts.nunito(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.text1,
+                            letterSpacing: -0.4,
+                            height: 1.2,
+                          ),
+                        ),
                         if (product.shortTitle.isNotEmpty) ...[
                           const SizedBox(height: 4),
-                          Text(product.shortTitle,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: theme.colorScheme.outline,
-                                fontWeight: FontWeight.w500,
-                              )),
+                          Text(
+                            product.shortTitle,
+                            style: GoogleFonts.dmSans(
+                              fontSize: 13,
+                              color: AppColors.text3,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                         ],
 
                         const SizedBox(height: 16),
 
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 10),
+                              horizontal: 14, vertical: 10),
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.primary.withAlpha(15),
-                            borderRadius: BorderRadius.circular(12),
+                            color: AppColors.tealLight,
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
-                              'LKR ${product.priceLkr.toStringAsFixed(2)}',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
-                                color: theme.colorScheme.primary,
-                                letterSpacing: -0.5,
-                              )),
+                            'LKR ${product.priceLkr.toStringAsFixed(0)}',
+                            style: GoogleFonts.nunito(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.teal,
+                              letterSpacing: -0.4,
+                            ),
+                          ),
                         ),
 
-                        const SizedBox(height: 16),
-
-                        if (product.category.isNotEmpty)
+                        if (product.category.isNotEmpty) ...[
+                          const SizedBox(height: 12),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
+                                horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
-                              color:
-                                  theme.colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(8),
+                              color: AppColors.bgSection,
+                              borderRadius: BorderRadius.circular(6),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.category_rounded,
-                                    size: 14,
-                                    color: theme.colorScheme.outline),
-                                const SizedBox(width: 6),
-                                Text(product.category,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: theme.colorScheme.onSurface,
-                                    )),
+                                const Icon(Icons.category_outlined,
+                                    size: 13, color: AppColors.text3),
+                                const SizedBox(width: 5),
+                                Text(
+                                  product.category,
+                                  style: GoogleFonts.dmSans(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.text2,
+                                  ),
+                                ),
                               ],
                             ),
                           ),
+                        ],
 
                         const SizedBox(height: 24),
+                        const Divider(color: AppColors.border, height: 1),
+                        const SizedBox(height: 20),
 
-                        Text('Description',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: theme.colorScheme.onSurface,
-                              letterSpacing: -0.2,
-                            )),
+                        Text(
+                          'Description',
+                          style: GoogleFonts.nunito(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.text1,
+                          ),
+                        ),
                         const SizedBox(height: 8),
                         Text(
-                            product.description.isNotEmpty
-                                ? product.description
-                                : 'No description provided.',
-                            style: TextStyle(
-                              fontSize: 14,
-                              height: 1.6,
-                              color: theme.colorScheme.onSurface
-                                  .withAlpha(180),
-                            )),
+                          product.description.isNotEmpty
+                              ? product.description
+                              : 'No description provided.',
+                          style: GoogleFonts.dmSans(
+                            fontSize: 13.5,
+                            height: 1.55,
+                            color: AppColors.text2,
+                          ),
+                        ),
 
                         const SizedBox(height: 24),
-                        Divider(color: theme.dividerTheme.color),
-                        const SizedBox(height: 16),
+                        const Divider(color: AppColors.border, height: 1),
+                        const SizedBox(height: 20),
 
-                        Text('Sold by',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: theme.colorScheme.onSurface,
-                              letterSpacing: -0.2,
-                            )),
+                        Text(
+                          'Sold by',
+                          style: GoogleFonts.nunito(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.text1,
+                          ),
+                        ),
                         const SizedBox(height: 12),
                         businessAsync.when(
-                          data: (business) => _SellerCard(business: business),
-                          loading: () => const ShimmerBox(height: 80),
+                          data: (business) =>
+                              _SellerCard(business: business),
+                          loading: () =>
+                              const ShimmerBox(height: 80, radius: 12),
                           error: (_, _) => OutlinedButton.icon(
                             onPressed: product.businessId.isEmpty
                                 ? null
@@ -278,13 +321,14 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             label: const Text('View Business'),
                           ),
                         ),
-
-                        const SizedBox(height: 32),
                       ],
                     ),
                   ),
                 ),
               ),
+
+              // Bottom safe padding so the floating nav doesn't cover content.
+              const SliverToBoxAdapter(child: SizedBox(height: 120)),
             ],
           ),
         );
@@ -315,40 +359,33 @@ class _SellerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(6),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: InkWell(
-        onTap: () => context.go('/home/business/${business.id}'),
-        borderRadius: BorderRadius.circular(16),
+    return InkWell(
+      onTap: () => context.go('/home/business/${business.id}'),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.bg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
+        ),
         child: Row(
           children: [
             Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                    color: theme.colorScheme.primary.withAlpha(40), width: 2),
+                    color: AppColors.teal.withValues(alpha: 0.25), width: 2),
               ),
               child: CircleAvatar(
-                radius: 24,
-                backgroundColor: theme.colorScheme.primaryContainer,
+                radius: 22,
+                backgroundColor: AppColors.tealLight,
                 backgroundImage: business.logoUrl.isNotEmpty
                     ? NetworkImage(business.logoUrl)
                     : null,
                 child: business.logoUrl.isEmpty
-                    ? Icon(Icons.store,
-                        color: theme.colorScheme.primary, size: 22)
+                    ? const Icon(Icons.store,
+                        color: AppColors.teal, size: 20)
                     : null,
               ),
             ),
@@ -360,45 +397,49 @@ class _SellerCard extends StatelessWidget {
                   Row(
                     children: [
                       Flexible(
-                        child: Text(business.businessName,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
+                        child: Text(
+                          business.businessName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.nunito(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.text1,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
                       ),
                       if (business.isVerified) ...[
                         const SizedBox(width: 4),
-                        Icon(Icons.verified,
-                            size: 16, color: theme.colorScheme.primary),
+                        const Icon(Icons.verified,
+                            size: 15, color: AppColors.teal),
                       ],
                     ],
                   ),
                   const SizedBox(height: 2),
                   Text(
                     '${business.category} • ${business.location}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: theme.colorScheme.outline,
-                      fontWeight: FontWeight.w500,
-                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.dmSans(
+                      fontSize: 11.5,
+                      color: AppColors.text3,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   if (business.ratingCount > 0) ...[
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(Icons.star_rounded,
-                            size: 14, color: Colors.amber[700]),
+                        const Icon(Icons.star_rounded,
+                            size: 14, color: AppColors.orange),
                         const SizedBox(width: 2),
                         Text(
                           '${business.ratingAvg.toStringAsFixed(1)} (${business.ratingCount})',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.amber[800],
+                          style: GoogleFonts.dmSans(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.text2,
                           ),
                         ),
                       ],
@@ -407,8 +448,8 @@ class _SellerCard extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded,
-                color: theme.colorScheme.outline),
+            const Icon(Icons.chevron_right_rounded,
+                color: AppColors.text3),
           ],
         ),
       ),

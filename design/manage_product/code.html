@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PettahFinds - Add Product</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@400;600;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "inverse-primary": "#84d4d3",
+                      "outline-variant": "#bec9c8",
+                      "surface-variant": "#e5e2e0",
+                      "on-primary": "#ffffff",
+                      "surface-dim": "#dcd9d7",
+                      "on-tertiary": "#ffffff",
+                      "on-background": "#1c1c1a",
+                      "primary-fixed": "#a0f0f0",
+                      "secondary-fixed-dim": "#ffb77e",
+                      "surface-container": "#f0edeb",
+                      "primary-container": "#0d6e6e",
+                      "error": "#ba1a1a",
+                      "secondary": "#914c00",
+                      "surface-tint": "#016a6a",
+                      "on-tertiary-container": "#a9ebea",
+                      "on-tertiary-fixed": "#002020",
+                      "on-error": "#ffffff",
+                      "inverse-surface": "#31302f",
+                      "surface-container-highest": "#e5e2e0",
+                      "surface-container-high": "#ebe7e5",
+                      "on-surface-variant": "#3e4948",
+                      "surface": "#fcf9f6",
+                      "on-primary-container": "#9dedec",
+                      "primary": "#005454",
+                      "inverse-on-surface": "#f3f0ee",
+                      "on-secondary": "#ffffff",
+                      "tertiary-fixed": "#aceeee",
+                      "tertiary-container": "#286c6c",
+                      "surface-container-low": "#f6f3f1",
+                      "tertiary": "#005454",
+                      "secondary-fixed": "#ffdcc3",
+                      "on-primary-fixed-variant": "#004f50",
+                      "on-error-container": "#93000a",
+                      "background": "#fcf9f6",
+                      "surface-bright": "#fcf9f6",
+                      "error-container": "#ffdad6",
+                      "surface-container-lowest": "#ffffff",
+                      "secondary-container": "#fe932d",
+                      "on-surface": "#1c1c1a",
+                      "on-secondary-fixed-variant": "#6e3900",
+                      "primary-fixed-dim": "#84d4d3",
+                      "tertiary-fixed-dim": "#91d2d1",
+                      "on-primary-fixed": "#002020",
+                      "outline": "#6e7979",
+                      "on-secondary-fixed": "#2f1500",
+                      "on-secondary-container": "#663400",
+                      "on-tertiary-fixed-variant": "#004f50"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "unit": "4px",
+                      "sm": "8px",
+                      "lg": "24px",
+                      "gutter": "12px",
+                      "xs": "4px",
+                      "xl": "40px",
+                      "container-padding": "16px",
+                      "md": "16px"
+              },
+              "fontFamily": {
+                      "price-xl": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "label-bold": [
+                              "Be Vietnam Pro"
+                      ],
+                      "display-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body-lg": [
+                              "Be Vietnam Pro"
+                      ],
+                      "display-md": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body-md": [
+                              "Be Vietnam Pro"
+                      ],
+                      "label-sm": [
+                              "Be Vietnam Pro"
+                      ],
+                      "caption": [
+                              "Be Vietnam Pro"
+                      ]
+              },
+              "fontSize": {
+                      "price-xl": [
+                              "20px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "fontWeight": "800"
+                              }
+                      ],
+                      "label-bold": [
+                              "14px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "letterSpacing": "0.02em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "display-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "fontWeight": "800"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "1.6",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "display-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "fontWeight": "800"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "1.5",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "caption": [
+                              "11px",
+                              {
+                                      "lineHeight": "1.3",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<style>
+        body { font-family: 'Be Vietnam Pro', sans-serif; }
+        h1, h2, h3, .font-display { font-family: 'Plus Jakarta Sans', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background min-h-screen flex flex-col text-on-background">
+<!-- TopAppBar Component (from JSON) -->
+<header class="bg-[#FAFAF8] border-b border-[#E8E8E4] flex justify-between items-center w-full px-4 h-16 sticky top-0 z-50">
+<button class="hover:bg-[#F2F2EF] transition-colors active:scale-95 duration-150 p-2 rounded-full flex items-center justify-center text-[#3D3D3A]">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">menu</span>
+</button>
+<h1 class="font-['Plus_Jakarta_Sans'] font-extrabold text-xl tracking-tight text-[#0D6E6E]">Merchant Hub</h1>
+<button class="hover:bg-[#F2F2EF] transition-colors active:scale-95 duration-150 p-2 rounded-full flex items-center justify-center text-[#3D3D3A]">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">notifications</span>
+</button>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 w-full max-w-3xl mx-auto px-container-padding py-lg flex flex-col gap-lg pb-[100px]">
+<!-- Page Header -->
+<div class="flex items-center gap-md mb-sm">
+<button class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h2 class="font-display-lg text-display-lg text-on-background">Add Product</h2>
+</div>
+<!-- Media Upload Section -->
+<section class="bg-surface-container-lowest rounded-xl p-md shadow-[0px_4px_20px_rgba(17,17,16,0.06)] flex flex-col gap-md border border-surface-variant">
+<div class="flex flex-col gap-xs">
+<h3 class="font-label-bold text-label-bold text-on-surface">Product Images</h3>
+<p class="font-caption text-caption text-on-surface-variant">Upload high-quality images to attract wholesale buyers. Max 5 images.</p>
+</div>
+<!-- Primary Upload Zone -->
+<div class="w-full border-2 border-dashed border-outline-variant rounded-xl bg-surface-container-low flex flex-col items-center justify-center p-xl gap-sm cursor-pointer hover:bg-surface-container transition-colors group">
+<div class="w-12 h-12 rounded-full bg-surface-container-highest flex items-center justify-center text-primary group-hover:bg-primary-container group-hover:text-on-primary-container transition-colors">
+<span class="material-symbols-outlined text-[24px]">add_photo_alternate</span>
+</div>
+<div class="text-center">
+<span class="font-label-bold text-label-bold text-primary block">Click to upload</span>
+<span class="font-caption text-caption text-on-surface-variant block mt-1">SVG, PNG, JPG or GIF (max. 800x400px)</span>
+</div>
+</div>
+<!-- Thumbnail Grid (Placeholders) -->
+<div class="grid grid-cols-4 gap-gutter mt-sm">
+<!-- Uploaded Placeholder 1 -->
+<div class="aspect-square rounded-lg relative overflow-hidden group border border-outline-variant">
+<div class="w-full h-full bg-gradient-to-tr from-surface-variant to-surface-container-low flex items-center justify-center text-outline-variant">
+<span class="material-symbols-outlined">image</span>
+</div>
+<button class="absolute top-1 right-1 w-6 h-6 rounded-full bg-surface-container-lowest/80 flex items-center justify-center text-on-surface hover:text-error opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm shadow-sm">
+<span class="material-symbols-outlined text-[16px]">close</span>
+</button>
+</div>
+<!-- Empty Slots -->
+<div class="aspect-square rounded-lg border border-dashed border-outline-variant flex items-center justify-center text-outline-variant bg-surface-container-low">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</div>
+<div class="aspect-square rounded-lg border border-dashed border-outline-variant flex items-center justify-center text-outline-variant bg-surface-container-low hidden sm:flex">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</div>
+<div class="aspect-square rounded-lg border border-dashed border-outline-variant flex items-center justify-center text-outline-variant bg-surface-container-low hidden sm:flex">
+<span class="material-symbols-outlined text-[20px]">add</span>
+</div>
+</div>
+</section>
+<!-- General Information Section -->
+<section class="bg-surface-container-lowest rounded-xl p-md shadow-[0px_4px_20px_rgba(17,17,16,0.06)] flex flex-col gap-lg border border-surface-variant">
+<h3 class="font-label-bold text-label-bold text-on-surface border-b border-surface-variant pb-sm">General Information</h3>
+<div class="flex flex-col gap-sm">
+<label class="font-label-bold text-label-bold text-on-surface" for="title">Product Title <span class="text-error">*</span></label>
+<input class="h-[48px] rounded-lg bg-surface border border-outline-variant px-md font-body-md text-body-md text-on-surface placeholder:text-outline focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all w-full" id="title" placeholder="e.g., Premium Ceylon Cinnamon Quills" type="text"/>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+<div class="flex flex-col gap-sm">
+<label class="font-label-bold text-label-bold text-on-surface" for="category">Category <span class="text-error">*</span></label>
+<div class="relative">
+<select class="h-[48px] rounded-lg bg-surface border border-outline-variant px-md font-body-md text-body-md text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all w-full appearance-none pr-10" id="category">
+<option disabled="" selected="" value="">Select category</option>
+<option value="spices">Spices &amp; Herbs</option>
+<option value="textiles">Textiles &amp; Garments</option>
+<option value="electronics">Wholesale Electronics</option>
+<option value="hardware">Hardware &amp; Tools</option>
+</select>
+<span class="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant">expand_more</span>
+</div>
+</div>
+<div class="flex flex-col gap-sm">
+<label class="font-label-bold text-label-bold text-on-surface" for="price">Wholesale Price <span class="text-error">*</span></label>
+<div class="relative flex items-center">
+<span class="absolute left-md font-label-bold text-label-bold text-on-surface-variant pointer-events-none">LKR</span>
+<input class="h-[48px] rounded-lg bg-surface border border-outline-variant pl-[56px] pr-md font-price-xl text-price-xl text-on-surface placeholder:text-outline focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all w-full" id="price" placeholder="0.00" type="number"/>
+</div>
+<span class="font-caption text-caption text-on-surface-variant mt-1">Per unit price for bulk orders</span>
+</div>
+</div>
+</section>
+<!-- Details Section -->
+<section class="bg-surface-container-lowest rounded-xl p-md shadow-[0px_4px_20px_rgba(17,17,16,0.06)] flex flex-col gap-lg border border-surface-variant">
+<h3 class="font-label-bold text-label-bold text-on-surface border-b border-surface-variant pb-sm">Details &amp; Discoverability</h3>
+<div class="flex flex-col gap-sm">
+<label class="font-label-bold text-label-bold text-on-surface" for="description">Full Description</label>
+<textarea class="rounded-lg bg-surface border border-outline-variant p-md font-body-md text-body-md text-on-surface placeholder:text-outline focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all w-full resize-y min-h-[120px]" id="description" placeholder="Describe the product quality, origin, and bulk packaging details..." rows="4"></textarea>
+</div>
+<div class="flex flex-col gap-sm">
+<label class="font-label-bold text-label-bold text-on-surface">Search Keywords</label>
+<div class="min-h-[48px] rounded-lg bg-surface border border-outline-variant p-xs flex flex-wrap gap-xs focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all w-full">
+<!-- Example Pills -->
+<div class="bg-surface-container-highest px-sm py-[6px] rounded-full flex items-center gap-[4px]">
+<span class="font-label-sm text-label-sm text-on-surface">Cinnamon</span>
+<span class="material-symbols-outlined text-[14px] cursor-pointer text-on-surface-variant hover:text-error">close</span>
+</div>
+<div class="bg-surface-container-highest px-sm py-[6px] rounded-full flex items-center gap-[4px]">
+<span class="font-label-sm text-label-sm text-on-surface">Export Quality</span>
+<span class="material-symbols-outlined text-[14px] cursor-pointer text-on-surface-variant hover:text-error">close</span>
+</div>
+<!-- Input for new keywords -->
+<input class="flex-1 min-w-[150px] bg-transparent outline-none font-body-md text-body-md text-on-surface px-sm placeholder:text-outline border-none focus:ring-0" placeholder="Add keyword and press enter..." type="text"/>
+</div>
+</div>
+</section>
+</main>
+<!-- Floating Action Area (Mobile Friendly) -->
+<div class="fixed bottom-0 left-0 w-full bg-surface-container-lowest border-t border-surface-variant p-md shadow-[0px_-4px_20px_rgba(17,17,16,0.04)] z-40">
+<div class="max-w-3xl mx-auto flex gap-md">
+<button class="h-[48px] flex-1 rounded-lg bg-surface-container border border-outline-variant font-label-bold text-label-bold text-on-surface hover:bg-surface-variant transition-colors flex items-center justify-center">
+                Cancel
+            </button>
+<button class="h-[48px] flex-[2] rounded-lg bg-primary text-on-primary font-label-bold text-label-bold hover:bg-on-primary-fixed-variant transition-colors flex items-center justify-center shadow-sm">
+                Save Product
+            </button>
+</div>
+</div>
+</body></html>

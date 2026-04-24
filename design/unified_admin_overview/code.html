@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PettahFinds - Admin Overview</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-variant": "#e5e2e0",
+                      "error-container": "#ffdad6",
+                      "surface-container-highest": "#e5e2e0",
+                      "on-tertiary-container": "#a9ebea",
+                      "on-secondary-fixed": "#2f1500",
+                      "inverse-on-surface": "#f3f0ee",
+                      "on-primary-fixed": "#002020",
+                      "on-primary-container": "#9dedec",
+                      "primary-fixed-dim": "#84d4d3",
+                      "primary-container": "#0d6e6e",
+                      "on-tertiary-fixed": "#002020",
+                      "on-secondary-container": "#663400",
+                      "inverse-surface": "#31302f",
+                      "secondary": "#914c00",
+                      "primary": "#005454",
+                      "secondary-container": "#fe932d",
+                      "on-primary": "#ffffff",
+                      "on-surface": "#1c1c1a",
+                      "tertiary-fixed": "#aceeee",
+                      "tertiary-fixed-dim": "#91d2d1",
+                      "tertiary-container": "#286c6c",
+                      "primary-fixed": "#a0f0f0",
+                      "on-tertiary-fixed-variant": "#004f50",
+                      "on-secondary": "#ffffff",
+                      "secondary-fixed": "#ffdcc3",
+                      "surface-container-lowest": "#ffffff",
+                      "background": "#fcf9f6",
+                      "secondary-fixed-dim": "#ffb77e",
+                      "inverse-primary": "#84d4d3",
+                      "surface": "#fcf9f6",
+                      "outline": "#6e7979",
+                      "surface-container-high": "#ebe7e5",
+                      "on-secondary-fixed-variant": "#6e3900",
+                      "on-error-container": "#93000a",
+                      "on-background": "#1c1c1a",
+                      "error": "#ba1a1a",
+                      "surface-container-low": "#f6f3f1",
+                      "on-tertiary": "#ffffff",
+                      "surface-tint": "#016a6a",
+                      "surface-container": "#f0edeb",
+                      "tertiary": "#005454",
+                      "outline-variant": "#bec9c8",
+                      "on-surface-variant": "#3e4948",
+                      "on-error": "#ffffff",
+                      "surface-dim": "#dcd9d7",
+                      "on-primary-fixed-variant": "#004f50",
+                      "surface-bright": "#fcf9f6"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "lg": "24px",
+                      "gutter": "12px",
+                      "xs": "4px",
+                      "unit": "4px",
+                      "xl": "40px",
+                      "sm": "8px",
+                      "md": "16px",
+                      "container-padding": "16px"
+              },
+              "fontFamily": {
+                      "label-bold": [
+                              "Be Vietnam Pro"
+                      ],
+                      "label-sm": [
+                              "Be Vietnam Pro"
+                      ],
+                      "display-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body-lg": [
+                              "Be Vietnam Pro"
+                      ],
+                      "price-xl": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "display-md": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "caption": [
+                              "Be Vietnam Pro"
+                      ],
+                      "body-md": [
+                              "Be Vietnam Pro"
+                      ]
+              },
+              "fontSize": {
+                      "label-bold": [
+                              "14px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "letterSpacing": "0.02em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "display-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "fontWeight": "800"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "1.6",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "price-xl": [
+                              "20px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "fontWeight": "800"
+                              }
+                      ],
+                      "display-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "fontWeight": "800"
+                              }
+                      ],
+                      "caption": [
+                              "11px",
+                              {
+                                      "lineHeight": "1.3",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "1.5",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen pb-24 md:flex md:pb-0">
+<!-- Navigation Drawer (Web) -->
+<aside class="hidden md:flex h-screen w-72 rounded-r-2xl border-r border-[#E8E8E4] dark:border-zinc-800 shadow-xl dark:shadow-none bg-[#FAFAF8] dark:bg-zinc-950 flex flex-col py-6 space-y-2 sticky top-0 shrink-0">
+<div class="px-6 mb-8 flex items-center space-x-3">
+<div class="w-10 h-10 rounded-full bg-surface-variant overflow-hidden">
+<img alt="Merchant Profile" class="w-full h-full object-cover" data-alt="portrait of a professional merchant wearing a crisp white shirt against a neutral background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD4HufNR28ztXX-78Ec5GYDB2Ux-SR3_RD8UEyricisnC4-s4wr85WsEk1JXEgHDVUPI0VsNliTWOYa8Dz6cOw4OcUokDIzsq6JZB_PB-Nvt8o3AvCkHnVIhcbcsuhthzS2HccokFSv0cGgR72GteKlbGoBK2nLmqOjsNP96cDzL9S6hb6oOBdfFeofLgTSDusVgKGrhL3zrGKZMVlrk-5glGvSj6Vi7VYTfM-jvfuOYe3wLzNAtEdM2qDdbbjSBPWvJJn5kjslU6w"/>
+</div>
+<div>
+<h2 class="font-label-bold text-label-bold text-[#0D6E6E] dark:text-teal-500">Merchant Central</h2>
+<p class="font-caption text-caption text-[#3D3D3A] dark:text-zinc-400">Pettah Wholesale Hub</p>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center space-x-3 text-[#3D3D3A] dark:text-zinc-400 mx-2 px-4 py-3 hover:bg-[#F2F2EF] dark:hover:bg-zinc-800 transition-all duration-300 ease-in-out font-['Plus_Jakarta_Sans'] text-sm font-semibold rounded-lg" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center space-x-3 text-[#3D3D3A] dark:text-zinc-400 mx-2 px-4 py-3 hover:bg-[#F2F2EF] dark:hover:bg-zinc-800 transition-all duration-300 ease-in-out font-['Plus_Jakarta_Sans'] text-sm font-semibold rounded-lg" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span>Inventory</span>
+</a>
+<a class="flex items-center space-x-3 text-[#3D3D3A] dark:text-zinc-400 mx-2 px-4 py-3 hover:bg-[#F2F2EF] dark:hover:bg-zinc-800 transition-all duration-300 ease-in-out font-['Plus_Jakarta_Sans'] text-sm font-semibold rounded-lg" href="#">
+<span class="material-symbols-outlined">shopping_cart</span>
+<span>Orders</span>
+</a>
+<a class="flex items-center space-x-3 bg-[#F2F2EF] dark:bg-zinc-900 text-[#0D6E6E] dark:text-teal-400 rounded-lg mx-2 px-4 py-3 border-l-4 border-[#0D6E6E] transition-all duration-300 ease-in-out font-['Plus_Jakarta_Sans'] text-sm font-semibold" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">admin_panel_settings</span>
+<span>Admin</span>
+</a>
+</nav>
+</aside>
+<main class="flex-1 max-w-7xl mx-auto w-full">
+<!-- TopAppBar (Mobile) -->
+<header class="md:hidden fixed top-0 left-0 w-full z-50 flex justify-between items-center px-4 h-16 bg-[#FAFAF8] dark:bg-zinc-950 border-b border-[#E8E8E4] dark:border-zinc-800 shadow-none">
+<button class="text-[#0D6E6E] dark:text-teal-500 hover:bg-[#F2F2EF] dark:hover:bg-zinc-900 transition-colors p-2 rounded-full Active: scale-95 duration-150">
+<span class="material-symbols-outlined">storefront</span>
+</button>
+<h1 class="font-['Plus_Jakarta_Sans'] font-black text-[#0D6E6E] after:content-['.'] after:text-orange-500 text-xl tracking-tight">PettahFinds</h1>
+<button class="text-[#0D6E6E] dark:text-teal-500 hover:bg-[#F2F2EF] dark:hover:bg-zinc-900 transition-colors p-2 rounded-full Active: scale-95 duration-150 relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-2 h-2 bg-error rounded-full"></span>
+</button>
+</header>
+<!-- Page Content -->
+<div class="px-container-padding pt-[88px] md:pt-10 space-y-lg">
+<!-- Header Section -->
+<div class="flex justify-between items-end mb-6">
+<div>
+<h1 class="font-display-md text-display-md text-on-surface">Admin Overview</h1>
+<p class="font-body-md text-body-md text-on-surface-variant mt-2">Platform health and recent moderation tasks.</p>
+</div>
+<div class="hidden md:flex">
+<button class="text-[#0D6E6E] dark:text-teal-500 hover:bg-[#F2F2EF] dark:hover:bg-zinc-900 transition-colors p-2 rounded-full relative">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-error rounded-full border-2 border-[#FAFAF8]"></span>
+</button>
+</div>
+</div>
+<!-- Bento Grid Metrics -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-gutter md:gap-lg">
+<!-- Metric 1 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant shadow-[0px_4px_20px_rgba(17,17,16,0.06)] flex flex-col justify-between h-32 relative overflow-hidden">
+<div class="absolute -right-4 -bottom-4 text-surface-container opacity-50">
+<span class="material-symbols-outlined text-[100px]">storefront</span>
+</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant relative z-10">Total Businesses</p>
+<p class="font-price-xl text-price-xl text-primary-container relative z-10">1,248</p>
+</div>
+<!-- Metric 2 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant shadow-[0px_4px_20px_rgba(17,17,16,0.06)] flex flex-col justify-between h-32 relative overflow-hidden">
+<div class="absolute -right-4 -bottom-4 text-surface-container opacity-50">
+<span class="material-symbols-outlined text-[100px]">inventory_2</span>
+</div>
+<p class="font-label-sm text-label-sm text-on-surface-variant relative z-10">Total Products</p>
+<p class="font-price-xl text-price-xl text-primary-container relative z-10">45.2k</p>
+</div>
+<!-- Metric 3 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant shadow-[0px_4px_20px_rgba(17,17,16,0.06)] flex flex-col justify-between h-32 relative overflow-hidden">
+<div class="absolute -right-4 -bottom-4 text-surface-container opacity-50">
+<span class="material-symbols-outlined text-[100px]">verified</span>
+</div>
+<div class="flex items-center space-x-2 relative z-10">
+<span class="w-2 h-2 rounded-full bg-secondary-container"></span>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Pending Verifications</p>
+</div>
+<p class="font-price-xl text-price-xl text-secondary-container relative z-10">34</p>
+</div>
+<!-- Metric 4 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant shadow-[0px_4px_20px_rgba(17,17,16,0.06)] flex flex-col justify-between h-32 relative overflow-hidden">
+<div class="absolute -right-4 -bottom-4 text-surface-container opacity-50">
+<span class="material-symbols-outlined text-[100px]">flag</span>
+</div>
+<div class="flex items-center space-x-2 relative z-10">
+<span class="w-2 h-2 rounded-full bg-error"></span>
+<p class="font-label-sm text-label-sm text-on-surface-variant">New Reports</p>
+</div>
+<p class="font-price-xl text-price-xl text-error relative z-10">12</p>
+</div>
+</div>
+<!-- Recent Moderation Tasks -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0px_4px_20px_rgba(17,17,16,0.06)] overflow-hidden">
+<div class="p-5 border-b border-outline-variant bg-[#F2F2EF]">
+<h2 class="font-label-bold text-label-bold text-on-surface flex items-center space-x-2">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">gavel</span>
+<span>Recent Moderation Tasks</span>
+</h2>
+</div>
+<ul class="divide-y divide-outline-variant">
+<!-- Task 1 -->
+<li class="p-5 hover:bg-surface-container-low transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex items-start space-x-4">
+<div class="w-10 h-10 rounded-lg bg-surface-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-outline">storefront</span>
+</div>
+<div>
+<h3 class="font-label-bold text-label-bold text-on-surface">New Merchant Verification</h3>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-1">"Colombo Textiles Co." uploaded business registration documents.</p>
+<p class="font-caption text-caption text-outline mt-1">2 hours ago • ID: VER-9082</p>
+</div>
+</div>
+<div class="flex items-center space-x-2 shrink-0 self-end md:self-auto">
+<button class="px-4 py-2 bg-[#e0f2f1] text-[#005454] font-label-bold text-label-bold rounded-lg hover:bg-[#b2dfdb] transition-colors">Review</button>
+</div>
+</li>
+<!-- Task 2 -->
+<li class="p-5 hover:bg-surface-container-low transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex items-start space-x-4">
+<div class="w-10 h-10 rounded-lg bg-error-container flex items-center justify-center shrink-0 text-error">
+<span class="material-symbols-outlined">flag</span>
+</div>
+<div>
+<h3 class="font-label-bold text-label-bold text-on-surface">User Report: Counterfeit Goods</h3>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-1">Product "Premium Silk Sarees Bulk" flagged by multiple users.</p>
+<p class="font-caption text-caption text-outline mt-1">5 hours ago • ID: REP-3341</p>
+</div>
+</div>
+<div class="flex items-center space-x-2 shrink-0 self-end md:self-auto">
+<button class="px-4 py-2 bg-surface-container-highest text-on-surface font-label-bold text-label-bold rounded-lg hover:bg-surface-dim transition-colors">Investigate</button>
+</div>
+</li>
+<!-- Task 3 -->
+<li class="p-5 hover:bg-surface-container-low transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex items-start space-x-4">
+<div class="w-10 h-10 rounded-lg bg-surface-variant flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-outline">storefront</span>
+</div>
+<div>
+<h3 class="font-label-bold text-label-bold text-on-surface">Profile Update Approval</h3>
+<p class="font-body-md text-body-md text-on-surface-variant line-clamp-1">"Raj Electronics Wholesale" requested address change.</p>
+<p class="font-caption text-caption text-outline mt-1">Yesterday • ID: PRF-1120</p>
+</div>
+</div>
+<div class="flex items-center space-x-2 shrink-0 self-end md:self-auto">
+<button class="px-4 py-2 bg-[#e0f2f1] text-[#005454] font-label-bold text-label-bold rounded-lg hover:bg-[#b2dfdb] transition-colors">Review</button>
+</div>
+</li>
+</ul>
+<div class="p-4 border-t border-outline-variant bg-[#F2F2EF] text-center">
+<a class="font-label-bold text-label-bold text-primary-container hover:text-primary transition-colors" href="#">View All Tasks</a>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 bg-white dark:bg-zinc-900 flex justify-around items-center px-2 pt-2 pb-safe border-t border-[#E8E8E4] dark:border-zinc-800 rounded-t-xl shadow-[0px_-4px_20px_rgba(17,17,16,0.06)] h-20">
+<a class="flex flex-col items-center justify-center text-[#AEAEA4] dark:text-zinc-500 hover:text-[#0D6E6E] dark:hover:text-teal-300 Active: scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-medium mt-1">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#AEAEA4] dark:text-zinc-500 hover:text-[#0D6E6E] dark:hover:text-teal-300 Active: scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-medium mt-1">Inventory</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#AEAEA4] dark:text-zinc-500 hover:text-[#0D6E6E] dark:hover:text-teal-300 Active: scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">shopping_cart</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-medium mt-1">Orders</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#0D6E6E] dark:text-teal-400 Active: scale-90 duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">admin_panel_settings</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-medium mt-1">Admin</span>
+</a>
+</nav>
+</body></html>

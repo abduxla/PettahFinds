@@ -29,10 +29,27 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   void initState() {
     super.initState();
     _tabCtrl = TabController(length: 2, vsync: this);
+    // Rebuild when the query text changes so the clear button + empty
+    // state reflect the live controller value.
+    _searchCtrl.addListener(_onQueryChanged);
+  }
+
+  void _onQueryChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _resetResults() {
+    _searchCtrl.clear();
+    setState(() {
+      _businesses = [];
+      _products = [];
+      _searched = false;
+    });
   }
 
   @override
   void dispose() {
+    _searchCtrl.removeListener(_onQueryChanged);
     _searchCtrl.dispose();
     _tabCtrl.dispose();
     super.dispose();
@@ -143,12 +160,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                               ),
                             ),
                           ),
-                          if (_searchCtrl.text.isNotEmpty)
+                          if (_searchCtrl.text.isNotEmpty || _searched)
                             GestureDetector(
-                              onTap: () {
-                                _searchCtrl.clear();
-                                setState(() {});
-                              },
+                              onTap: _resetResults,
                               child: Icon(Icons.close_rounded,
                                   color: theme.colorScheme.outline,
                                   size: 20),

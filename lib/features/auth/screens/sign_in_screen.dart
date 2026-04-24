@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/constants/app_constants.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../utils/validators.dart';
 
 class SignInScreen extends ConsumerStatefulWidget {
@@ -69,35 +70,57 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Container(
-                    width: 72,
-                    height: 72,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer,
-                      shape: BoxShape.circle,
+                  // ---- PetaFinds branded logo ----
+                  Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          'PetaFinds',
+                          style: GoogleFonts.nunito(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 28,
+                            color: AppColors.teal,
+                            letterSpacing: -0.8,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 5, left: 2),
+                          child: Container(
+                            width: 7,
+                            height: 7,
+                            decoration: const BoxDecoration(
+                              color: AppColors.orange,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    child: Icon(Icons.storefront_rounded,
-                        size: 36, color: theme.colorScheme.primary),
                   ),
-                  Text(AppConstants.appName,
-                      style: TextStyle(
+                  const SizedBox(height: 32),
+
+                  // ---- Welcome Back heading ----
+                  Text('Welcome Back',
+                      style: GoogleFonts.nunito(
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.8,
-                        color: theme.colorScheme.onSurface,
+                        color: AppColors.text1,
                       ),
                       textAlign: TextAlign.center),
                   const SizedBox(height: 6),
                   Text('Sign in to continue',
-                      style: TextStyle(
+                      style: GoogleFonts.dmSans(
                         fontSize: 14,
-                        color: theme.colorScheme.outline,
+                        color: AppColors.text3,
                         fontWeight: FontWeight.w500,
                       ),
                       textAlign: TextAlign.center),
                   const SizedBox(height: 32),
+
+                  // ---- Form fields ----
                   TextFormField(
                     controller: _emailCtrl,
                     decoration: const InputDecoration(
@@ -155,6 +178,10 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         child: const Text('Sign Up'),
                       ),
                     ],
+                  ),
+                  TextButton(
+                    onPressed: () => context.go('/home'),
+                    child: const Text('Continue browsing as guest'),
                   ),
                 ],
               ),

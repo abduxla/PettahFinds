@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PettahFinds - Home</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@400;600;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-variant": "#e5e2e0",
+                        "error-container": "#ffdad6",
+                        "surface-container-highest": "#e5e2e0",
+                        "on-tertiary-container": "#a9ebea",
+                        "on-secondary-fixed": "#2f1500",
+                        "inverse-on-surface": "#f3f0ee",
+                        "on-primary-fixed": "#002020",
+                        "on-primary-container": "#9dedec",
+                        "primary-fixed-dim": "#84d4d3",
+                        "primary-container": "#0d6e6e",
+                        "on-tertiary-fixed": "#002020",
+                        "on-secondary-container": "#663400",
+                        "inverse-surface": "#31302f",
+                        "secondary": "#914c00",
+                        "primary": "#005454",
+                        "secondary-container": "#fe932d",
+                        "on-primary": "#ffffff",
+                        "on-surface": "#1c1c1a",
+                        "tertiary-fixed": "#aceeee",
+                        "tertiary-fixed-dim": "#91d2d1",
+                        "tertiary-container": "#286c6c",
+                        "primary-fixed": "#a0f0f0",
+                        "on-tertiary-fixed-variant": "#004f50",
+                        "on-secondary": "#ffffff",
+                        "secondary-fixed": "#ffdcc3",
+                        "surface-container-lowest": "#ffffff",
+                        "background": "#fcf9f6",
+                        "secondary-fixed-dim": "#ffb77e",
+                        "inverse-primary": "#84d4d3",
+                        "surface": "#fcf9f6",
+                        "outline": "#6e7979",
+                        "surface-container-high": "#ebe7e5",
+                        "on-secondary-fixed-variant": "#6e3900",
+                        "on-error-container": "#93000a",
+                        "on-background": "#1c1c1a",
+                        "error": "#ba1a1a",
+                        "surface-container-low": "#f6f3f1",
+                        "on-tertiary": "#ffffff",
+                        "surface-tint": "#016a6a",
+                        "surface-container": "#f0edeb",
+                        "tertiary": "#005454",
+                        "outline-variant": "#bec9c8",
+                        "on-surface-variant": "#3e4948",
+                        "on-error": "#ffffff",
+                        "surface-dim": "#dcd9d7",
+                        "on-primary-fixed-variant": "#004f50",
+                        "surface-bright": "#fcf9f6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "lg": "24px",
+                        "gutter": "12px",
+                        "xs": "4px",
+                        "unit": "4px",
+                        "xl": "40px",
+                        "sm": "8px",
+                        "md": "16px",
+                        "container-padding": "16px"
+                    },
+                    "fontFamily": {
+                        "label-bold": ["Be Vietnam Pro"],
+                        "label-sm": ["Be Vietnam Pro"],
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "body-lg": ["Be Vietnam Pro"],
+                        "price-xl": ["Plus Jakarta Sans"],
+                        "display-md": ["Plus Jakarta Sans"],
+                        "caption": ["Be Vietnam Pro"],
+                        "body-md": ["Be Vietnam Pro"]
+                    },
+                    "fontSize": {
+                        "label-bold": ["14px", { "lineHeight": "1.4", "letterSpacing": "0.02em", "fontWeight": "600" }],
+                        "label-sm": ["12px", { "lineHeight": "1.4", "fontWeight": "500" }],
+                        "display-lg": ["32px", { "lineHeight": "1.2", "fontWeight": "800" }],
+                        "body-lg": ["18px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "price-xl": ["20px", { "lineHeight": "1.4", "fontWeight": "800" }],
+                        "display-md": ["24px", { "lineHeight": "1.2", "fontWeight": "800" }],
+                        "caption": ["11px", { "lineHeight": "1.3", "fontWeight": "400" }],
+                        "body-md": ["16px", { "lineHeight": "1.5", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen pb-24 md:pb-0 pt-16 md:pt-20">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-container-padding h-16 bg-[#FAFAF8] dark:bg-zinc-950 border-b border-[#E8E8E4] dark:border-zinc-800 shadow-none md:hidden">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#0D6E6E] dark:text-teal-500 hover:bg-[#F2F2EF] dark:hover:bg-zinc-900 transition-colors p-1 rounded-full cursor-pointer">storefront</span>
+<h1 class="font-display-md text-display-md font-black text-[#0D6E6E] after:content-['.'] after:text-orange-500 tracking-tight">PettahFinds</h1>
+</div>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#0D6E6E] dark:text-teal-500 hover:bg-[#F2F2EF] dark:hover:bg-zinc-900 transition-colors p-1 rounded-full cursor-pointer">favorite</span>
+<span class="material-symbols-outlined text-[#0D6E6E] dark:text-teal-500 hover:bg-[#F2F2EF] dark:hover:bg-zinc-900 transition-colors p-1 rounded-full cursor-pointer">notifications</span>
+</div>
+</header>
+<!-- Web Header -->
+<header class="hidden md:flex fixed top-0 left-0 w-full z-50 bg-[#0D6E6E] text-white h-20 items-center justify-between px-xl shadow-md">
+<div class="flex items-center gap-xl">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-white p-1 rounded-full">storefront</span>
+<h1 class="font-display-lg text-display-lg font-black text-white after:content-['.'] after:text-secondary-container tracking-tight">PettahFinds</h1>
+</div>
+<!-- Search field integrated in web header -->
+<div class="relative w-96">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-surface-variant">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-white/10 border-none rounded-lg text-white placeholder:text-surface-variant focus:ring-2 focus:ring-secondary-container focus:outline-none font-body-md text-body-md" placeholder="Search bulk items, shops..." type="text"/>
+</div>
+</div>
+<nav class="flex items-center gap-md">
+<a class="flex flex-col items-center justify-center text-secondary-container font-label-bold text-label-bold p-2" href="#">
+<span class="material-symbols-outlined">home</span>
+<span>Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-surface-variant hover:text-white transition-colors font-label-sm text-label-sm p-2" href="#">
+<span class="material-symbols-outlined">map</span>
+<span>Map</span>
+</a>
+<a class="flex flex-col items-center justify-center text-surface-variant hover:text-white transition-colors font-label-sm text-label-sm p-2" href="#">
+<span class="material-symbols-outlined">favorite</span>
+<span>Saved</span>
+</a>
+<a class="flex flex-col items-center justify-center text-surface-variant hover:text-white transition-colors font-label-sm text-label-sm p-2" href="#">
+<span class="material-symbols-outlined">person</span>
+<span>Profile</span>
+</a>
+</nav>
+</header>
+<main class="max-w-7xl mx-auto px-container-padding md:px-xl py-md">
+<!-- Mobile Search -->
+<div class="md:hidden relative mb-lg">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline">search</span>
+</div>
+<input class="block w-full pl-10 pr-3 py-3 border border-outline-variant rounded-lg leading-5 bg-surface-container-lowest text-on-surface placeholder-on-surface-variant focus:outline-none focus:ring-1 focus:ring-primary-container focus:border-primary-container font-body-md text-body-md shadow-sm" placeholder="Search wholesale items..." type="text"/>
+<div class="absolute inset-y-0 right-0 pr-3 flex items-center">
+<span class="material-symbols-outlined text-outline cursor-pointer hover:text-primary-container">tune</span>
+</div>
+</div>
+<!-- Featured Carousel (Bento-ish on Web, Scroll on Mobile) -->
+<section class="mb-xl">
+<div class="flex overflow-x-auto gap-md no-scrollbar pb-sm snap-x md:grid md:grid-cols-3 md:overflow-visible">
+<!-- Slide 1 -->
+<div class="relative min-w-[85vw] md:min-w-0 h-64 md:h-80 rounded-xl overflow-hidden snap-center flex-shrink-0 group">
+<img alt="vibrant mounds of colorful spices in burlap sacks at a bustling wholesale market, warm cinematic lighting" class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" data-alt="vibrant mounds of colorful spices in burlap sacks at a bustling wholesale market, warm cinematic lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDbNwHqky2BCFcuXNU6swUalaWWPAjywr2WcOLhv4xGmYebqFqhaAcnVbhXdHCsVtP8sgbCAh9SPu-mBxdkrsx6gmnGWwqK_rPflM2nH20C9OM2P9n5_R2IhDjh6XSYMeVBxokvNqqN5FnkrGIEZxGoZYmiaeNO2xEsu31RZIP-5LsITpImn2fBtJRv2nrA8PVH5ooEl9msGzh2f2T-LDPO0jY5FJcLkwuQC6t-KHEa9Tp6htHi609DQuTXNve103hSXKD0pVxlLE0"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+<div class="absolute bottom-0 left-0 p-md w-full">
+<span class="inline-block bg-secondary-container text-on-secondary-container font-label-sm text-label-sm px-2 py-1 rounded mb-2">Wholesale Offer</span>
+<h2 class="font-display-md text-display-md text-white mb-1">Premium Ceylon Spices</h2>
+<p class="font-body-md text-body-md text-surface-variant mb-3">Bulk rates starting from 50kg</p>
+<button class="bg-white text-primary-container font-label-bold text-label-bold px-4 py-2 rounded-lg hover:bg-surface-container transition-colors">View Suppliers</button>
+</div>
+</div>
+<!-- Slide 2 -->
+<div class="relative min-w-[85vw] md:min-w-0 h-64 md:h-80 rounded-xl overflow-hidden snap-center flex-shrink-0 group hidden md:block">
+<img alt="rolls of vibrant patterned textiles stacked high in a fabric wholesale shop, soft natural light" class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" data-alt="rolls of vibrant patterned textiles stacked high in a fabric wholesale shop, soft natural light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBqdpD39e08_JARlw49t_maBWuJtIliZXelo-rHmhPVecaTXCgOpXSgJohw-et6oGml49P9XV_scHb2WlVWw6mx7QFhQj16q5CFG7fEVc6_jO0ELoeFTJ5hq2oTFAUQcDBgejQvzzU_6HHeV7RL52bd2fswecDoLreVTLMfCNN_ga0RE9AIBUyWhOz_QD-S0axUsn25EXcnGoGPX8F_KOrWD-zooaP0wgnYFD9YW24GmSO0qbSMNWNuvxOXzLQ3hM1zGb4l55jFwx4"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+<div class="absolute bottom-0 left-0 p-md w-full">
+<span class="inline-block bg-primary-container text-white font-label-sm text-label-sm px-2 py-1 rounded mb-2">New Arrivals</span>
+<h2 class="font-display-md text-display-md text-white mb-1">Textile District Hub</h2>
+<p class="font-body-md text-body-md text-surface-variant mb-3">Direct from weavers</p>
+</div>
+</div>
+<!-- Slide 3 -->
+<div class="relative min-w-[85vw] md:min-w-0 h-64 md:h-80 rounded-xl overflow-hidden snap-center flex-shrink-0 group hidden md:block">
+<img alt="glittering gold jewelry displayed on dark velvet, close up, luxurious lighting" class="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" data-alt="glittering gold jewelry displayed on dark velvet, close up, luxurious lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCU7VUpNfWLcz_j5G61SmIVBTd_Oh05O8jHmFH_lSk1h45fJXq_i_xZUf09PMS4RO60gkfAlPrUbnKemhkv4YBHFOEfXFWjAhfmilBT0HW4c6QN0ClpeGBS-vfqZ9ZDDv5MgdWpjBvDTAjnE-Ks0LkzYulg5OFLKjeZb80KFxY54vygRngEofLZ7zNhQFsUOktnGeOwoenDvV934qEAYcg9aduJL91J_4jCag4w6V3GMbkcSPcqSGncoWG6cF-jtfdCPlwFrxBBgss"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+<div class="absolute bottom-0 left-0 p-md w-full">
+<span class="inline-block bg-surface-variant text-on-surface-variant font-label-sm text-label-sm px-2 py-1 rounded mb-2">Sea Street</span>
+<h2 class="font-display-md text-display-md text-white mb-1">Gold Market Rates</h2>
+<p class="font-body-md text-body-md text-surface-variant mb-3">Daily updated pricing</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Categories -->
+<section class="mb-xl">
+<h3 class="font-label-bold text-label-bold text-on-surface mb-md">Browse by Category</h3>
+<div class="flex overflow-x-auto gap-3 no-scrollbar pb-2">
+<button class="flex-shrink-0 bg-surface-container-high hover:bg-surface-dim transition-colors text-on-surface font-label-sm text-label-sm px-4 py-2 rounded-full border border-outline-variant whitespace-nowrap">Electronics</button>
+<button class="flex-shrink-0 bg-surface-container-high hover:bg-surface-dim transition-colors text-on-surface font-label-sm text-label-sm px-4 py-2 rounded-full border border-outline-variant whitespace-nowrap">Fashion &amp; Textiles</button>
+<button class="flex-shrink-0 bg-surface-container-high hover:bg-surface-dim transition-colors text-on-surface font-label-sm text-label-sm px-4 py-2 rounded-full border border-outline-variant whitespace-nowrap">Grocery &amp; Spices</button>
+<button class="flex-shrink-0 bg-surface-container-high hover:bg-surface-dim transition-colors text-on-surface font-label-sm text-label-sm px-4 py-2 rounded-full border border-outline-variant whitespace-nowrap">Jewellery</button>
+<button class="flex-shrink-0 bg-surface-container-high hover:bg-surface-dim transition-colors text-on-surface font-label-sm text-label-sm px-4 py-2 rounded-full border border-outline-variant whitespace-nowrap">Hardware</button>
+</div>
+</section>
+<!-- Recently Viewed / Trending Products Grid -->
+<section class="mb-xl">
+<div class="flex justify-between items-end mb-md">
+<h3 class="font-display-md text-display-md text-on-surface">Trending Bulk Items</h3>
+<a class="font-label-sm text-label-sm text-primary-container hover:underline" href="#">View All</a>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-gutter">
+<!-- Product Card 1 -->
+<div class="bg-surface-container-lowest rounded-lg border border-outline-variant overflow-hidden flex flex-col group cursor-pointer shadow-sm hover:shadow-md transition-shadow">
+<div class="relative h-40 md:h-48 overflow-hidden bg-surface-container">
+<img alt="bulk cardboard boxes of electronics stacked on wooden pallets in a warehouse, bright lighting" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="bulk cardboard boxes of electronics stacked on wooden pallets in a warehouse, bright lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAvQ2tUEd9dfn2ZZEv97eKWU0TqVEWt4Bzg0ZtQ7j3U61-a2hhJJ9fXuXHtCwUcdThl2Chz97yeOiy07ggYVUXKJAJKi5uXCyrRw9Y7tRpUnNmz-40bhksfLq97uzHVtWBS8rKp1-NHh5MK7okkR__BZEdQjKHDqglBjBe6KKw4Z9NgYNIXh-b6lZpqzINJo27QtPiWuUMq-SMdrcRO9yxawNpt0eKA8JSopdeSr_zMTq5vstxjaH0Gytp2dzsudcrb2zWaifmetxM"/>
+<button class="absolute top-2 right-2 p-1.5 bg-white/80 backdrop-blur rounded-full text-on-surface hover:text-error transition-colors">
+<span class="material-symbols-outlined text-[20px]">favorite_border</span>
+</button>
+</div>
+<div class="p-3 flex flex-col flex-grow">
+<div class="flex justify-between items-start mb-1">
+<span class="bg-surface-container-high text-on-surface-variant font-caption text-caption px-1.5 py-0.5 rounded text-[10px]">1st Cross St</span>
+</div>
+<h4 class="font-body-md text-body-md text-on-surface line-clamp-2 leading-tight mb-2">Imported Mobile Accessories Bundle (100 pcs)</h4>
+<div class="mt-auto">
+<span class="font-price-xl text-price-xl text-primary">LKR 45,000</span>
+<span class="font-caption text-caption text-outline block">Min. order: 5 bundles</span>
+</div>
+</div>
+</div>
+<!-- Product Card 2 -->
+<div class="bg-surface-container-lowest rounded-lg border border-outline-variant overflow-hidden flex flex-col group cursor-pointer shadow-sm hover:shadow-md transition-shadow">
+<div class="relative h-40 md:h-48 overflow-hidden bg-surface-container">
+<img alt="large woven bags filled with red dried chilies at a wholesale market, daylight" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="large woven bags filled with red dried chilies at a wholesale market, daylight" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC4uGYYri31fjXKneSkRVZt0kwTKB3IJggE2JJ28klmjHxenrbcllM4cEG2zVam7LZ6-yCVUXWVH_HBonTqknJdIdDOMeE95hdysbn1VFSKjcI9_gTZIK_ugfk-dq8e8BarD02dlgTetHa78NkCemVd0oOu-8NSWCDkILOxGr4rveFyydvGPDsEG4w4UbV_Np5Ww_UkB2XDkk8p_CuRtREs7EiCC_dt4H7Y78i8_sIbxBNMTkveOldfWo8yrw0pJV6M9I4v4_rDGU4"/>
+<button class="absolute top-2 right-2 p-1.5 bg-white/80 backdrop-blur rounded-full text-on-surface hover:text-error transition-colors">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">favorite</span>
+</button>
+</div>
+<div class="p-3 flex flex-col flex-grow">
+<div class="flex justify-between items-start mb-1">
+<span class="bg-surface-container-high text-on-surface-variant font-caption text-caption px-1.5 py-0.5 rounded text-[10px]">4th Cross St</span>
+</div>
+<h4 class="font-body-md text-body-md text-on-surface line-clamp-2 leading-tight mb-2">Grade A Dried Red Chilies (Wholesale Sack)</h4>
+<div class="mt-auto">
+<span class="font-price-xl text-price-xl text-primary">LKR 12,500</span>
+<span class="font-caption text-caption text-outline block">Per 50kg Sack</span>
+</div>
+</div>
+</div>
+<!-- Product Card 3 -->
+<div class="bg-surface-container-lowest rounded-lg border border-outline-variant overflow-hidden flex flex-col group cursor-pointer shadow-sm hover:shadow-md transition-shadow">
+<div class="relative h-40 md:h-48 overflow-hidden bg-surface-container">
+<img alt="neatly folded stacks of cotton shirting fabric in various pastel colors, close up" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="neatly folded stacks of cotton shirting fabric in various pastel colors, close up" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCtiwmwp1sprsMG_Jh8UY7ofWT-hhy4neN6T_e47WlYWaYlMjxwGkhXUFSjT1ZqqlbuOauGXdyQ4m_o0OWrccr7D823kZ4nC3a_XFWYRfRvfrhyESMyI2Gs87CFEh9dVScWbjdZZSK9pAqQS006zQsO630rE4IdpTykIrqOKSXACPz4go9_aHJ70cgCtmCl9kQZKmoMz7BDExebujZdAI9YeBd6Jid1vzh9coNEEDij_sejbF8unLdJV4OwA04WVX6NV5jyMNNqc_M"/>
+<button class="absolute top-2 right-2 p-1.5 bg-white/80 backdrop-blur rounded-full text-on-surface hover:text-error transition-colors">
+<span class="material-symbols-outlined text-[20px]">favorite_border</span>
+</button>
+</div>
+<div class="p-3 flex flex-col flex-grow">
+<div class="flex justify-between items-start mb-1">
+<span class="bg-surface-container-high text-on-surface-variant font-caption text-caption px-1.5 py-0.5 rounded text-[10px]">Main St</span>
+</div>
+<h4 class="font-body-md text-body-md text-on-surface line-clamp-2 leading-tight mb-2">Premium Cotton Shirting Fabric Roll</h4>
+<div class="mt-auto">
+<span class="font-price-xl text-price-xl text-primary">LKR 850</span>
+<span class="font-caption text-caption text-outline block">Per Meter (Min 100m)</span>
+</div>
+</div>
+</div>
+<!-- Product Card 4 -->
+<div class="bg-surface-container-lowest rounded-lg border border-outline-variant overflow-hidden flex flex-col group cursor-pointer shadow-sm hover:shadow-md transition-shadow">
+<div class="relative h-40 md:h-48 overflow-hidden bg-surface-container">
+<img alt="assortment of brass hardware fittings and hinges laid out on a dark table, sharp focus" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="assortment of brass hardware fittings and hinges laid out on a dark table, sharp focus" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCT6fWlQ1uWf3BbGv2q7_iJPa_6nWTKBblw8Dy-8hUbQQauIupKmEgJwdqTVe_6Lyo3Ml55P_c-MJ_kQ6JZBlU2F-MY667I7BOwYjl3-m8wtMMxIWgdk35_QLkcNnWkdrgzoPTKC-T2uheSK-JZPpldFdPA7iCAyTvDqunBSm9vwn9PAiVMAkflo794DWE77kPUSF2CbhT9jCEWPhQc_9OX8D1l644xRJjjnIIGGFmVGRfClWBCUfAW3Z-luZJcrZf9WOD4QVsoOQI"/>
+<button class="absolute top-2 right-2 p-1.5 bg-white/80 backdrop-blur rounded-full text-on-surface hover:text-error transition-colors">
+<span class="material-symbols-outlined text-[20px]">favorite_border</span>
+</button>
+</div>
+<div class="p-3 flex flex-col flex-grow">
+<div class="flex justify-between items-start mb-1">
+<span class="bg-surface-container-high text-on-surface-variant font-caption text-caption px-1.5 py-0.5 rounded text-[10px]">3rd Cross St</span>
+</div>
+<h4 class="font-body-md text-body-md text-on-surface line-clamp-2 leading-tight mb-2">Solid Brass Door Hinges Heavy Duty</h4>
+<div class="mt-auto">
+<span class="font-price-xl text-price-xl text-primary">LKR 4,200</span>
+<span class="font-caption text-caption text-outline block">Per Dozen</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 bg-white dark:bg-zinc-900 border-t border-[#E8E8E4] dark:border-zinc-800 rounded-t-xl shadow-[0px_-4px_20px_rgba(17,17,16,0.06)] flex justify-around items-center px-2 pt-2 pb-safe pb-4 h-20">
+<a class="flex flex-col items-center justify-center text-[#0D6E6E] dark:text-teal-400 font-['Plus_Jakarta_Sans'] text-[10px] font-medium w-16" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">home</span>
+<span>Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#AEAEA4] dark:text-zinc-500 hover:text-[#0D6E6E] dark:hover:text-teal-300 font-['Plus_Jakarta_Sans'] text-[10px] font-medium w-16 transition-colors" href="#">
+<span class="material-symbols-outlined mb-1">search</span>
+<span>Search</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-gradient-to-br from-teal-600 to-teal-800 text-white -mt-8 rounded-full w-14 h-14 shadow-lg shadow-teal-900/20 font-['Plus_Jakarta_Sans'] text-[10px] font-medium transition-transform active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">map</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#AEAEA4] dark:text-zinc-500 hover:text-[#0D6E6E] dark:hover:text-teal-300 font-['Plus_Jakarta_Sans'] text-[10px] font-medium w-16 transition-colors" href="#">
+<span class="material-symbols-outlined mb-1">favorite</span>
+<span>Saved</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#AEAEA4] dark:text-zinc-500 hover:text-[#0D6E6E] dark:hover:text-teal-300 font-['Plus_Jakarta_Sans'] text-[10px] font-medium w-16 transition-colors" href="#">
+<span class="material-symbols-outlined mb-1">person</span>
+<span>Profile</span>
+</a>
+</nav>
+</body></html>

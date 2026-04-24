@@ -57,10 +57,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       // While auth is still initializing, don't redirect — stay put
       if (isAuthLoading) return null;
 
-      // Not logged in → sign in (unless already on auth pages)
       final authPaths = ['/sign-in', '/sign-up', '/forgot-password', '/onboarding'];
+
+      // Guests can browse the customer shell freely. Only business/admin
+      // areas require an account — those surfaces that do require a user
+      // (favorites, profile, notifications) render their own sign-in
+      // prompt rather than being hard-redirected here.
       if (!isLoggedIn) {
-        return authPaths.contains(currentPath) ? null : '/sign-in';
+        final needsAuth = currentPath.startsWith('/business') ||
+            currentPath.startsWith('/business-profile') ||
+            currentPath.startsWith('/business-settings') ||
+            currentPath.startsWith('/admin');
+        if (needsAuth) return '/sign-in';
+        return null;
       }
 
       // Logged in. We need the AppUser to enforce role-based access.

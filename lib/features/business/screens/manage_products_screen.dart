@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/providers.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../models/business.dart';
 import '../../../models/product.dart';
 import '../../../widgets/cached_image.dart';
@@ -36,14 +38,16 @@ class ManageProductsScreen extends ConsumerWidget {
             ref.watch(businessProductsProvider(business.id));
 
         return Scaffold(
+          backgroundColor: AppColors.bgSection,
           appBar: AppBar(
-            title: const Text('Manage Products'),
-            titleTextStyle: TextStyle(
-              color: theme.colorScheme.onSurface,
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-            ),
+            backgroundColor: AppColors.bgSection,
+            title: Text('Manage Products',
+                style: GoogleFonts.nunito(
+                  color: AppColors.text1,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                )),
           ),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () => context.go('/business/products/add'),
@@ -113,7 +117,7 @@ class _ProductTileState extends State<_ProductTile> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
@@ -146,16 +150,16 @@ class _ProductTileState extends State<_ProductTile> {
             children: [
               Text(
                 'LKR ${p.priceLkr.toStringAsFixed(0)}',
-                style: TextStyle(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w700,
+                style: GoogleFonts.nunito(
+                  color: AppColors.teal,
+                  fontWeight: FontWeight.w800,
                   fontSize: 13,
                 ),
               ),
               Text(
                 ' • ${p.category}',
-                style: TextStyle(
-                  color: theme.colorScheme.outline,
+                style: GoogleFonts.dmSans(
+                  color: AppColors.text3,
                   fontSize: 12,
                 ),
               ),
@@ -165,18 +169,18 @@ class _ProductTileState extends State<_ProductTile> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: p.isActive
-                      ? const Color(0xFFDCFCE7)
-                      : const Color(0xFFFEE2E2),
+                      ? AppColors.tealLight
+                      : AppColors.red.withAlpha(25),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   p.isActive ? 'Active' : 'Inactive',
-                  style: TextStyle(
+                  style: GoogleFonts.dmSans(
                     fontSize: 10,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                     color: p.isActive
-                        ? const Color(0xFF16A34A)
-                        : const Color(0xFFDC2626),
+                        ? AppColors.teal
+                        : AppColors.red,
                   ),
                 ),
               ),
@@ -189,8 +193,8 @@ class _ProductTileState extends State<_ProductTile> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : PopupMenuButton(
-                  icon: Icon(Icons.more_vert_rounded,
-                      color: theme.colorScheme.outline),
+                  icon: const Icon(Icons.more_vert_rounded,
+                      color: AppColors.text4),
                   itemBuilder: (_) => [
                     const PopupMenuItem(
                         value: 'edit',

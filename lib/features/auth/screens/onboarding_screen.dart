@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../../../core/theme/app_colors.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -14,22 +16,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   static const _pages = [
     _OnboardingPage(
-      icon: Icons.storefront_rounded,
-      title: 'Discover Local Businesses',
+      heroEmoji: '🏪',
+      heroSubEmojis: ['🧵', '💎', '🌶️'],
+      title: "Discover Colombo's\nWholesale Hub",
       description:
-          'Find the best shops, restaurants, and services in your area.',
+          'Connect directly with business owners and find the best deals in Pettah, all in one place.',
     ),
     _OnboardingPage(
-      icon: Icons.shopping_bag_rounded,
-      title: 'Browse Products & Deals',
+      heroEmoji: '🗺️',
+      heroSubEmojis: ['📍', '🔍', '⭐'],
+      title: 'Navigate Streets\n& Find Shops',
       description:
-          'Compare prices, check stock, and never miss a great deal.',
+          'Explore Pettah street by street with our interactive map. Never miss a hidden gem again.',
     ),
     _OnboardingPage(
-      icon: Icons.star_rounded,
-      title: 'Rate & Review',
+      heroEmoji: '🛍️',
+      heroSubEmojis: ['💰', '📦', '🏷️'],
+      title: 'Compare Prices\n& Save More',
       description:
-          'Share your experiences and help others discover quality businesses.',
+          'Browse wholesale products, compare prices across shops, and get the best bulk deals.',
     ),
   ];
 
@@ -39,10 +44,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.dispose();
   }
 
+  void _nextPage() {
+    if (_currentPage < _pages.length - 1) {
+      _controller.nextPage(
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+      );
+    } else {
+      context.go('/sign-up');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
+      backgroundColor: AppColors.bgSection,
       body: SafeArea(
         child: Column(
           children: [
@@ -53,46 +69,151 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 onPageChanged: (i) => setState(() => _currentPage = i),
                 itemBuilder: (_, i) {
                   final page = _pages[i];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 40),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 120,
-                          height: 120,
+                  return Column(
+                    children: [
+                      // ---- Hero illustration area ----
+                      Expanded(
+                        flex: 5,
+                        child: Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.primaryContainer,
-                            shape: BoxShape.circle,
+                            borderRadius: BorderRadius.circular(24),
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Color(0xFF0A5858),
+                                AppColors.teal,
+                                Color(0xFF1A8A8A),
+                              ],
+                            ),
                           ),
-                          child: Icon(page.icon,
-                              size: 56, color: theme.colorScheme.primary),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              // Decorative circles
+                              Positioned(
+                                top: -30,
+                                right: -20,
+                                child: Container(
+                                  width: 140,
+                                  height: 140,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white
+                                        .withValues(alpha: 0.06),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                bottom: -50,
+                                left: -30,
+                                child: Container(
+                                  width: 160,
+                                  height: 160,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white
+                                        .withValues(alpha: 0.04),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                              // Decorative sub-emojis
+                              Positioned(
+                                top: 30,
+                                left: 30,
+                                child: Text(page.heroSubEmojis[0],
+                                    style: const TextStyle(fontSize: 28)),
+                              ),
+                              Positioned(
+                                top: 40,
+                                right: 35,
+                                child: Text(page.heroSubEmojis[1],
+                                    style: const TextStyle(fontSize: 24)),
+                              ),
+                              Positioned(
+                                bottom: 35,
+                                right: 50,
+                                child: Text(page.heroSubEmojis[2],
+                                    style: const TextStyle(fontSize: 26)),
+                              ),
+                              // Central big emoji
+                              Text(
+                                page.heroEmoji,
+                                style: const TextStyle(fontSize: 80),
+                              ),
+                              // Brand banner
+                              Positioned(
+                                top: 16,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black
+                                        .withValues(alpha: 0.25),
+                                    borderRadius:
+                                        BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    'PETTAHFINDS',
+                                    style: GoogleFonts.nunito(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white
+                                          .withValues(alpha: 0.8),
+                                      letterSpacing: 2.5,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 40),
-                        Text(page.title,
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.8,
-                              color: theme.colorScheme.onSurface,
-                            ),
-                            textAlign: TextAlign.center),
-                        const SizedBox(height: 14),
-                        Text(page.description,
-                            style: TextStyle(
-                              fontSize: 15,
-                              height: 1.5,
-                              color: theme.colorScheme.outline,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            textAlign: TextAlign.center),
-                      ],
-                    ),
+                      ),
+
+                      // ---- Text content area ----
+                      Expanded(
+                        flex: 4,
+                        child: Padding(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 32),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                page.title,
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.nunito(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppColors.text1,
+                                  letterSpacing: -0.8,
+                                  height: 1.2,
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              Text(
+                                page.description,
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.dmSans(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w400,
+                                  color: AppColors.text3,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   );
                 },
               ),
             ),
-            // Dots
+
+            // ---- Dots ----
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
@@ -104,32 +225,45 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   height: 8,
                   decoration: BoxDecoration(
                     color: _currentPage == i
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.outline.withAlpha(60),
+                        ? AppColors.teal
+                        : AppColors.border,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 36),
+
+            const SizedBox(height: 28),
+
+            // ---- Next / Get Started button ----
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  FilledButton(
-                    onPressed: () => context.go('/sign-up'),
-                    child: const Text('Get Started'),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton(
-                    onPressed: () => context.go('/sign-in'),
-                    child: const Text('I already have an account'),
-                  ),
-                ],
+              child: FilledButton(
+                onPressed: _nextPage,
+                child: Text(
+                  _currentPage == _pages.length - 1
+                      ? 'Get Started'
+                      : 'Next',
+                ),
               ),
             ),
-            const SizedBox(height: 36),
+
+            const SizedBox(height: 10),
+
+            // ---- Skip link ----
+            TextButton(
+              onPressed: () => context.go('/sign-in'),
+              child: Text(
+                'Skip',
+                style: GoogleFonts.dmSans(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.text3,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
           ],
         ),
       ),
@@ -138,9 +272,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 }
 
 class _OnboardingPage {
-  final IconData icon;
+  final String heroEmoji;
+  final List<String> heroSubEmojis;
   final String title;
   final String description;
-  const _OnboardingPage(
-      {required this.icon, required this.title, required this.description});
+  const _OnboardingPage({
+    required this.heroEmoji,
+    required this.heroSubEmojis,
+    required this.title,
+    required this.description,
+  });
 }

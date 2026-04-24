@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PettahFinds - Map</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Be+Vietnam+Pro:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary-container": "#9dedec",
+                        "surface-container": "#f0edeb",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed-dim": "#ffb77e",
+                        "on-error-container": "#93000a",
+                        "surface-container-high": "#ebe7e5",
+                        "surface-variant": "#e5e2e0",
+                        "tertiary-fixed-dim": "#91d2d1",
+                        "primary-container": "#0d6e6e",
+                        "secondary-container": "#fe932d",
+                        "surface-dim": "#dcd9d7",
+                        "tertiary-fixed": "#aceeee",
+                        "background": "#fcf9f6",
+                        "inverse-on-surface": "#f3f0ee",
+                        "on-secondary-fixed": "#2f1500",
+                        "on-tertiary-container": "#a9ebea",
+                        "on-secondary-fixed-variant": "#6e3900",
+                        "surface-container-highest": "#e5e2e0",
+                        "surface-tint": "#016a6a",
+                        "on-primary-fixed-variant": "#004f50",
+                        "surface": "#fcf9f6",
+                        "primary-fixed-dim": "#84d4d3",
+                        "on-secondary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "on-primary-fixed": "#002020",
+                        "surface-container-low": "#f6f3f1",
+                        "inverse-surface": "#31302f",
+                        "outline-variant": "#bec9c8",
+                        "tertiary": "#005454",
+                        "on-tertiary-fixed-variant": "#004f50",
+                        "secondary-fixed": "#ffdcc3",
+                        "tertiary-container": "#286c6c",
+                        "on-background": "#1c1c1a",
+                        "surface-container-lowest": "#ffffff",
+                        "on-error": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "secondary": "#914c00",
+                        "on-surface": "#1c1c1a",
+                        "error": "#ba1a1a",
+                        "outline": "#6e7979",
+                        "surface-bright": "#fcf9f6",
+                        "on-secondary-container": "#663400",
+                        "primary": "#005454",
+                        "on-surface-variant": "#3e4948",
+                        "primary-fixed": "#a0f0f0",
+                        "on-tertiary-fixed": "#002020",
+                        "inverse-primary": "#84d4d3"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "8px",
+                        "lg": "24px",
+                        "gutter": "12px",
+                        "xs": "4px",
+                        "md": "16px",
+                        "unit": "4px",
+                        "xl": "40px",
+                        "container-padding": "16px"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "price-xl": ["Plus Jakarta Sans"],
+                        "caption": ["Be Vietnam Pro"],
+                        "label-bold": ["Be Vietnam Pro"],
+                        "body-lg": ["Be Vietnam Pro"],
+                        "display-md": ["Plus Jakarta Sans"],
+                        "body-md": ["Be Vietnam Pro"],
+                        "label-sm": ["Be Vietnam Pro"]
+                    },
+                    "fontSize": {
+                        "display-lg": ["32px", { "lineHeight": "1.2", "fontWeight": "800" }],
+                        "price-xl": ["20px", { "lineHeight": "1.4", "fontWeight": "800" }],
+                        "caption": ["11px", { "lineHeight": "1.3", "fontWeight": "400" }],
+                        "label-bold": ["14px", { "lineHeight": "1.4", "letterSpacing": "0.02em", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "display-md": ["24px", { "lineHeight": "1.2", "fontWeight": "800" }],
+                        "body-md": ["16px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "1.4", "fontWeight": "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background antialiased h-screen w-full overflow-hidden relative">
+<!-- Map Background -->
+<div class="absolute inset-0 z-0">
+<img class="w-full h-full object-cover opacity-80" data-alt="Top down aerial satellite view of a dense urban city block with intricate street layouts and building rooftops in soft daylight" data-location="Pettah, Colombo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCygmuaTUvtGr7jkoXtwookZGU8ffGNUGkiS3PsvyHl-ZjoDmVP3B4piw6DK7QOogxa1ykF8HOoGY27qs2K7G5WTLY8U6v_y_0nXkod5XMFuslRA4BG6MKDMoCdMTRVfeTaT9XTVdBUZukUUo3QfLev3Huq2Y6F8ka6d_S-6rdtwf9Aj5QxSvefy4t4XSycdQdeTqE2aqoa0taN1qX0pPjxHim8-zE0msJPAXWsvS8Fn6Uj9IAqJdNqvnvnbJF_o5S-H_2PJV7LS1U"/>
+<div class="absolute inset-0 bg-surface/20 mix-blend-overlay"></div>
+</div>
+<!-- Top Floating Controls -->
+<div class="absolute top-0 left-0 w-full z-10 p-md pt-lg flex flex-col gap-sm">
+<!-- Search Input -->
+<div class="bg-surface-container-lowest rounded-lg shadow-[0px_4px_20px_rgba(17,17,16,0.06)] flex items-center px-md py-sm h-12 w-full border border-surface-variant/50">
+<span class="material-symbols-outlined text-outline mr-sm">search</span>
+<input class="w-full bg-transparent border-none focus:ring-0 text-body-md font-body-md text-on-surface placeholder:text-outline p-0" placeholder="Search Pettah..." type="text"/>
+<div class="w-[1px] h-6 bg-surface-variant mx-sm"></div>
+<button class="flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">tune</span>
+</button>
+</div>
+<!-- Location Chips (Scrollable) -->
+<div class="flex gap-sm overflow-x-auto no-scrollbar pb-xs">
+<button class="h-[32px] rounded-full bg-primary text-on-primary px-4 flex items-center justify-center font-label-sm text-label-sm whitespace-nowrap shadow-sm">
+                Main Street
+            </button>
+<button class="h-[32px] rounded-full bg-surface-container text-on-surface-variant px-4 flex items-center justify-center font-label-sm text-label-sm whitespace-nowrap border border-outline-variant/30">
+                Keyzer Street
+            </button>
+<button class="h-[32px] rounded-full bg-surface-container text-on-surface-variant px-4 flex items-center justify-center font-label-sm text-label-sm whitespace-nowrap border border-outline-variant/30">
+                Textiles
+            </button>
+<button class="h-[32px] rounded-full bg-surface-container text-on-surface-variant px-4 flex items-center justify-center font-label-sm text-label-sm whitespace-nowrap border border-outline-variant/30">
+                Electronics
+            </button>
+<button class="h-[32px] rounded-full bg-surface-container text-on-surface-variant px-4 flex items-center justify-center font-label-sm text-label-sm whitespace-nowrap border border-outline-variant/30">
+                Spices
+            </button>
+</div>
+</div>
+<!-- Map Pins -->
+<!-- Pin 1: Tapped / Active State -->
+<div class="absolute top-[40%] left-[30%] z-20 flex flex-col items-center transform -translate-x-1/2 -translate-y-full">
+<div class="bg-primary text-on-primary h-10 w-10 rounded-full flex items-center justify-center shadow-lg border-2 border-surface-container-lowest relative z-10 scale-110 transition-transform">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">storefront</span>
+</div>
+<!-- Pin stem -->
+<div class="w-0 h-0 border-l-[6px] border-r-[6px] border-t-[8px] border-l-transparent border-r-transparent border-t-primary -mt-1"></div>
+</div>
+<!-- Pin 2: Inactive State -->
+<div class="absolute top-[55%] left-[65%] z-10 flex flex-col items-center transform -translate-x-1/2 -translate-y-full opacity-90">
+<div class="bg-surface-container-lowest text-primary h-8 w-8 rounded-full flex items-center justify-center shadow-md border-2 border-primary relative z-10">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">inventory_2</span>
+</div>
+<div class="w-0 h-0 border-l-[4px] border-r-[4px] border-t-[6px] border-l-transparent border-r-transparent border-t-primary -mt-1"></div>
+</div>
+<!-- Pin 3: Inactive State -->
+<div class="absolute top-[30%] left-[75%] z-10 flex flex-col items-center transform -translate-x-1/2 -translate-y-full opacity-90">
+<div class="bg-surface-container-lowest text-primary h-8 w-8 rounded-full flex items-center justify-center shadow-md border-2 border-primary relative z-10">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">local_shipping</span>
+</div>
+<div class="w-0 h-0 border-l-[4px] border-r-[4px] border-t-[6px] border-l-transparent border-r-transparent border-t-primary -mt-1"></div>
+</div>
+<!-- Floating My Location Button -->
+<button class="absolute bottom-[240px] right-md z-20 bg-surface-container-lowest text-primary h-12 w-12 rounded-full flex items-center justify-center shadow-[0px_4px_20px_rgba(17,17,16,0.12)] border border-surface-variant/30">
+<span class="material-symbols-outlined">my_location</span>
+</button>
+<!-- Bottom Sheet Preview Card (For Tapped Pin) -->
+<div class="absolute bottom-[90px] left-0 w-full px-md z-30 transition-transform duration-300">
+<div class="bg-surface-container-lowest rounded-xl shadow-[0px_-4px_20px_rgba(17,17,16,0.08)] p-md flex flex-col gap-sm border border-surface-variant/40 relative overflow-hidden">
+<!-- Glassy accent gradient -->
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary-fixed/20 blur-2xl rounded-full -mr-10 -mt-10 pointer-events-none"></div>
+<div class="flex gap-sm items-start relative z-10">
+<!-- Business Logo/Image -->
+<div class="w-16 h-16 rounded-lg overflow-hidden shrink-0 bg-surface-container border border-surface-variant">
+<img class="w-full h-full object-cover" data-alt="Interior of a vibrant textile wholesale shop with rolls of colorful fabrics stacked neatly on shelves" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA9KjTwpyhZ4iS0R_5nnZtj9Df-m8Cvu32CkhhyU1C2wikjISMtX7GEcgFzTcp9VfHDCYxlR7cjFEFjoi121g74oNEO-9FWiVQxMUZYAk6ziw5hCLCMdpvGoCLMruMiOhwQEg60e3Mjq6_ksiu1obdttwq4s8xPmxufDd9LXlhcZQmeed2ZLIrAqOXfsAkb0gTR9Ii6mqbLa_WzwKnpzCjNVrAIg1SrlBodVnW7Ao6ai7-DSR4GOguHTfRpald7xSLWigDHRcR-3ug"/>
+</div>
+<!-- Info -->
+<div class="flex-1 flex flex-col">
+<div class="flex items-center gap-xs">
+<h3 class="font-label-bold text-label-bold text-on-surface line-clamp-1">Ahamed Textiles Wholesalers</h3>
+<span class="material-symbols-outlined text-primary text-[16px]" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+<p class="font-caption text-caption text-on-surface-variant mt-xs line-clamp-1">142 Main Street, Pettah • Open</p>
+<!-- Micro tags -->
+<div class="flex gap-xs mt-sm">
+<span class="bg-surface-container text-on-surface-variant font-caption text-[10px] px-2 py-0.5 rounded-full">Wholesale</span>
+<span class="bg-surface-container text-on-surface-variant font-caption text-[10px] px-2 py-0.5 rounded-full">MOQ: 50m</span>
+</div>
+</div>
+</div>
+<!-- Action Button -->
+<button class="w-full mt-xs bg-primary text-on-primary font-label-bold text-label-bold py-2.5 rounded-lg flex items-center justify-center gap-xs hover:bg-primary/90 transition-colors">
+                View Profile
+                <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+</div>
+<!-- BottomNavBar (Shared Component) -->
+<nav class="fixed bottom-0 w-full z-50 flex justify-around items-center bg-white dark:bg-stone-950 px-2 pb-safe h-20 border-t border-[#E8E8E4] dark:border-stone-800 shadow-[0px_-4px_20px_rgba(17,17,16,0.06)]">
+<!-- Home (Inactive) -->
+<a class="flex flex-col items-center justify-center text-[#AEAEA4] dark:text-stone-500 p-2 hover:opacity-80 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined mb-1">home</span>
+<span class="text-[10px] font-medium font-['Plus_Jakarta_Sans']">Home</span>
+</a>
+<!-- Search (Inactive) -->
+<a class="flex flex-col items-center justify-center text-[#AEAEA4] dark:text-stone-500 p-2 hover:opacity-80 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined mb-1">search</span>
+<span class="text-[10px] font-medium font-['Plus_Jakarta_Sans']">Search</span>
+</a>
+<!-- Map (Active) -->
+<a class="flex flex-col items-center justify-center text-[#0D6E6E] dark:text-[#14A3A3] p-2 hover:opacity-80 scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">map</span>
+<span class="text-[10px] font-medium font-['Plus_Jakarta_Sans']">Map</span>
+</a>
+<!-- Saved (Inactive) -->
+<a class="flex flex-col items-center justify-center text-[#AEAEA4] dark:text-stone-500 p-2 hover:opacity-80 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined mb-1">favorite</span>
+<span class="text-[10px] font-medium font-['Plus_Jakarta_Sans']">Saved</span>
+</a>
+<!-- Profile (Inactive) -->
+<a class="flex flex-col items-center justify-center text-[#AEAEA4] dark:text-stone-500 p-2 hover:opacity-80 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined mb-1">person</span>
+<span class="text-[10px] font-medium font-['Plus_Jakarta_Sans']">Profile</span>
+</a>
+</nav>
+</body></html>

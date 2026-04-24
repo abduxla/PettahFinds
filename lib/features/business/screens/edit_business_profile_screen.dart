@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../models/business.dart';
 import '../../../utils/validators.dart';
 import '../../../widgets/loading_widget.dart';
@@ -91,14 +93,72 @@ class _EditBusinessProfileScreenState
         _initFields(business);
 
         return Scaffold(
-          appBar: AppBar(title: const Text('Edit Business Profile')),
+          backgroundColor: AppColors.bgSection,
+          appBar: AppBar(
+            backgroundColor: AppColors.bgSection,
+            title: Text('Edit Business Profile',
+                style: GoogleFonts.nunito(
+                  color: AppColors.text1,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                )),
+          ),
           body: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
             child: Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // ---- Avatar header ----
+                  Center(
+                    child: Stack(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                                color: AppColors.teal.withAlpha(40),
+                                width: 3),
+                          ),
+                          child: CircleAvatar(
+                            radius: 40,
+                            backgroundColor: AppColors.tealLight,
+                            backgroundImage: business.logoUrl.isNotEmpty
+                                ? NetworkImage(business.logoUrl)
+                                : null,
+                            child: business.logoUrl.isEmpty
+                                ? const Icon(Icons.store,
+                                    size: 32, color: AppColors.teal)
+                                : null,
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: AppColors.teal,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: AppColors.bgSection, width: 2.5),
+                            ),
+                            child: const Icon(
+                              Icons.camera_alt_rounded,
+                              color: Colors.white,
+                              size: 14,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ---- Form fields ----
                   TextFormField(
                     controller: _nameCtrl,
                     decoration:

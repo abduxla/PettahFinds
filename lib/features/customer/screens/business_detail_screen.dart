@@ -10,6 +10,7 @@ import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/empty_state_widget.dart';
+import '../../../widgets/sign_in_required.dart';
 import '../../../core/extensions/context_extensions.dart';
 
 // Stable family providers — defined top-level so `ref.invalidate` targets
@@ -82,25 +83,29 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
                 ),
               ),
               actions: [
-                if (appUser != null)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: CircleAvatar(
-                      backgroundColor: Colors.black26,
-                      child: IconButton(
-                        icon: const Icon(Icons.favorite_border,
-                            color: Colors.white),
-                        onPressed: () {
-                          ref.read(favoriteRepositoryProvider).toggle(
-                                userId: appUser.uid,
-                                targetType: 'business',
-                                targetId: business.id,
-                              );
-                          context.showSuccessSnackBar('Favorite toggled');
-                        },
-                      ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: CircleAvatar(
+                    backgroundColor: Colors.black26,
+                    child: IconButton(
+                      icon: const Icon(Icons.favorite_border,
+                          color: Colors.white),
+                      onPressed: () {
+                        if (appUser == null) {
+                          ScaffoldMessenger.of(context).clearSnackBars();
+                          showSignInRequiredSheet(context);
+                          return;
+                        }
+                        ref.read(favoriteRepositoryProvider).toggle(
+                              userId: appUser.uid,
+                              targetType: 'business',
+                              targetId: business.id,
+                            );
+                        context.showSuccessSnackBar('Favorite toggled');
+                      },
                     ),
                   ),
+                ),
               ],
               flexibleSpace: FlexibleSpaceBar(
                 background: Stack(

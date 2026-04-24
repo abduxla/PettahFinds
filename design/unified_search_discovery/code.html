@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PettahFinds - Search</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Be+Vietnam+Pro:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-variant": "#e5e2e0",
+                      "error-container": "#ffdad6",
+                      "surface-container-highest": "#e5e2e0",
+                      "on-tertiary-container": "#a9ebea",
+                      "on-secondary-fixed": "#2f1500",
+                      "inverse-on-surface": "#f3f0ee",
+                      "on-primary-fixed": "#002020",
+                      "on-primary-container": "#9dedec",
+                      "primary-fixed-dim": "#84d4d3",
+                      "primary-container": "#0d6e6e",
+                      "on-tertiary-fixed": "#002020",
+                      "on-secondary-container": "#663400",
+                      "inverse-surface": "#31302f",
+                      "secondary": "#914c00",
+                      "primary": "#005454",
+                      "secondary-container": "#fe932d",
+                      "on-primary": "#ffffff",
+                      "on-surface": "#1c1c1a",
+                      "tertiary-fixed": "#aceeee",
+                      "tertiary-fixed-dim": "#91d2d1",
+                      "tertiary-container": "#286c6c",
+                      "primary-fixed": "#a0f0f0",
+                      "on-tertiary-fixed-variant": "#004f50",
+                      "on-secondary": "#ffffff",
+                      "secondary-fixed": "#ffdcc3",
+                      "surface-container-lowest": "#ffffff",
+                      "background": "#fcf9f6",
+                      "secondary-fixed-dim": "#ffb77e",
+                      "inverse-primary": "#84d4d3",
+                      "surface": "#fcf9f6",
+                      "outline": "#6e7979",
+                      "surface-container-high": "#ebe7e5",
+                      "on-secondary-fixed-variant": "#6e3900",
+                      "on-error-container": "#93000a",
+                      "on-background": "#1c1c1a",
+                      "error": "#ba1a1a",
+                      "surface-container-low": "#f6f3f1",
+                      "on-tertiary": "#ffffff",
+                      "surface-tint": "#016a6a",
+                      "surface-container": "#f0edeb",
+                      "tertiary": "#005454",
+                      "outline-variant": "#bec9c8",
+                      "on-surface-variant": "#3e4948",
+                      "on-error": "#ffffff",
+                      "surface-dim": "#dcd9d7",
+                      "on-primary-fixed-variant": "#004f50",
+                      "surface-bright": "#fcf9f6"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "lg": "24px",
+                      "gutter": "12px",
+                      "xs": "4px",
+                      "unit": "4px",
+                      "xl": "40px",
+                      "sm": "8px",
+                      "md": "16px",
+                      "container-padding": "16px"
+              },
+              "fontFamily": {
+                      "label-bold": [
+                              "Be Vietnam Pro"
+                      ],
+                      "label-sm": [
+                              "Be Vietnam Pro"
+                      ],
+                      "display-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body-lg": [
+                              "Be Vietnam Pro"
+                      ],
+                      "price-xl": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "display-md": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "caption": [
+                              "Be Vietnam Pro"
+                      ],
+                      "body-md": [
+                              "Be Vietnam Pro"
+                      ]
+              },
+              "fontSize": {
+                      "label-bold": [
+                              "14px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "letterSpacing": "0.02em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "display-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "fontWeight": "800"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "1.6",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "price-xl": [
+                              "20px",
+                              {
+                                      "lineHeight": "1.4",
+                                      "fontWeight": "800"
+                              }
+                      ],
+                      "display-md": [
+                              "24px",
+                              {
+                                      "lineHeight": "1.2",
+                                      "fontWeight": "800"
+                              }
+                      ],
+                      "caption": [
+                              "11px",
+                              {
+                                      "lineHeight": "1.3",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "1.5",
+                                      "fontWeight": "400"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 20px); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-[#FAFAF8] text-on-background min-h-screen pb-24 md:pb-0 md:pt-16">
+<!-- TopAppBar for Web -->
+<header class="hidden md:flex fixed top-0 left-0 w-full z-50 justify-between items-center px-4 h-16 bg-[#FAFAF8] border-b border-[#E8E8E4] shadow-none">
+<div class="flex items-center gap-4">
+<button class="text-[#0D6E6E] hover:bg-[#F2F2EF] transition-colors p-2 rounded-full">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">storefront</span>
+</button>
+<span class="font-['Plus_Jakarta_Sans'] font-black text-[#0D6E6E] after:content-['.'] after:text-orange-500 text-xl tracking-tight">PettahFinds</span>
+</div>
+<nav class="flex gap-8">
+<a class="text-[#AEAEA4] font-['Plus_Jakarta_Sans'] font-bold text-lg hover:bg-[#F2F2EF] px-3 py-2 rounded-md transition-colors" href="#">Home</a>
+<a class="text-[#0D6E6E] font-['Plus_Jakarta_Sans'] font-bold text-lg hover:bg-[#F2F2EF] px-3 py-2 rounded-md transition-colors" href="#">Search</a>
+<a class="text-[#AEAEA4] font-['Plus_Jakarta_Sans'] font-bold text-lg hover:bg-[#F2F2EF] px-3 py-2 rounded-md transition-colors" href="#">Map</a>
+<a class="text-[#AEAEA4] font-['Plus_Jakarta_Sans'] font-bold text-lg hover:bg-[#F2F2EF] px-3 py-2 rounded-md transition-colors" href="#">Saved</a>
+</nav>
+<div class="flex items-center">
+<button class="text-[#0D6E6E] hover:bg-[#F2F2EF] transition-colors p-2 rounded-full">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">notifications</span>
+</button>
+<button class="ml-4 text-[#AEAEA4] hover:bg-[#F2F2EF] transition-colors p-2 rounded-full">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">person</span>
+</button>
+</div>
+</header>
+<!-- Main Content -->
+<main class="max-w-7xl mx-auto px-container-padding md:px-lg pt-4 md:pt-8 pb-8">
+<!-- Search Header -->
+<div class="sticky top-0 md:top-16 z-40 bg-[#FAFAF8]/95 backdrop-blur-md pt-4 pb-4 -mx-container-padding px-container-padding md:-mx-lg md:px-lg">
+<div class="flex gap-sm">
+<div class="relative flex-grow">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#AEAEA4]">search</span>
+<input class="w-full h-12 pl-10 pr-4 bg-[#FBF8F3] border-none rounded-lg text-body-md font-body-md focus:ring-1 focus:ring-primary-container text-on-surface placeholder:text-[#AEAEA4]" placeholder="Search wholesale textiles, electronics..." type="text"/>
+</div>
+<button class="w-12 h-12 bg-surface-container-lowest border border-[#E8E8E4] rounded-lg flex items-center justify-center text-primary-container hover:bg-surface-variant transition-colors shadow-[0px_4px_20px_rgba(17,17,16,0.06)]">
+<span class="material-symbols-outlined">tune</span>
+</button>
+</div>
+<!-- Segmented Tabs -->
+<div class="flex gap-2 mt-4 overflow-x-auto pb-2 scrollbar-hide">
+<button class="px-6 py-2 bg-surface-container-lowest border border-primary-container text-primary-container font-label-bold text-label-bold rounded-full shadow-[0px_4px_20px_rgba(17,17,16,0.06)] whitespace-nowrap">Businesses</button>
+<button class="px-6 py-2 bg-[#F2F2EF] text-[#3D3D3A] font-label-bold text-label-bold rounded-full whitespace-nowrap">Products</button>
+<button class="px-6 py-2 bg-[#F2F2EF] text-[#3D3D3A] font-label-bold text-label-bold rounded-full whitespace-nowrap">Categories</button>
+</div>
+</div>
+<!-- Filter Chips -->
+<div class="flex flex-wrap gap-2 mb-6 mt-2">
+<span class="px-3 py-1.5 bg-[#F2F2EF] text-[#3D3D3A] rounded-full font-caption text-caption flex items-center gap-1">Textiles <span class="material-symbols-outlined text-[14px]">close</span></span>
+<span class="px-3 py-1.5 bg-[#F2F2EF] text-[#3D3D3A] rounded-full font-caption text-caption flex items-center gap-1">Bulk Only <span class="material-symbols-outlined text-[14px]">close</span></span>
+</div>
+<!-- Results Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gutter">
+<!-- Card 1 -->
+<article class="bg-surface-container-lowest rounded-lg overflow-hidden shadow-[0px_4px_20px_rgba(17,17,16,0.06)] border border-[#E8E8E4] flex flex-col">
+<div class="h-48 relative overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="stacks of colorful folded textiles and fabrics in a brightly lit wholesale warehouse" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB2pE1Hxtgw0a1_hSNePtUH11BKsOU_kgY7qBe19BfwFhc_rY-QlofPHyVTR0XTuyGIkkKn2gUv9sFblB6AgsbNd6OWD3TqtpJ8JNtIZ-h7fJv--mXwPo0v8uULHkVFHz14gijozKU7tgUQvSp5w7al0nLoABI6e-GMLk04c7GNb_lH1gin0i31b0aETq6-rVWbgKnREA66C3XXTrYplsxcEaw0YbpxHsE8Fy4KrNzxriOBrP9hrYudbiXJhPrdDv3rmX_D-iWLidE"/>
+<button class="absolute top-3 right-3 w-8 h-8 bg-surface-container-lowest/80 backdrop-blur rounded-full flex items-center justify-center text-[#AEAEA4] hover:text-primary-container">
+<span class="material-symbols-outlined text-[20px]">favorite</span>
+</button>
+<div class="absolute bottom-3 left-3 flex gap-1">
+<span class="px-2 py-1 bg-surface-container-lowest/90 backdrop-blur text-primary-container font-label-sm text-label-sm rounded">Verified Supplier</span>
+</div>
+</div>
+<div class="p-4 flex flex-col flex-grow">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-display-md text-[18px] font-bold text-on-surface">Silk Route Trading Co.</h3>
+<div class="flex items-center text-secondary-container">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="font-label-bold text-label-sm ml-1 text-on-surface">4.8</span>
+</div>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-3 flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-[#AEAEA4]">location_on</span>
+                        Keyzer Street, Pettah
+                    </p>
+<div class="flex flex-wrap gap-2 mb-4">
+<span class="text-caption font-caption bg-[#F2F2EF] text-[#3D3D3A] px-2 py-1 rounded-full">Cotton Blends</span>
+<span class="text-caption font-caption bg-[#F2F2EF] text-[#3D3D3A] px-2 py-1 rounded-full">Linen</span>
+</div>
+<div class="mt-auto pt-3 border-t border-[#E8E8E4] flex justify-between items-center">
+<span class="font-label-sm text-label-sm text-[#AEAEA4]">Min Order: 50m</span>
+<button class="text-primary-container font-label-bold text-label-bold hover:underline">View Inventory</button>
+</div>
+</div>
+</article>
+<!-- Card 2 -->
+<article class="bg-surface-container-lowest rounded-lg overflow-hidden shadow-[0px_4px_20px_rgba(17,17,16,0.06)] border border-[#E8E8E4] flex flex-col">
+<div class="h-48 relative overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="close up of vibrant cosmetic powders and beauty supplies in clear containers" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA3MzQ7fH9N-ddj9DchyogXhAtvBSbojYLx-E-N5Ri_HSwL3WdtBTHuA5ctFq_Aa2GrnmpenQfbUhLlLqbB781UzwtXvIP2EVWnUGCfVd_o6q3N_azspsXX7sdDhqyz7_-li6QlQlNRm3JBJ5vdwct_N7As69ZBATsm1xMNXKhm0jWfuENQPKt6Gs9iW3w4Gm5Xct49jEdQhfqZIzc_ozk7SP7uscdd-XkQBETfjLgXmWzMsWtHcCDV6eMF31wEcsFAjtE1tlxAuiQ"/>
+<button class="absolute top-3 right-3 w-8 h-8 bg-surface-container-lowest/80 backdrop-blur rounded-full flex items-center justify-center text-primary-container">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">favorite</span>
+</button>
+</div>
+<div class="p-4 flex flex-col flex-grow">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-display-md text-[18px] font-bold text-on-surface">Lanka Cosmetics Hub</h3>
+<div class="flex items-center text-secondary-container">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="font-label-bold text-label-sm ml-1 text-on-surface">4.5</span>
+</div>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-3 flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-[#AEAEA4]">location_on</span>
+                        Main Street, Pettah
+                    </p>
+<div class="flex flex-wrap gap-2 mb-4">
+<span class="text-caption font-caption bg-[#F2F2EF] text-[#3D3D3A] px-2 py-1 rounded-full">Skin Care</span>
+<span class="text-caption font-caption bg-[#F2F2EF] text-[#3D3D3A] px-2 py-1 rounded-full">Packaging</span>
+</div>
+<div class="mt-auto pt-3 border-t border-[#E8E8E4] flex justify-between items-center">
+<span class="font-label-sm text-label-sm text-[#AEAEA4]">Min Order: LKR 10,000</span>
+<button class="text-primary-container font-label-bold text-label-bold hover:underline">View Inventory</button>
+</div>
+</div>
+</article>
+<!-- Card 3 -->
+<article class="bg-surface-container-lowest rounded-lg overflow-hidden shadow-[0px_4px_20px_rgba(17,17,16,0.06)] border border-[#E8E8E4] flex flex-col">
+<div class="h-48 relative overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="various electronic components and mobile accessories neatly organized on a shelf" src="https://lh3.googleusercontent.com/aida-public/AB6AXuByELHhwCApiXCa78pSfP8ELTReJ-1x2CvT2GfttUed5giPsj-OdDBQUrqNVf4WAXYpiOwQEpQqmOnAK5CTP-I-2cT3MqybjNzH4-dd7AIf9HHyAfR83ECKXxQthBR82GvfSR4C4TnWHM2s2r1R_bG1E5GWX7hM82ydL4B6TzQlV-1gH9XmgDit_Pu-j3DRFvOvKrcEhrnJsfSIg9DLPBGRpHIjnh0gEzPE96lhSn1kmhfU_lEO8m7PdNEnbFOLnVIo2ua3-NRuVmg"/>
+<button class="absolute top-3 right-3 w-8 h-8 bg-surface-container-lowest/80 backdrop-blur rounded-full flex items-center justify-center text-[#AEAEA4] hover:text-primary-container">
+<span class="material-symbols-outlined text-[20px]">favorite</span>
+</button>
+<div class="absolute bottom-3 left-3 flex gap-1">
+<span class="px-2 py-1 bg-secondary-container text-white font-label-sm text-label-sm rounded shadow">Fast Mover</span>
+</div>
+</div>
+<div class="p-4 flex flex-col flex-grow">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-display-md text-[18px] font-bold text-on-surface">TechMart Wholesale</h3>
+<div class="flex items-center text-[#AEAEA4]">
+<span class="font-label-sm text-label-sm">New</span>
+</div>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-3 flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px] text-[#AEAEA4]">location_on</span>
+                        1st Cross Street, Pettah
+                    </p>
+<div class="flex flex-wrap gap-2 mb-4">
+<span class="text-caption font-caption bg-[#F2F2EF] text-[#3D3D3A] px-2 py-1 rounded-full">Mobile Acc.</span>
+<span class="text-caption font-caption bg-[#F2F2EF] text-[#3D3D3A] px-2 py-1 rounded-full">Cables</span>
+</div>
+<div class="mt-auto pt-3 border-t border-[#E8E8E4] flex justify-between items-center">
+<span class="font-label-sm text-label-sm text-[#AEAEA4]">Min Order: 100 pcs</span>
+<button class="text-primary-container font-label-bold text-label-bold hover:underline">View Inventory</button>
+</div>
+</div>
+</article>
+</div>
+</main>
+<!-- BottomNavBar for Mobile -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 bg-white border-t border-[#E8E8E4] rounded-t-xl shadow-[0px_-4px_20px_rgba(17,17,16,0.06)] flex justify-around items-center px-2 pt-2 pb-safe">
+<a class="flex flex-col items-center justify-center text-[#AEAEA4] hover:text-[#0D6E6E] w-16 h-12" href="#">
+<span class="material-symbols-outlined mb-1 text-[24px]">home</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-medium">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#0D6E6E] w-16 h-12" href="#">
+<span class="material-symbols-outlined mb-1 text-[24px]" style="font-variation-settings: 'FILL' 1;">search</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-medium">Search</span>
+</a>
+<a class="flex flex-col items-center justify-center text-white bg-gradient-to-br from-teal-600 to-teal-800 -mt-8 rounded-full w-14 h-14 shadow-lg shadow-teal-900/20" href="#">
+<span class="material-symbols-outlined text-[28px]">map</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#AEAEA4] hover:text-[#0D6E6E] w-16 h-12" href="#">
+<span class="material-symbols-outlined mb-1 text-[24px]">favorite</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-medium">Saved</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#AEAEA4] hover:text-[#0D6E6E] w-16 h-12" href="#">
+<span class="material-symbols-outlined mb-1 text-[24px]">person</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-medium">Profile</span>
+</a>
+</nav>
+</body></html>

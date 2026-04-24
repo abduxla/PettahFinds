@@ -30,6 +30,8 @@ dependencies:
   shimmer: ^3.0.0
   flutter_rating_bar: ^4.0.1
   image_picker: ^1.1.2
+  google_fonts: ^6.1.0
+  dotted_border: ^2.1.0
 
   # Map
   mapbox_maps_flutter: ^2.9.0

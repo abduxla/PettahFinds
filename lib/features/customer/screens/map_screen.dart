@@ -21,6 +21,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mbx;
 import 'package:geolocator/geolocator.dart';
+import '../../../core/constants/categories.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../main.dart' show hasMapboxToken;
@@ -52,6 +53,15 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   final Map<String, Business> _annotationToBusiness = {};
   Business? _selected;
   bool _locating = false;
+  String? _categoryFilter; // null = All
+
+  List<Business> _applyFilter(List<Business> src) {
+    if (_categoryFilter == null) return src;
+    return src
+        .where((b) =>
+            AppCategories.normalize(b.category) == _categoryFilter)
+        .toList();
+  }
 
   @override
   void dispose() {
@@ -173,7 +183,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     ref.listen<AsyncValue<List<Business>>>(_mapBusinessesProvider,
         (_, next) {
       final list = next.valueOrNull;
-      if (list != null) _syncMarkers(list);
+      if (list != null) _syncMarkers(_applyFilter(list));
     });
 
     return Scaffold(
@@ -199,57 +209,74 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 : const _NoTokenFallback(),
           ),
 
-          // Top bar
+          // Top bar + filter chips
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-              child: Row(
-                children: [
-                  _FloatingIconButton(
-                    icon: Icons.arrow_back_rounded,
-                    onTap: () => context.go('/home'),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => context.go('/search'),
-                      child: Container(
-                        height: 52,
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 18),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withAlpha(18),
-                              blurRadius: 18,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.search_rounded,
-                                color: AppTheme.textMuted, size: 22),
-                            SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                'Search businesses',
-                                style: TextStyle(
-                                  color: AppTheme.textMuted,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w500,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                  child: Row(
+                    children: [
+                      _FloatingIconButton(
+                        icon: Icons.arrow_back_rounded,
+                        onTap: () => context.go('/home'),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => context.go('/search'),
+                          child: Container(
+                            height: 52,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 18),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withAlpha(18),
+                                  blurRadius: 18,
+                                  offset: const Offset(0, 6),
                                 ),
-                              ),
+                              ],
                             ),
-                          ],
+                            child: const Row(
+                              children: [
+                                Icon(Icons.search_rounded,
+                                    color: AppTheme.textMuted, size: 22),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'Search businesses',
+                                    style: TextStyle(
+                                      color: AppTheme.textMuted,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 10),
+                _CategoryChipsBar(
+                  selected: _categoryFilter,
+                  onChanged: (v) {
+                    setState(() {
+                      _categoryFilter = v;
+                      _selected = null;
+                    });
+                    final list =
+                        ref.read(_mapBusinessesProvider).valueOrNull;
+                    if (list != null) _syncMarkers(_applyFilter(list));
+                  },
+                ),
+              ],
             ),
           ),
 
@@ -278,29 +305,33 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       onClose: () => setState(() => _selected = null),
                     )
                   : businessesAsync.when(
-                      data: (list) => list.isEmpty
-                          ? const EmptyStateWidget(
-                              icon: Icons.map_outlined,
-                              title: 'No businesses yet',
-                            )
-                          : _NearbyStrip(
-                              businesses: list.take(6).toList(),
-                              onTap: (b) {
-                                setState(() => _selected = b);
-                                if (b.hasCoordinates) {
-                                  _map?.flyTo(
-                                    mbx.CameraOptions(
-                                      center: mbx.Point(
-                                        coordinates: mbx.Position(
-                                            b.longitude!, b.latitude!),
-                                      ),
-                                      zoom: 15,
-                                    ),
-                                    mbx.MapAnimationOptions(duration: 600),
-                                  );
-                                }
-                              },
-                            ),
+                      data: (all) {
+                        final list = _applyFilter(all);
+                        if (list.isEmpty) {
+                          return const EmptyStateWidget(
+                            icon: Icons.map_outlined,
+                            title: 'No businesses here',
+                          );
+                        }
+                        return _NearbyStrip(
+                          businesses: list.take(6).toList(),
+                          onTap: (b) {
+                            setState(() => _selected = b);
+                            if (b.hasCoordinates) {
+                              _map?.flyTo(
+                                mbx.CameraOptions(
+                                  center: mbx.Point(
+                                    coordinates: mbx.Position(
+                                        b.longitude!, b.latitude!),
+                                  ),
+                                  zoom: 15,
+                                ),
+                                mbx.MapAnimationOptions(duration: 600),
+                              );
+                            }
+                          },
+                        );
+                      },
                       loading: () => const _NearbyStripSkeleton(),
                       error: (e, _) => Padding(
                         padding:
@@ -427,6 +458,58 @@ class _SoftGridPainter extends CustomPainter {
 // =====================================================================
 // Floating UI pieces
 // =====================================================================
+class _CategoryChipsBar extends StatelessWidget {
+  final String? selected;
+  final ValueChanged<String?> onChanged;
+  const _CategoryChipsBar({required this.selected, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <String?>[null, ...AppCategories.all];
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
+          final c = items[i];
+          final active = selected == c;
+          final label = c ?? 'All';
+          return GestureDetector(
+            onTap: () => onChanged(c),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: active ? AppTheme.accent : Colors.white,
+                borderRadius: BorderRadius.circular(100),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(14),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: active ? Colors.white : AppTheme.text,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _FloatingIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;

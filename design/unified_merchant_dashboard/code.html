@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PettahFinds - Merchant Hub</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Be+Vietnam+Pro:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-variant": "#e5e2e0",
+                        "error-container": "#ffdad6",
+                        "surface-container-highest": "#e5e2e0",
+                        "on-tertiary-container": "#a9ebea",
+                        "on-secondary-fixed": "#2f1500",
+                        "inverse-on-surface": "#f3f0ee",
+                        "on-primary-fixed": "#002020",
+                        "on-primary-container": "#9dedec",
+                        "primary-fixed-dim": "#84d4d3",
+                        "primary-container": "#0d6e6e",
+                        "on-tertiary-fixed": "#002020",
+                        "on-secondary-container": "#663400",
+                        "inverse-surface": "#31302f",
+                        "secondary": "#914c00",
+                        "primary": "#005454",
+                        "secondary-container": "#fe932d",
+                        "on-primary": "#ffffff",
+                        "on-surface": "#1c1c1a",
+                        "tertiary-fixed": "#aceeee",
+                        "tertiary-fixed-dim": "#91d2d1",
+                        "tertiary-container": "#286c6c",
+                        "primary-fixed": "#a0f0f0",
+                        "on-tertiary-fixed-variant": "#004f50",
+                        "on-secondary": "#ffffff",
+                        "secondary-fixed": "#ffdcc3",
+                        "surface-container-lowest": "#ffffff",
+                        "background": "#fcf9f6",
+                        "secondary-fixed-dim": "#ffb77e",
+                        "inverse-primary": "#84d4d3",
+                        "surface": "#fcf9f6",
+                        "outline": "#6e7979",
+                        "surface-container-high": "#ebe7e5",
+                        "on-secondary-fixed-variant": "#6e3900",
+                        "on-error-container": "#93000a",
+                        "on-background": "#1c1c1a",
+                        "error": "#ba1a1a",
+                        "surface-container-low": "#f6f3f1",
+                        "on-tertiary": "#ffffff",
+                        "surface-tint": "#016a6a",
+                        "surface-container": "#f0edeb",
+                        "tertiary": "#005454",
+                        "outline-variant": "#bec9c8",
+                        "on-surface-variant": "#3e4948",
+                        "on-error": "#ffffff",
+                        "surface-dim": "#dcd9d7",
+                        "on-primary-fixed-variant": "#004f50",
+                        "surface-bright": "#fcf9f6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "lg": "24px",
+                        "gutter": "12px",
+                        "xs": "4px",
+                        "unit": "4px",
+                        "xl": "40px",
+                        "sm": "8px",
+                        "md": "16px",
+                        "container-padding": "16px"
+                    },
+                    "fontFamily": {
+                        "label-bold": ["Be Vietnam Pro"],
+                        "label-sm": ["Be Vietnam Pro"],
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "body-lg": ["Be Vietnam Pro"],
+                        "price-xl": ["Plus Jakarta Sans"],
+                        "display-md": ["Plus Jakarta Sans"],
+                        "caption": ["Be Vietnam Pro"],
+                        "body-md": ["Be Vietnam Pro"]
+                    },
+                    "fontSize": {
+                        "label-bold": ["14px", { "lineHeight": "1.4", "letterSpacing": "0.02em", "fontWeight": "600" }],
+                        "label-sm": ["12px", { "lineHeight": "1.4", "fontWeight": "500" }],
+                        "display-lg": ["32px", { "lineHeight": "1.2", "fontWeight": "800" }],
+                        "body-lg": ["18px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "price-xl": ["20px", { "lineHeight": "1.4", "fontWeight": "800" }],
+                        "display-md": ["24px", { "lineHeight": "1.2", "fontWeight": "800" }],
+                        "caption": ["11px", { "lineHeight": "1.3", "fontWeight": "400" }],
+                        "body-md": ["16px", { "lineHeight": "1.5", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: theme('colors.background'); color: theme('colors.on-background'); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="antialiased pb-24 md:pb-0 md:pl-72 flex flex-col min-h-screen">
+<!-- TopAppBar (Mobile & Web) -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-4 h-16 bg-[#FAFAF8] dark:bg-zinc-950 border-b border-[#E8E8E4] dark:border-zinc-800 shadow-none md:pl-72 md:w-full md:left-0 md:right-0">
+<div class="flex items-center gap-4">
+<button class="md:hidden p-2 text-[#0D6E6E] dark:text-teal-500 hover:bg-[#F2F2EF] dark:hover:bg-zinc-900 transition-colors rounded-full active:scale-95 duration-150">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">storefront</span>
+</button>
+<h1 class="font-['Plus_Jakarta_Sans'] font-black text-[#0D6E6E] after:content-['.'] after:text-orange-500 text-xl tracking-tight">Merchant Hub</h1>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-[#0D6E6E] dark:text-teal-500 hover:bg-[#F2F2EF] dark:hover:bg-zinc-900 transition-colors rounded-full active:scale-95 duration-150">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">notifications</span>
+</button>
+<button class="ml-2 w-8 h-8 rounded-full overflow-hidden bg-surface-container border border-outline-variant flex items-center justify-center">
+<img alt="Merchant Profile Avatar" class="w-full h-full object-cover" data-alt="close up portrait of a smiling middle aged sri lankan male merchant in a clean shop, warm natural lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDZhzRa1SpW4umyRpMDAAUtSIf63ajEBAV_zxnHzXpBgJVhMlaoibPWMww0D03_CAlwg_e3_xex3Vj6pzDC4aokc3nzg4l-HNw1f6PgJYyFtbvbLHkd8FqRUZt7iTVmNe8elzOCDFn5nLdy9VzOT620w060-J3ixDnmMxCOeLlhgqtkdl6S4yz66Wb59NA6oWinXlUBsYENjDbQyEz29viilwaFXGVSMdDZsTzhgbBG88v0SNDk90lk0Egl41uyr3wNZXT1Ix562lQ"/>
+</button>
+</div>
+</header>
+<!-- Navigation Drawer (Web) -->
+<nav class="hidden md:flex flex-col py-6 space-y-2 fixed top-0 left-0 h-full w-72 rounded-r-2xl bg-[#FAFAF8] dark:bg-zinc-950 border-r border-[#E8E8E4] dark:border-zinc-800 shadow-xl dark:shadow-none z-40 pt-20">
+<div class="px-6 mb-8 flex items-center gap-4">
+<div class="w-12 h-12 rounded-full overflow-hidden bg-surface-container flex-shrink-0">
+<img alt="Merchant Profile Avatar" class="w-full h-full object-cover" data-alt="close up portrait of a smiling middle aged sri lankan male merchant in a clean shop, warm natural lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDUwAH2R14gmloE0RmjuU-b1a3-9VWMKASoidF5Wdh8gC1umLyHCNvQs8S3u_N0rUnK0kKNTzUUF2cbuWyO8ec02T1sBtDZC11OlJYxUidFdyiq8HyVDkQaljzZiGiJijoW3Kpl2U-1WoPU83Hs-JUfRlTZt5T_d7cOF7Ktf0lo-xjOFTeud1ITa-85GHeLFZ0TZpnZtXO_RNQzS0ivBJfo2GXhNSXNnHF6MdVMcVxf_fbFldEDHDEx33SX6hcKjg-YW7F-YHZf-pk"/>
+</div>
+<div>
+<h2 class="font-display-md text-body-md text-on-surface">Merchant Central</h2>
+<p class="font-body-md text-caption text-on-surface-variant">Pettah Wholesale Hub</p>
+</div>
+</div>
+<a class="bg-[#F2F2EF] dark:bg-zinc-900 text-[#0D6E6E] dark:text-teal-400 rounded-lg mx-2 px-4 py-3 border-l-4 border-[#0D6E6E] flex items-center gap-3 transition-all duration-300 ease-in-out font-['Plus_Jakarta_Sans'] text-sm font-semibold" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="text-[#3D3D3A] dark:text-zinc-400 mx-2 px-4 py-3 flex items-center gap-3 hover:bg-[#F2F2EF] dark:hover:bg-zinc-800 transition-all duration-300 ease-in-out rounded-lg font-['Plus_Jakarta_Sans'] text-sm font-semibold" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">inventory_2</span>
+<span>Inventory</span>
+</a>
+<a class="text-[#3D3D3A] dark:text-zinc-400 mx-2 px-4 py-3 flex items-center gap-3 hover:bg-[#F2F2EF] dark:hover:bg-zinc-800 transition-all duration-300 ease-in-out rounded-lg font-['Plus_Jakarta_Sans'] text-sm font-semibold" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">shopping_cart</span>
+<span>Orders</span>
+</a>
+<a class="text-[#3D3D3A] dark:text-zinc-400 mx-2 px-4 py-3 flex items-center gap-3 hover:bg-[#F2F2EF] dark:hover:bg-zinc-800 transition-all duration-300 ease-in-out rounded-lg font-['Plus_Jakarta_Sans'] text-sm font-semibold" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">admin_panel_settings</span>
+<span>Admin</span>
+</a>
+</nav>
+<!-- Main Content -->
+<main class="flex-grow pt-20 px-container-padding max-w-7xl mx-auto w-full">
+<!-- Welcome Section -->
+<div class="mb-lg flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+<div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-1">Welcome back,</p>
+<h2 class="font-display-lg text-display-lg text-on-surface">Pettah Wholesale</h2>
+</div>
+<div class="flex gap-3">
+<button class="bg-primary-container text-on-primary-container font-label-bold text-label-bold px-4 py-2 rounded-lg flex items-center gap-2 shadow-[0px_4px_20px_rgba(17,17,16,0.06)] hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                    Add Product
+                </button>
+<button class="bg-surface-variant text-on-surface font-label-bold text-label-bold px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-surface-container-high transition-colors border border-outline-variant">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+                    Edit Profile
+                </button>
+</div>
+</div>
+<!-- Bento Grid Stats -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter mb-xl">
+<!-- Total Views -->
+<div class="bg-surface-container-lowest rounded-xl p-md shadow-[0px_4px_20px_rgba(17,17,16,0.06)] border border-outline-variant relative overflow-hidden flex flex-col justify-between min-h-[140px]">
+<div class="absolute -right-4 -top-4 w-24 h-24 bg-primary-fixed-dim/20 rounded-full blur-2xl"></div>
+<div class="flex items-center gap-2 text-on-surface-variant mb-2">
+<span class="material-symbols-outlined text-primary-container">visibility</span>
+<span class="font-label-sm text-label-sm uppercase tracking-wider">Total Views</span>
+</div>
+<div>
+<span class="font-display-md text-display-md text-on-surface block">24,592</span>
+<span class="font-body-md text-caption text-primary-container flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-[14px]">trending_up</span> +12% this week
+                    </span>
+</div>
+</div>
+<!-- Product Saves -->
+<div class="bg-surface-container-lowest rounded-xl p-md shadow-[0px_4px_20px_rgba(17,17,16,0.06)] border border-outline-variant relative overflow-hidden flex flex-col justify-between min-h-[140px]">
+<div class="absolute -right-4 -top-4 w-24 h-24 bg-secondary-container/20 rounded-full blur-2xl"></div>
+<div class="flex items-center gap-2 text-on-surface-variant mb-2">
+<span class="material-symbols-outlined text-secondary">favorite</span>
+<span class="font-label-sm text-label-sm uppercase tracking-wider">Product Saves</span>
+</div>
+<div>
+<span class="font-display-md text-display-md text-on-surface block">1,840</span>
+<span class="font-body-md text-caption text-secondary flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-[14px]">trending_up</span> +5% this week
+                    </span>
+</div>
+</div>
+<!-- Inquiries -->
+<div class="bg-surface-container-lowest rounded-xl p-md shadow-[0px_4px_20px_rgba(17,17,16,0.06)] border border-outline-variant relative overflow-hidden flex flex-col justify-between min-h-[140px]">
+<div class="absolute -right-4 -top-4 w-24 h-24 bg-error-container/20 rounded-full blur-2xl"></div>
+<div class="flex items-center gap-2 text-on-surface-variant mb-2">
+<span class="material-symbols-outlined text-error">chat_bubble</span>
+<span class="font-label-sm text-label-sm uppercase tracking-wider">Inquiries</span>
+</div>
+<div class="flex items-end justify-between">
+<div>
+<span class="font-display-md text-display-md text-on-surface block">42</span>
+<span class="font-body-md text-caption text-error flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-[14px]">pending</span> 8 pending replies
+                        </span>
+</div>
+<button class="bg-error text-on-error w-8 h-8 rounded-full flex items-center justify-center hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Recent Products Section -->
+<div class="mb-lg">
+<div class="flex justify-between items-end mb-md">
+<h3 class="font-display-md text-body-lg font-bold text-on-surface">Recent Products</h3>
+<a class="font-label-bold text-label-bold text-primary-container hover:underline" href="#">View All Inventory</a>
+</div>
+<!-- Horizontal Scroll on Mobile, Grid on Desktop -->
+<div class="flex overflow-x-auto pb-4 -mx-container-padding px-container-padding md:mx-0 md:px-0 md:grid md:grid-cols-4 gap-gutter snap-x snap-mandatory hide-scrollbar">
+<!-- Product Card 1 -->
+<div class="min-w-[240px] md:min-w-0 bg-surface-container-lowest rounded-xl shadow-[0px_4px_20px_rgba(17,17,16,0.06)] border border-outline-variant overflow-hidden flex flex-col snap-start">
+<div class="h-40 bg-surface-variant relative">
+<img alt="Bulk Spices" class="w-full h-full object-cover" data-alt="close up of vibrant yellow turmeric powder and whole red chilies in bulk burlap sacks, warm lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCvTLjuvjqYdickSUurMvfyGweeAfne0IhQtdrdkaFoGj3RzUwSAbtrXFb8dHpB5dR4O0PeSB6ij7ckhsBHoJZFxKN1eH4eUXeQh2SMaLo-ls5dxpLkTm1bMbnyv9bo0eAYnffGgp2iyfA1x7sxJwbM0PjdqX4Aaid-4RkqwRBx-bN50svL51JCwF9GLRvynZzq4jpiXPZYQ0OBqwDPMczBxybPxYZpDgEZEJtNVHmUqgH3zcWObRfSZYDgt9BaGVMpw5gYAPlH9Mg"/>
+<div class="absolute top-2 right-2 bg-surface-container-lowest text-on-surface font-label-sm text-caption px-2 py-1 rounded border border-outline-variant">
+                            Stock: High
+                        </div>
+</div>
+<div class="p-sm flex flex-col flex-grow">
+<span class="font-body-md text-caption text-on-surface-variant mb-1">SKU: SP-001</span>
+<h4 class="font-body-md text-label-bold text-on-surface mb-2 line-clamp-2">Premium Grade Turmeric Powder (50kg Bag)</h4>
+<div class="mt-auto flex justify-between items-center">
+<span class="font-price-xl text-price-xl text-on-surface">Rs. 450/kg</span>
+<button class="text-primary-container p-1 rounded hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Product Card 2 -->
+<div class="min-w-[240px] md:min-w-0 bg-surface-container-lowest rounded-xl shadow-[0px_4px_20px_rgba(17,17,16,0.06)] border border-outline-variant overflow-hidden flex flex-col snap-start">
+<div class="h-40 bg-surface-variant relative">
+<img alt="Textile Rolls" class="w-full h-full object-cover" data-alt="stack of neatly rolled colorful cotton textiles in a wholesale shop, natural sunlight illuminating textures" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDZntEB1e-z2mnMrNlRPnCE4zhHcgp64ziWHahClhwluncH-s1PtPU4iH6Y7YXy2L2VKTPS_5bBlmEsdINf0rHugxRuqjt_8qPIZMNc609HmkDAubjbpnDXq2zD3JVq5tzNbQuXY4-FCSSMAv4FXAxlHXb9YBwj5afJ8hKn2OXrIHWQ3bOaa_ksnCoXYd8-aaVmlNMV-Mj7T_SFxqywJhHZVPuUMiT8Ao5TrniZwV6uMrWOmDbHNjLQo50tkK68hBVg3J0mWLmRZmY"/>
+<div class="absolute top-2 right-2 bg-error-container text-on-error-container font-label-sm text-caption px-2 py-1 rounded border border-error/20">
+                            Stock: Low
+                        </div>
+</div>
+<div class="p-sm flex flex-col flex-grow">
+<span class="font-body-md text-caption text-on-surface-variant mb-1">SKU: TX-042</span>
+<h4 class="font-body-md text-label-bold text-on-surface mb-2 line-clamp-2">Printed Cotton Fabric Rolls - Floral Mix</h4>
+<div class="mt-auto flex justify-between items-center">
+<span class="font-price-xl text-price-xl text-on-surface">Rs. 850/m</span>
+<button class="text-primary-container p-1 rounded hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Product Card 3 -->
+<div class="min-w-[240px] md:min-w-0 bg-surface-container-lowest rounded-xl shadow-[0px_4px_20px_rgba(17,17,16,0.06)] border border-outline-variant overflow-hidden flex flex-col snap-start">
+<div class="h-40 bg-surface-variant relative">
+<img alt="Bulk Tea" class="w-full h-full object-cover" data-alt="large open wooden crate filled with loose leaf black ceylon tea, subtle warm lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBetrzIquNNopAp8NhQn2Fw5bpP7Sgvo47gHdDXVv7yxIN3dBqDRsWYbEWGS7i4pqeZNSkOZRl7S_1_IsIMMRxbB3ZNlU8dBuM7L6NoqXwdCXBpGXD4_A88WT6jieAIO9kVbfEzscgKOfjW9EC9M7UTpIlDEPmmxYjFSmSyrr-nVliETwi23k9QwGudz_wTY2crBr0bo87P1S-ds7xV9_6MyI11NR7G5lsMzfBW8Pfp409F2YhjUXcRQgBDgub5qTbN7hi-7hHlhjQ"/>
+<div class="absolute top-2 right-2 bg-surface-container-lowest text-on-surface font-label-sm text-caption px-2 py-1 rounded border border-outline-variant">
+                            Stock: Med
+                        </div>
+</div>
+<div class="p-sm flex flex-col flex-grow">
+<span class="font-body-md text-caption text-on-surface-variant mb-1">SKU: TE-110</span>
+<h4 class="font-body-md text-label-bold text-on-surface mb-2 line-clamp-2">BOPF Ceylon Black Tea Export Quality (25kg)</h4>
+<div class="mt-auto flex justify-between items-center">
+<span class="font-price-xl text-price-xl text-on-surface">Rs. 1,200/kg</span>
+<button class="text-primary-container p-1 rounded hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Add New Product Card (Blank State) -->
+<div class="min-w-[240px] md:min-w-0 bg-surface-variant/50 rounded-xl border border-dashed border-outline-variant overflow-hidden flex flex-col items-center justify-center p-md snap-start cursor-pointer hover:bg-surface-variant transition-colors min-h-[280px]">
+<div class="w-12 h-12 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center mb-3 shadow-sm">
+<span class="material-symbols-outlined">add</span>
+</div>
+<span class="font-label-bold text-label-bold text-primary-container text-center">Add New Item</span>
+<span class="font-body-md text-caption text-on-surface-variant text-center mt-1">Upload to inventory</span>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 bg-white dark:bg-zinc-900 flex justify-around items-center px-2 pt-2 pb-safe border-t border-[#E8E8E4] dark:border-zinc-800 rounded-t-xl shadow-[0px_-4px_20px_rgba(17,17,16,0.06)] h-[72px]">
+<a class="flex flex-col items-center justify-center text-[#0D6E6E] dark:text-teal-400 font-['Plus_Jakarta_Sans'] text-[10px] font-medium w-full scale-90 duration-200" href="#">
+<span class="material-symbols-outlined mb-1 text-[24px]" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#AEAEA4] dark:text-zinc-500 hover:text-[#0D6E6E] dark:hover:text-teal-300 font-['Plus_Jakarta_Sans'] text-[10px] font-medium w-full" href="#">
+<span class="material-symbols-outlined mb-1 text-[24px]" style="font-variation-settings: 'FILL' 0;">inventory_2</span>
+<span>Inventory</span>
+</a>
+<!-- Action FAB embedded in Nav -->
+<a class="flex flex-col items-center justify-center text-white bg-gradient-to-br from-teal-600 to-teal-800 -mt-8 rounded-full w-14 h-14 shadow-lg shadow-teal-900/20 font-['Plus_Jakarta_Sans'] text-[10px] font-medium flex-shrink-0 mx-2" href="#">
+<span class="material-symbols-outlined text-[28px]">add</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#AEAEA4] dark:text-zinc-500 hover:text-[#0D6E6E] dark:hover:text-teal-300 font-['Plus_Jakarta_Sans'] text-[10px] font-medium w-full" href="#">
+<span class="material-symbols-outlined mb-1 text-[24px]" style="font-variation-settings: 'FILL' 0;">shopping_cart</span>
+<span>Orders</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#AEAEA4] dark:text-zinc-500 hover:text-[#0D6E6E] dark:hover:text-teal-300 font-['Plus_Jakarta_Sans'] text-[10px] font-medium w-full" href="#">
+<span class="material-symbols-outlined mb-1 text-[24px]" style="font-variation-settings: 'FILL' 0;">admin_panel_settings</span>
+<span>Admin</span>
+</a>
+</nav>
+<style>
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            .pb-safe {
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+        }
+    </style>
+</body></html>

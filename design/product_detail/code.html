@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PettahFinds - Premium Ceylon Cinnamon Sticks</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@400;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-primary": "#84d4d3",
+                        "outline-variant": "#bec9c8",
+                        "surface-variant": "#e5e2e0",
+                        "on-primary": "#ffffff",
+                        "surface-dim": "#dcd9d7",
+                        "on-tertiary": "#ffffff",
+                        "on-background": "#1c1c1a",
+                        "primary-fixed": "#a0f0f0",
+                        "secondary-fixed-dim": "#ffb77e",
+                        "surface-container": "#f0edeb",
+                        "primary-container": "#0d6e6e",
+                        "error": "#ba1a1a",
+                        "secondary": "#914c00",
+                        "surface-tint": "#016a6a",
+                        "on-tertiary-container": "#a9ebea",
+                        "on-tertiary-fixed": "#002020",
+                        "on-error": "#ffffff",
+                        "inverse-surface": "#31302f",
+                        "surface-container-highest": "#e5e2e0",
+                        "surface-container-high": "#ebe7e5",
+                        "on-surface-variant": "#3e4948",
+                        "surface": "#fcf9f6",
+                        "on-primary-container": "#9dedec",
+                        "primary": "#005454",
+                        "inverse-on-surface": "#f3f0ee",
+                        "on-secondary": "#ffffff",
+                        "tertiary-fixed": "#aceeee",
+                        "tertiary-container": "#286c6c",
+                        "surface-container-low": "#f6f3f1",
+                        "tertiary": "#005454",
+                        "secondary-fixed": "#ffdcc3",
+                        "on-primary-fixed-variant": "#004f50",
+                        "on-error-container": "#93000a",
+                        "background": "#fcf9f6",
+                        "surface-bright": "#fcf9f6",
+                        "error-container": "#ffdad6",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-container": "#fe932d",
+                        "on-surface": "#1c1c1a",
+                        "on-secondary-fixed-variant": "#6e3900",
+                        "primary-fixed-dim": "#84d4d3",
+                        "tertiary-fixed-dim": "#91d2d1",
+                        "on-primary-fixed": "#002020",
+                        "outline": "#6e7979",
+                        "on-secondary-fixed": "#2f1500",
+                        "on-secondary-container": "#663400",
+                        "on-tertiary-fixed-variant": "#004f50"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "sm": "8px",
+                        "lg": "24px",
+                        "gutter": "12px",
+                        "xs": "4px",
+                        "xl": "40px",
+                        "container-padding": "16px",
+                        "md": "16px"
+                    },
+                    "fontFamily": {
+                        "price-xl": ["Plus Jakarta Sans"],
+                        "label-bold": ["Be Vietnam Pro"],
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "body-lg": ["Be Vietnam Pro"],
+                        "display-md": ["Plus Jakarta Sans"],
+                        "body-md": ["Be Vietnam Pro"],
+                        "label-sm": ["Be Vietnam Pro"],
+                        "caption": ["Be Vietnam Pro"]
+                    },
+                    "fontSize": {
+                        "price-xl": ["20px", { "lineHeight": "1.4", "fontWeight": "800" }],
+                        "label-bold": ["14px", { "lineHeight": "1.4", "letterSpacing": "0.02em", "fontWeight": "600" }],
+                        "display-lg": ["32px", { "lineHeight": "1.2", "fontWeight": "800" }],
+                        "body-lg": ["18px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "display-md": ["24px", { "lineHeight": "1.2", "fontWeight": "800" }],
+                        "body-md": ["16px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "1.4", "fontWeight": "500" }],
+                        "caption": ["11px", { "lineHeight": "1.3", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background antialiased min-h-screen">
+<!-- TopAppBar -->
+<header class="bg-[#FAFAF8] text-[#0D6E6E] font-['Plus_Jakarta_Sans'] font-bold text-lg tracking-tight docked full-width top-0 border-b border-[#E8E8E4] flat no shadows flex justify-between items-center w-full px-4 h-16 sticky z-50">
+<button aria-label="Back" class="text-[#3D3D3A] hover:bg-[#F2F2EF] transition-colors active:scale-95 duration-150 p-2 rounded-full">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<span class="text-xl font-extrabold text-[#0D6E6E]">PettahFinds</span>
+<button aria-label="Notifications" class="text-[#3D3D3A] hover:bg-[#F2F2EF] transition-colors active:scale-95 duration-150 p-2 rounded-full">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</header>
+<main class="pb-24">
+<!-- Image Carousel -->
+<section class="relative w-full h-[442px] md:h-[530px] bg-surface-variant overflow-hidden">
+<img alt="Premium Ceylon Cinnamon Sticks" class="w-full h-full object-cover" data-alt="Close up of premium Ceylon cinnamon sticks arranged neatly on a dark rustic wooden surface, warm side lighting, high resolution" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAaO2_LXyjozsIHneZAg5JDhOMf29wq8NwZbOPQ-FhXi_EViGj-ULgQi9TV1Q8-lVZG3jCUzD3IhG3WrJ7gc5JkSHaf2vjGgF8DAHHLc1S2JnmzItqxya79Nq7ub80AScqg3250deBN07s1KiQlq_UD_2FRI1km97vRy6r54O36hkSYSYEW0H_zILUu48IrXKRklFoUxGF9DEGdY0y-U3i0QTVuyUgN0mes8UJL51CEjHacl7CjXwKhYfy22SOfEN3veRGdAtKedoM"/>
+<button class="absolute top-4 right-4 bg-surface/80 backdrop-blur-sm p-2 rounded-full text-on-surface shadow-[0px_4px_20px_rgba(17,17,16,0.06)] hover:bg-surface transition-colors">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">favorite</span>
+</button>
+<div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+<div class="w-2 h-2 rounded-full bg-primary"></div>
+<div class="w-2 h-2 rounded-full bg-surface-variant/50"></div>
+<div class="w-2 h-2 rounded-full bg-surface-variant/50"></div>
+</div>
+</section>
+<!-- Product Header & Price -->
+<section class="px-container-padding py-lg bg-surface">
+<div class="flex flex-wrap gap-2 mb-sm">
+<span class="bg-[#F2F2EF] text-[#3D3D3A] font-label-sm text-label-sm px-3 py-1 rounded-full">Spices</span>
+<span class="bg-[#F2F2EF] text-[#3D3D3A] font-label-sm text-label-sm px-3 py-1 rounded-full">Bulk Wholesale</span>
+</div>
+<h1 class="font-display-md text-display-md text-on-surface mb-sm">Premium Ceylon Cinnamon Sticks</h1>
+<div class="flex items-center gap-1 mb-lg">
+<span class="material-symbols-outlined text-secondary text-sm" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="font-label-bold text-label-bold text-on-surface">4.9</span>
+<span class="font-body-md text-body-md text-outline-variant">(128 reviews)</span>
+</div>
+<div class="border-t border-[#E8E8E4] pt-sm flex justify-between items-end">
+<div>
+<span class="font-price-xl text-price-xl text-primary block">LKR 4,500</span>
+<span class="font-body-md text-body-md text-outline-variant">per kg</span>
+</div>
+<div class="text-right">
+<span class="font-label-sm text-label-sm text-on-surface-variant block">Min. Order</span>
+<span class="font-label-bold text-label-bold text-on-surface">5 kg</span>
+</div>
+</div>
+</section>
+<div class="w-full h-2 bg-[#F2F2EF]"></div>
+<!-- Description Section -->
+<section class="px-container-padding py-lg bg-surface">
+<h2 class="font-label-bold text-label-bold text-on-surface mb-sm">About this product</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mb-md">
+                Sourced directly from the lush estates of Sri Lanka, our Premium Ceylon Cinnamon Sticks (Cinnamomum verum) offer a delicate, sweet flavor and a highly aromatic profile. Known globally as "true cinnamon," these soft, brittle quills are hand-rolled to perfection, ensuring minimal coumarin content compared to common Cassia.
+            </p>
+<p class="font-body-md text-body-md text-on-surface-variant">
+                Ideal for culinary professionals, artisanal bakeries, and premium spice blenders. Each batch is strictly graded for quality, moisture content, and essential oil levels.
+            </p>
+</section>
+<div class="w-full h-2 bg-[#F2F2EF]"></div>
+<!-- Seller Card -->
+<section class="px-container-padding py-lg bg-surface">
+<h2 class="font-label-bold text-label-bold text-on-surface mb-md">Seller Information</h2>
+<div class="bg-surface-container-low rounded-lg p-md shadow-[0px_4px_20px_rgba(17,17,16,0.06)] border border-[#E8E8E4]">
+<div class="flex items-center gap-md mb-md">
+<div class="w-12 h-12 rounded-full bg-surface-variant overflow-hidden flex-shrink-0">
+<img alt="Seller Logo" class="w-full h-full object-cover" data-alt="Small rustic logo graphic featuring a leaf and spice motif on a muted background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBDpZV8F8JKAtg4EpxVXHVlqiUCXXJjiwK05T5OqT6bBO699oKQ8KTv2KY6yre7PIjqekrorXlYGllH1dUn6ONOUohEDXFWtguwI3NSsQfiq9khNicXnC-h43YjeD-J_RvAkOEA6ImDwkM15LxIfiWQbiOoRsyKMogRSF3RDK8BeisbJ4bYmA9vrO85tbFxbeE_Dy9oUm15qgg5FOd6dng0MqJ0aYu1Ng4qrF_FFaWN73RKWLvevgZodI55Xmt50XEFFbsfovCBJBQ"/>
+</div>
+<div class="flex-grow">
+<h3 class="font-label-bold text-label-bold text-on-surface">Ceylon Spices Bulk</h3>
+<p class="font-caption text-caption text-outline-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">verified</span> Verified Merchant
+                        </p>
+</div>
+<button class="font-label-bold text-label-bold text-primary bg-primary-fixed/20 px-4 py-2 rounded-lg hover:bg-primary-fixed/30 transition-colors">
+                        Visit Store
+                    </button>
+</div>
+<div class="grid grid-cols-3 gap-2 border-t border-[#E8E8E4] pt-sm">
+<div class="text-center">
+<span class="block font-label-bold text-label-bold text-on-surface">98%</span>
+<span class="block font-caption text-caption text-outline-variant">Positive</span>
+</div>
+<div class="text-center border-l border-r border-[#E8E8E4]">
+<span class="block font-label-bold text-label-bold text-on-surface">2.5k+</span>
+<span class="block font-caption text-caption text-outline-variant">Orders</span>
+</div>
+<div class="text-center">
+<span class="block font-label-bold text-label-bold text-on-surface">2 yrs</span>
+<span class="block font-caption text-caption text-outline-variant">Selling</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Fixed Action Bar -->
+<div class="fixed bottom-0 left-0 w-full bg-surface border-t border-[#E8E8E4] px-container-padding py-sm shadow-[0px_-4px_20px_rgba(17,17,16,0.04)] z-40 flex gap-sm items-center">
+<button class="p-3 border border-[#E8E8E4] rounded-lg text-on-surface hover:bg-surface-variant transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined">chat</span>
+</button>
+<button class="flex-grow bg-secondary text-on-secondary font-label-bold text-label-bold py-3 px-4 rounded-lg hover:bg-secondary/90 transition-colors shadow-sm">
+            Place Order
+        </button>
+</div>
+</body></html>

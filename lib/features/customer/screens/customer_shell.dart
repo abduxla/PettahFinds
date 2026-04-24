@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/theme/app_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../../../core/theme/app_colors.dart';
 
 class CustomerShell extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
@@ -10,6 +11,7 @@ class CustomerShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
+      backgroundColor: AppColors.bgSection,
       body: navigationShell,
       bottomNavigationBar: _PremiumBottomNav(
         currentIndex: navigationShell.currentIndex,
@@ -39,12 +41,13 @@ class _PremiumBottomNav extends StatelessWidget {
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         height: 72,
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(28),
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: AppColors.border),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withAlpha(24),
-              blurRadius: 28,
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 20,
               offset: const Offset(0, 8),
             ),
           ],
@@ -71,8 +74,8 @@ class _PremiumBottomNav extends StatelessWidget {
                 // Placeholder for center tab (floating button sits here)
                 const Expanded(child: SizedBox()),
                 _NavItem(
-                  icon: Icons.favorite_outline_rounded,
-                  activeIcon: Icons.favorite_rounded,
+                  icon: Icons.shopping_bag_outlined,
+                  activeIcon: Icons.shopping_bag_rounded,
                   label: 'Saved',
                   selected: currentIndex == 3,
                   onTap: () => onTap(3),
@@ -86,7 +89,6 @@ class _PremiumBottomNav extends StatelessWidget {
                 ),
               ],
             ),
-            // Center elevated Map tab
             Positioned(
               top: -18,
               left: 0,
@@ -122,24 +124,32 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? AppTheme.accent : AppTheme.textMuted;
+    final color = selected ? AppColors.teal : AppColors.text4;
     return Expanded(
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(28),
+        borderRadius: BorderRadius.circular(22),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              selected ? activeIcon : icon,
-              color: color,
-              size: 24,
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: selected ? AppColors.tealLight : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                selected ? activeIcon : icon,
+                color: color,
+                size: 22,
+              ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 10.5,
+              style: GoogleFonts.dmSans(
+                fontSize: 10,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 color: color,
                 letterSpacing: -0.1,
@@ -164,28 +174,28 @@ class _CenterMapButton extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        width: 64,
-        height: 64,
+        width: 56,
+        height: 56,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [AppTheme.accent, AppTheme.accentDark],
+            colors: [AppColors.teal, AppColors.tealDark],
           ),
-          shape: BoxShape.circle,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white, width: 3),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.accent.withAlpha(selected ? 120 : 80),
+              color: AppColors.teal.withValues(alpha: selected ? 0.45 : 0.32),
               blurRadius: 20,
-              offset: const Offset(0, 8),
+              offset: const Offset(0, 6),
             ),
           ],
-          border: Border.all(color: Colors.white, width: 4),
         ),
         child: const Icon(
           Icons.map_rounded,
           color: Colors.white,
-          size: 28,
+          size: 24,
         ),
       ),
     );
