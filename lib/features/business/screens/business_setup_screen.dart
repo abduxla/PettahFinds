@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -25,6 +26,14 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
   final _emailCtrl = TextEditingController();
   final _categoryCtrl = TextEditingController();
   bool _loading = false;
+  bool _acceptedUserTerms = false;
+  bool _acceptedListingAgreement = false;
+  bool _acceptedProhibitedPolicy = false;
+
+  bool get _allLegalAccepted =>
+      _acceptedUserTerms &&
+      _acceptedListingAgreement &&
+      _acceptedProhibitedPolicy;
 
   @override
   void dispose() {
@@ -40,7 +49,15 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
   Future<void> _submit() async {
     if (_loading) return;
     if (!_formKey.currentState!.validate()) return;
+    if (!_allLegalAccepted) {
+      context.showErrorSnackBar(
+          'Please accept all required legal documents to continue.');
+      return;
+    }
     setState(() => _loading = true);
+    // TODO(legal): persist accepted legal version on the Business or AppUser
+    // (LegalDocuments.legalVersion + DateTime.now()) once the model has
+    // acceptedTermsVersion / acceptedTermsAt fields.
     try {
       final appUser = ref.read(appUserProvider).valueOrNull;
       if (appUser == null) throw Exception('Not authenticated');
@@ -193,9 +210,58 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                 keyboardType: TextInputType.emailAddress,
                 validator: Validators.email,
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 28),
+              Container(
+                padding: const EdgeInsets.fromLTRB(8, 4, 12, 8),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  children: [
+                    _LegalCheckRow(
+                      accepted: _acceptedUserTerms,
+                      onChanged: (v) =>
+                          setState(() => _acceptedUserTerms = v ?? false),
+                      spans: [
+                        const _LegalSpan('I agree to the '),
+                        _LegalSpan('User Terms of Use',
+                            href: '/legal/user-terms'),
+                        const _LegalSpan(' and acknowledge the '),
+                        _LegalSpan('Privacy Policy',
+                            href: '/legal/privacy'),
+                        const _LegalSpan('.'),
+                      ],
+                    ),
+                    _LegalCheckRow(
+                      accepted: _acceptedListingAgreement,
+                      onChanged: (v) => setState(
+                          () => _acceptedListingAgreement = v ?? false),
+                      spans: [
+                        const _LegalSpan('I agree to the '),
+                        _LegalSpan('Business Listing Agreement',
+                            href: '/legal/business-listing-agreement'),
+                        const _LegalSpan('.'),
+                      ],
+                    ),
+                    _LegalCheckRow(
+                      accepted: _acceptedProhibitedPolicy,
+                      onChanged: (v) => setState(
+                          () => _acceptedProhibitedPolicy = v ?? false),
+                      spans: [
+                        const _LegalSpan('I agree to the '),
+                        _LegalSpan('Content and Prohibited Listings Policy',
+                            href: '/legal/prohibited-listings'),
+                        const _LegalSpan('.'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
               FilledButton(
-                onPressed: _loading ? null : _submit,
+                onPressed: (_loading || !_allLegalAccepted) ? null : _submit,
                 child: _loading
                     ? const SizedBox(
                         height: 20,
@@ -208,6 +274,71 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _LegalSpan {
+  final String text;
+  final String? href;
+  const _LegalSpan(this.text, {this.href});
+}
+
+class _LegalCheckRow extends StatelessWidget {
+  final bool accepted;
+  final ValueChanged<bool?> onChanged;
+  final List<_LegalSpan> spans;
+  const _LegalCheckRow({
+    required this.accepted,
+    required this.onChanged,
+    required this.spans,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final base = GoogleFonts.dmSans(
+      fontSize: 12.5,
+      color: AppColors.text2,
+      height: 1.45,
+    );
+    final link = GoogleFonts.dmSans(
+      fontSize: 12.5,
+      color: AppColors.teal,
+      fontWeight: FontWeight.w700,
+      decoration: TextDecoration.underline,
+      height: 1.45,
+    );
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Checkbox(
+          value: accepted,
+          onChanged: onChanged,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Text.rich(
+              TextSpan(
+                style: base,
+                children: [
+                  for (final s in spans)
+                    if (s.href != null)
+                      TextSpan(
+                        text: s.text,
+                        style: link,
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () => context.push(s.href!),
+                      )
+                    else
+                      TextSpan(text: s.text),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

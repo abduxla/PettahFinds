@@ -9,11 +9,12 @@ import '../../../models/app_notification.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/sign_in_required.dart';
 
-/// Back handler — always route to /home. Notifications lives under the
-/// Profile shell branch, so `pop()` can bounce into Profile; explicit
-/// /home keeps the UX predictable from every entry point (bell, deep link).
-void _handleBack(BuildContext context) {
-  context.go('/home');
+/// Back handler — uses an explicit destination. Notifications lives in
+/// nested shells, so `pop()` can bounce into the wrong tab; the screen
+/// receives a `backPath` from its caller (`/home` for customer, `/business`
+/// for merchant).
+void _handleBack(BuildContext context, String backPath) {
+  context.go(backPath);
 }
 
 /// Top-level provider so subscriptions are stable across rebuilds.
@@ -23,7 +24,8 @@ final _userNotificationsProvider = StreamProvider.autoDispose
 });
 
 class NotificationsScreen extends ConsumerWidget {
-  const NotificationsScreen({super.key});
+  final String backPath;
+  const NotificationsScreen({super.key, this.backPath = '/home'});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -48,7 +50,7 @@ class NotificationsScreen extends ConsumerWidget {
         appBar: AppBar(
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_rounded),
-            onPressed: () => _handleBack(context),
+            onPressed: () => _handleBack(context, backPath),
           ),
           title: Text(
             'Notifications',
@@ -86,7 +88,7 @@ class NotificationsScreen extends ConsumerWidget {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => _handleBack(context),
+          onPressed: () => _handleBack(context, backPath),
         ),
         title: Text(
           'Notifications',

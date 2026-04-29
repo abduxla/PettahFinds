@@ -39,7 +39,7 @@ class BusinessProfileScreen extends ConsumerWidget {
                     backgroundColor: Colors.black26,
                     child: IconButton(
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () => context.pop(),
+                      onPressed: () => context.go('/business'),
                     ),
                   ),
                 ),

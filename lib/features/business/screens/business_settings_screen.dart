@@ -32,7 +32,7 @@ class BusinessSettingsScreen extends ConsumerWidget {
               _MenuItem(
                 icon: Icons.edit_rounded,
                 label: 'Edit Business Profile',
-                onTap: () => context.go('/business-profile/edit'),
+                onTap: () => context.go('/business-settings/edit-profile'),
               ),
               _MenuItem(
                 icon: Icons.inventory_2_rounded,
@@ -69,13 +69,24 @@ class BusinessSettingsScreen extends ConsumerWidget {
             items: [
               _MenuItem(
                 icon: Icons.description_outlined,
-                label: 'Terms of Service',
-                onTap: () {},
+                label: 'User Terms of Use',
+                onTap: () => context.push('/legal/user-terms'),
               ),
               _MenuItem(
                 icon: Icons.privacy_tip_outlined,
                 label: 'Privacy Policy',
-                onTap: () {},
+                onTap: () => context.push('/legal/privacy'),
+              ),
+              _MenuItem(
+                icon: Icons.handshake_outlined,
+                label: 'Business Listing Agreement',
+                onTap: () =>
+                    context.push('/legal/business-listing-agreement'),
+              ),
+              _MenuItem(
+                icon: Icons.policy_outlined,
+                label: 'Content and Prohibited Listings Policy',
+                onTap: () => context.push('/legal/prohibited-listings'),
               ),
             ],
           ),

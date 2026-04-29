@@ -15,10 +15,19 @@ class CustomerShell extends StatelessWidget {
       body: navigationShell,
       bottomNavigationBar: _PremiumBottomNav(
         currentIndex: navigationShell.currentIndex,
-        onTap: (i) => navigationShell.goBranch(
-          i,
-          initialLocation: i == navigationShell.currentIndex,
-        ),
+        onTap: (i) {
+          if (i == 4) {
+            // Profile tab — always reset to /profile so we don't pop into
+            // a nested page (e.g. /profile/notifications) the user opened
+            // from the bell.
+            context.go('/profile');
+            return;
+          }
+          navigationShell.goBranch(
+            i,
+            initialLocation: i == navigationShell.currentIndex,
+          );
+        },
       ),
     );
   }

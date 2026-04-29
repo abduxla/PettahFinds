@@ -33,6 +33,8 @@ import '../../features/admin/screens/admin_dashboard_screen.dart';
 import '../../features/admin/screens/admin_businesses_screen.dart';
 import '../../features/admin/screens/admin_products_screen.dart';
 import '../../features/admin/screens/admin_reports_screen.dart';
+import '../../features/legal/legal_document_screen.dart';
+import '../../features/legal/legal_documents.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _customerShellKey = GlobalKey<NavigatorState>(debugLabel: 'customer');
@@ -53,6 +55,10 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Allow splash always — it handles its own navigation
       if (currentPath == '/splash') return null;
+
+      // Legal docs are reachable from everywhere (sign-up, settings, product
+      // form), regardless of auth state or role.
+      if (currentPath.startsWith('/legal/')) return null;
 
       // While auth is still initializing, don't redirect — stay put
       if (isAuthLoading) return null;
@@ -141,6 +147,36 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/forgot-password',
           builder: (_, __) => const ForgotPasswordScreen()),
+
+      // --- Legal documents (accessible from anywhere, no auth required) ---
+      GoRoute(
+        path: '/legal/privacy',
+        builder: (_, __) => const LegalDocumentScreen(
+          title: LegalDocuments.privacyPolicyTitle,
+          body: LegalDocuments.privacyPolicyBody,
+        ),
+      ),
+      GoRoute(
+        path: '/legal/user-terms',
+        builder: (_, __) => const LegalDocumentScreen(
+          title: LegalDocuments.userTermsTitle,
+          body: LegalDocuments.userTermsBody,
+        ),
+      ),
+      GoRoute(
+        path: '/legal/business-listing-agreement',
+        builder: (_, __) => const LegalDocumentScreen(
+          title: LegalDocuments.businessListingTitle,
+          body: LegalDocuments.businessListingBody,
+        ),
+      ),
+      GoRoute(
+        path: '/legal/prohibited-listings',
+        builder: (_, __) => const LegalDocumentScreen(
+          title: LegalDocuments.prohibitedListingsTitle,
+          body: LegalDocuments.prohibitedListingsBody,
+        ),
+      ),
 
       // --- Customer Shell ---
       StatefulShellRoute.indexedStack(
@@ -242,6 +278,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                       productId: state.pathParameters['productId'],
                     ),
                   ),
+                  GoRoute(
+                    path: 'notifications',
+                    builder: (_, __) =>
+                        const NotificationsScreen(backPath: '/business'),
+                  ),
                 ],
               ),
             ],
@@ -262,6 +303,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             GoRoute(
               path: '/business-settings',
               builder: (_, __) => const BusinessSettingsScreen(),
+              routes: [
+                GoRoute(
+                  path: 'edit-profile',
+                  builder: (_, __) => const EditBusinessProfileScreen(),
+                ),
+              ],
             ),
           ]),
         ],

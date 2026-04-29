@@ -173,7 +173,7 @@ class _MerchantHeader extends StatelessWidget {
             ],
           ),
           GestureDetector(
-            onTap: () => context.go('/profile/notifications'),
+            onTap: () => context.go('/business/notifications'),
             behavior: HitTestBehavior.opaque,
             child: ConstrainedBox(
               constraints:

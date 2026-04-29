@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -428,7 +429,9 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
               icon: Icons.tag_rounded,
               hint: 'Comma separated keywords for search',
             ),
-            const SizedBox(height: 36),
+            const SizedBox(height: 24),
+            _ProhibitedListingsNote(),
+            const SizedBox(height: 16),
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               height: 54,
@@ -673,6 +676,62 @@ class _FormSkeleton extends StatelessWidget {
         const SizedBox(height: 20),
         const ShimmerBox(height: 54, radius: 14),
       ],
+    );
+  }
+}
+
+/// Inline note shown above the submit button. Reminds the seller that the
+/// Content and Prohibited Listings Policy applies to every listing without
+/// blocking the upload (acceptance happens once at business setup).
+class _ProhibitedListingsNote extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final base = GoogleFonts.dmSans(
+      fontSize: 11.5,
+      color: AppColors.text3,
+      height: 1.45,
+    );
+    final link = GoogleFonts.dmSans(
+      fontSize: 11.5,
+      color: AppColors.teal,
+      fontWeight: FontWeight.w700,
+      decoration: TextDecoration.underline,
+      height: 1.45,
+    );
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.tealLight,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline,
+              size: 16, color: AppColors.teal),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                style: base,
+                children: [
+                  const TextSpan(
+                      text: 'By listing products, you agree to follow the '),
+                  TextSpan(
+                    text: 'Content and Prohibited Listings Policy',
+                    style: link,
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () =>
+                          context.push('/legal/prohibited-listings'),
+                  ),
+                  const TextSpan(text: '.'),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

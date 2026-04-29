@@ -60,18 +60,18 @@ class SettingsScreen extends ConsumerWidget {
             value: true,
             onChanged: (val) {},
           ),
-          _Section(title: 'About', theme: theme),
+          _Section(title: 'Legal', theme: theme),
           _SettingsTile(
             icon: Icons.description_outlined,
             iconColor: const Color(0xFF22C55E),
-            title: 'Terms of Service',
-            onTap: () {},
+            title: 'User Terms of Use',
+            onTap: () => context.push('/legal/user-terms'),
           ),
           _SettingsTile(
             icon: Icons.privacy_tip_outlined,
             iconColor: const Color(0xFF22C55E),
             title: 'Privacy Policy',
-            onTap: () {},
+            onTap: () => context.push('/legal/privacy'),
           ),
           const SizedBox(height: 28),
           Padding(

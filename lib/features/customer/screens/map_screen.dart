@@ -29,7 +29,6 @@ import '../../../models/business.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
-import '../../../widgets/empty_state_widget.dart';
 
 // Pettah, Colombo — default map center.
 const _defaultLng = 79.8542;
@@ -308,10 +307,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       data: (all) {
                         final list = _applyFilter(all);
                         if (list.isEmpty) {
-                          return const EmptyStateWidget(
-                            icon: Icons.map_outlined,
-                            title: 'No businesses here',
-                          );
+                          return const _EmptyStripPill();
                         }
                         return _NearbyStrip(
                           businesses: list.take(6).toList(),
@@ -458,6 +454,50 @@ class _SoftGridPainter extends CustomPainter {
 // =====================================================================
 // Floating UI pieces
 // =====================================================================
+/// Compact pill shown above the bottom nav when no businesses match the
+/// current filter — replaces the giant `EmptyStateWidget` that overlapped
+/// the "Explore nearby" fallback card.
+class _EmptyStripPill extends StatelessWidget {
+  const _EmptyStripPill();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(18),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.storefront_outlined,
+                color: AppTheme.textMuted, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              'No businesses here',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.text,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _CategoryChipsBar extends StatelessWidget {
   final String? selected;
   final ValueChanged<String?> onChanged;

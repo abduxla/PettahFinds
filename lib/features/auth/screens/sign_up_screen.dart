@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -22,6 +23,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   String _selectedRole = 'user';
   bool _loading = false;
   bool _obscure = true;
+  bool _acceptedTerms = false;
 
   @override
   void dispose() {
@@ -34,8 +36,16 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   Future<void> _signUp() async {
     if (_loading) return;
     if (!_formKey.currentState!.validate()) return;
+    if (!_acceptedTerms) {
+      context.showErrorSnackBar(
+          'Please accept the User Terms of Use and Privacy Policy to continue.');
+      return;
+    }
     setState(() => _loading = true);
     try {
+      // TODO(legal): persist accepted legal version on AppUser
+      // (LegalDocuments.legalVersion + DateTime.now()) once the AppUser
+      // model has acceptedTermsVersion / acceptedTermsAt fields.
       final appUser = await ref.read(authRepositoryProvider).signUp(
             email: _emailCtrl.text,
             password: _passwordCtrl.text,
@@ -185,9 +195,15 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     onSelectionChanged: (sel) =>
                         setState(() => _selectedRole = sel.first),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 20),
+                  _LegalAcceptRow(
+                    accepted: _acceptedTerms,
+                    onChanged: (v) =>
+                        setState(() => _acceptedTerms = v ?? false),
+                  ),
+                  const SizedBox(height: 20),
                   FilledButton(
-                    onPressed: _loading ? null : _signUp,
+                    onPressed: (_loading || !_acceptedTerms) ? null : _signUp,
                     child: _loading
                         ? const SizedBox(
                             height: 20,
@@ -214,6 +230,65 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _LegalAcceptRow extends StatelessWidget {
+  final bool accepted;
+  final ValueChanged<bool?> onChanged;
+  const _LegalAcceptRow({required this.accepted, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final base = GoogleFonts.dmSans(
+      fontSize: 12.5,
+      color: AppColors.text2,
+      height: 1.45,
+    );
+    final link = GoogleFonts.dmSans(
+      fontSize: 12.5,
+      color: AppColors.teal,
+      fontWeight: FontWeight.w700,
+      decoration: TextDecoration.underline,
+      height: 1.45,
+    );
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Checkbox(
+          value: accepted,
+          onChanged: onChanged,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Text.rich(
+              TextSpan(
+                style: base,
+                children: [
+                  const TextSpan(text: 'I agree to the '),
+                  TextSpan(
+                    text: 'User Terms of Use',
+                    style: link,
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () => context.push('/legal/user-terms'),
+                  ),
+                  const TextSpan(text: ' and acknowledge the '),
+                  TextSpan(
+                    text: 'Privacy Policy',
+                    style: link,
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () => context.push('/legal/privacy'),
+                  ),
+                  const TextSpan(text: '.'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
