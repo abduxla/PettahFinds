@@ -4,8 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
+import 'onboarding_screen.dart';
 
 /// Splash — solid Teal-Dark field, centered "PetaFinds." wordmark
 /// (Nunito 900, orange period) and tagline. Fades in on mount, fades
@@ -41,7 +43,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     );
     _fadeController.forward();
 
-    _timeoutTimer = Timer(const Duration(seconds: 8), () => _go('/home'));
+    _timeoutTimer =
+        Timer(const Duration(seconds: 8), () => _goGuestStart());
 
     Future.delayed(const Duration(milliseconds: 1600), () {
       if (mounted) _tryNavigate();
@@ -64,18 +67,26 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     context.go(path);
   }
 
+  /// Guest landing: first run goes through onboarding once, then home.
+  Future<void> _goGuestStart() async {
+    if (_navigated || !mounted) return;
+    final prefs = await SharedPreferences.getInstance();
+    final done = prefs.getBool(onboardingCompletedKey) ?? false;
+    _go(done ? '/home' : '/onboarding');
+  }
+
   void _tryNavigate() {
     final authState = ref.read(authStateProvider);
     authState.when(
       data: (firebaseUser) {
         if (firebaseUser == null) {
-          _go('/home');
+          _goGuestStart();
           return;
         }
         _waitForAppUser();
       },
       loading: _listenAuth,
-      error: (_, __) => _go('/home'),
+      error: (_, __) => _goGuestStart(),
     );
   }
 
@@ -84,13 +95,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       next.when(
         data: (firebaseUser) {
           if (firebaseUser == null) {
-            _go('/home');
+            _goGuestStart();
           } else {
             _waitForAppUser();
           }
         },
         loading: () {},
-        error: (_, __) => _go('/home'),
+        error: (_, __) => _goGuestStart(),
       );
     });
   }

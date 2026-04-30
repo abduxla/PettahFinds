@@ -4,9 +4,11 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/extensions/context_extensions.dart';
 import '../../../models/business.dart';
 import '../../../models/favorite.dart';
 import '../../../models/product.dart';
+import '../../../models/report.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
@@ -294,6 +296,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           ),
                         ),
 
+                        const SizedBox(height: 16),
+                        const _PlatformDisclaimer(),
+
                         const SizedBox(height: 24),
                         const Divider(color: AppColors.border, height: 1),
                         const SizedBox(height: 20),
@@ -319,6 +324,24 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                     '/home/business/${product.businessId}'),
                             icon: const Icon(Icons.store),
                             label: const Text('View Business'),
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+                        Center(
+                          child: TextButton.icon(
+                            onPressed: () => _openReportSheet(
+                                context, ref, product.id),
+                            icon: const Icon(Icons.flag_outlined,
+                                size: 16, color: AppColors.text3),
+                            label: Text(
+                              'Report product',
+                              style: GoogleFonts.dmSans(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.text3,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -452,6 +475,218 @@ class _SellerCard extends StatelessWidget {
                 color: AppColors.text3),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _PlatformDisclaimer extends StatelessWidget {
+  const _PlatformDisclaimer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.bgSection,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline, size: 14, color: AppColors.text4),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Listed by an independent business. PetaFinds does not sell, '
+              'verify, or guarantee this product.',
+              style: GoogleFonts.dmSans(
+                fontSize: 11.5,
+                color: AppColors.text3,
+                height: 1.45,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+void _openReportSheet(BuildContext context, WidgetRef ref, String productId) {
+  final appUser = ref.read(appUserProvider).valueOrNull;
+  if (appUser == null) {
+    ScaffoldMessenger.of(context).clearSnackBars();
+    showSignInRequiredSheet(context);
+    return;
+  }
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: AppColors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => _ReportProductSheet(
+      productId: productId,
+      userId: appUser.uid,
+    ),
+  );
+}
+
+class _ReportProductSheet extends ConsumerStatefulWidget {
+  final String productId;
+  final String userId;
+  const _ReportProductSheet({
+    required this.productId,
+    required this.userId,
+  });
+
+  @override
+  ConsumerState<_ReportProductSheet> createState() =>
+      _ReportProductSheetState();
+}
+
+class _ReportProductSheetState extends ConsumerState<_ReportProductSheet> {
+  static const _reasons = [
+    'Fake product',
+    'Misleading price',
+    'Wrong information',
+    'Illegal item',
+    'Other',
+  ];
+
+  String? _selected;
+  final _detailsCtrl = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _detailsCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_submitting) return;
+    if (_selected == null) {
+      context.showErrorSnackBar('Please pick a reason');
+      return;
+    }
+    setState(() => _submitting = true);
+    try {
+      await ref
+          .read(reportRepositoryProvider)
+          .submit(Report(
+            id: '',
+            userId: widget.userId,
+            productId: widget.productId,
+            targetType: 'product',
+            reason: _selected!,
+            details: _detailsCtrl.text.trim().isEmpty
+                ? null
+                : _detailsCtrl.text.trim(),
+            status: 'pending',
+            createdAt: DateTime.now(),
+          ))
+          .timeout(const Duration(seconds: 15),
+              onTimeout: () =>
+                  throw Exception('Report timed out. Try again.'));
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      context.showSuccessSnackBar('Report submitted. Thank you.');
+    } catch (e) {
+      if (mounted) {
+        setState(() => _submitting = false);
+        context.showErrorSnackBar(e);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final inset = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + inset),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+          Text('Report product',
+              style: GoogleFonts.nunito(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AppColors.text1,
+                letterSpacing: -0.3,
+              )),
+          const SizedBox(height: 4),
+          Text('Help us keep PetaFinds safe.',
+              style: GoogleFonts.dmSans(
+                fontSize: 12.5,
+                color: AppColors.text3,
+              )),
+          const SizedBox(height: 16),
+          ..._reasons.map((r) => RadioListTile<String>(
+                value: r,
+                groupValue: _selected,
+                onChanged: (v) => setState(() => _selected = v),
+                title: Text(r,
+                    style: GoogleFonts.dmSans(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.text1,
+                    )),
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                activeColor: AppColors.teal,
+              )),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _detailsCtrl,
+            maxLines: 3,
+            maxLength: 500,
+            decoration: InputDecoration(
+              hintText: 'Add details (optional)',
+              hintStyle: GoogleFonts.dmSans(
+                fontSize: 13,
+                color: AppColors.text4,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: AppColors.border),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 48,
+            child: FilledButton(
+              onPressed: _submitting ? null : _submit,
+              child: _submitting
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Text('Submit report'),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -5,7 +5,9 @@ class Report {
   final String userId;
   final String? businessId;
   final String? productId;
+  final String? targetType; // 'product' | 'business'
   final String reason;
+  final String? details;
   final String status; // 'pending', 'reviewed', 'resolved'
   final DateTime createdAt;
 
@@ -14,7 +16,9 @@ class Report {
     required this.userId,
     this.businessId,
     this.productId,
+    this.targetType,
     required this.reason,
+    this.details,
     this.status = 'pending',
     required this.createdAt,
   });
@@ -26,7 +30,9 @@ class Report {
       userId: data['userId'] ?? '',
       businessId: data['businessId'],
       productId: data['productId'],
+      targetType: data['targetType'],
       reason: data['reason'] ?? '',
+      details: data['details'],
       status: data['status'] ?? 'pending',
       createdAt:
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -37,7 +43,9 @@ class Report {
         'userId': userId,
         'businessId': businessId,
         'productId': productId,
+        'targetType': targetType,
         'reason': reason,
+        'details': details,
         'status': status,
         'createdAt': Timestamp.fromDate(createdAt),
       };
