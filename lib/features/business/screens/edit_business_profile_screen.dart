@@ -25,6 +25,7 @@ class _EditBusinessProfileScreenState
   final _locationCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _whatsappCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _categoryCtrl = TextEditingController();
   bool _loading = false;
@@ -36,6 +37,7 @@ class _EditBusinessProfileScreenState
     _locationCtrl.text = business.location;
     _descCtrl.text = business.description;
     _phoneCtrl.text = business.phone;
+    _whatsappCtrl.text = business.whatsappNumber;
     _emailCtrl.text = business.email;
     _categoryCtrl.text = business.category;
     _initialized = true;
@@ -47,6 +49,7 @@ class _EditBusinessProfileScreenState
     _locationCtrl.dispose();
     _descCtrl.dispose();
     _phoneCtrl.dispose();
+    _whatsappCtrl.dispose();
     _emailCtrl.dispose();
     _categoryCtrl.dispose();
     super.dispose();
@@ -63,6 +66,7 @@ class _EditBusinessProfileScreenState
               location: _locationCtrl.text.trim(),
               description: _descCtrl.text.trim(),
               phone: _phoneCtrl.text.trim(),
+              whatsappNumber: _whatsappCtrl.text.trim(),
               email: _emailCtrl.text.trim(),
               category: _categoryCtrl.text.trim(),
             ),
@@ -85,11 +89,10 @@ class _EditBusinessProfileScreenState
     final businessAsync = ref.watch(currentUserBusinessProvider);
 
     return businessAsync.when(
-      data: (businessDynamic) {
-        if (businessDynamic == null) {
+      data: (business) {
+        if (business == null) {
           return const Scaffold(body: Center(child: Text('No business')));
         }
-        final business = businessDynamic as Business;
         _initFields(business);
 
         return Scaffold(
@@ -195,6 +198,15 @@ class _EditBusinessProfileScreenState
                     decoration: const InputDecoration(labelText: 'Phone'),
                     keyboardType: TextInputType.phone,
                     validator: Validators.phone,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _whatsappCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'WhatsApp Number (optional)',
+                      hintText: '+94 77 123 4567',
+                    ),
+                    keyboardType: TextInputType.phone,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(

@@ -23,6 +23,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     with SingleTickerProviderStateMixin {
   bool _navigated = false;
   Timer? _timeoutTimer;
+  // Cached once on init so navigation decisions don't race the prefs read.
+  bool _onboardingDone = false;
 
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnim;
@@ -43,12 +45,38 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     );
     _fadeController.forward();
 
+    // Resolve the onboarding flag up front so all navigation paths
+    // (timeout, fast auth, slow auth) read the same value synchronously.
+    SharedPreferences.getInstance().then((prefs) {
+      _onboardingDone = prefs.getBool(onboardingCompletedKey) ?? false;
+    });
+
+    // Timeout safely routes by *current* auth state; logged-in users go to
+    // their role home, guests go through onboarding once.
     _timeoutTimer =
-        Timer(const Duration(seconds: 8), () => _goGuestStart());
+        Timer(const Duration(seconds: 8), _safeFallbackRoute);
 
     Future.delayed(const Duration(milliseconds: 1600), () {
       if (mounted) _tryNavigate();
     });
+  }
+
+  void _safeFallbackRoute() {
+    if (_navigated || !mounted) return;
+    final user = ref.read(appUserProvider).valueOrNull;
+    if (user != null) {
+      _routeByRole(user);
+      return;
+    }
+    final firebaseUser = ref.read(authStateProvider).valueOrNull;
+    if (firebaseUser != null) {
+      // Firebase user resolved but AppUser doc not yet — route conservatively
+      // to /home so we don't strand them; router redirect will correct once
+      // the AppUser stream emits.
+      _go('/home');
+      return;
+    }
+    _goGuestStart();
   }
 
   @override
@@ -68,11 +96,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   /// Guest landing: first run goes through onboarding once, then home.
-  Future<void> _goGuestStart() async {
+  /// Uses the value cached in [initState] to avoid racing the prefs read
+  /// against the navigation timer.
+  void _goGuestStart() {
     if (_navigated || !mounted) return;
-    final prefs = await SharedPreferences.getInstance();
-    final done = prefs.getBool(onboardingCompletedKey) ?? false;
-    _go(done ? '/home' : '/onboarding');
+    _go(_onboardingDone ? '/home' : '/onboarding');
   }
 
   void _tryNavigate() {

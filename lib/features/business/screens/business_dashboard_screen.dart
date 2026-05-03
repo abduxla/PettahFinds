@@ -24,8 +24,8 @@ class BusinessDashboardScreen extends ConsumerWidget {
     final businessAsync = ref.watch(currentUserBusinessProvider);
 
     return businessAsync.when(
-      data: (businessDynamic) {
-        if (businessDynamic == null) {
+      data: (business) {
+        if (business == null) {
           return Scaffold(
             backgroundColor: AppColors.bgSection,
             body: EmptyStateWidget(
@@ -37,7 +37,6 @@ class BusinessDashboardScreen extends ConsumerWidget {
             ),
           );
         }
-        final business = businessDynamic as Business;
         final productsAsync =
             ref.watch(businessActiveProductsProvider(business.id));
         final products = productsAsync.valueOrNull ?? const <Product>[];

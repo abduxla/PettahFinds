@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/providers/providers.dart';
-import '../../../models/business.dart';
-import '../../../models/product.dart';
-import '../../../models/report.dart';
 import '../../../widgets/loading_widget.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
@@ -13,18 +10,9 @@ class AdminDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final businessesAsync = ref.watch(
-      StreamProvider<List<Business>>(
-          (ref) => ref.read(businessRepositoryProvider).streamAll()),
-    );
-    final productsAsync = ref.watch(
-      StreamProvider<List<Product>>(
-          (ref) => ref.read(productRepositoryProvider).streamAll()),
-    );
-    final reportsAsync = ref.watch(
-      StreamProvider<List<Report>>(
-          (ref) => ref.read(reportRepositoryProvider).streamAll()),
-    );
+    final businessesAsync = ref.watch(allBusinessesProvider);
+    final productsAsync = ref.watch(allActiveProductsProvider);
+    final reportsAsync = ref.watch(allReportsProvider);
 
     return Scaffold(
       appBar: AppBar(

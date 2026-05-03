@@ -9,7 +9,6 @@ import '../../../core/constants/categories.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../models/business.dart';
 import '../../../models/product.dart';
 import '../../../utils/validators.dart';
 import '../../../widgets/cached_image.dart';
@@ -183,14 +182,13 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     try {
       // Resolve business without blocking on a possibly-stale FutureProvider.
       final cached = ref.read(currentUserBusinessProvider).valueOrNull;
-      final businessDynamic = cached ??
+      final business = cached ??
           await ref
               .read(currentUserBusinessProvider.future)
               .timeout(const Duration(seconds: 15),
                   onTimeout: () =>
                       throw Exception('Could not load business. Try again.'));
-      if (businessDynamic == null) throw Exception('No business found');
-      final business = businessDynamic as Business;
+      if (business == null) throw Exception('No business found');
 
       // Upload any new files first (with a per-file timeout so a hung
       // Storage request can't freeze the save forever).

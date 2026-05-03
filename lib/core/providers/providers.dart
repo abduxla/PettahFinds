@@ -11,7 +11,9 @@ import '../../repositories/report_repository.dart';
 import '../../repositories/notification_repository.dart';
 import '../../services/storage_service.dart';
 import '../../services/recently_viewed_service.dart';
+import '../../models/business.dart';
 import '../../models/product.dart';
+import '../../models/report.dart';
 
 // --- Repositories ---
 final authRepositoryProvider = Provider((ref) => AuthRepository());
@@ -52,23 +54,33 @@ final businessActiveProductsProvider =
   return ref.watch(productRepositoryProvider).streamByBusiness(businessId);
 });
 
+/// Top-level streams for the admin dashboard. Lifted out of `build()` so
+/// rebuilds don't construct fresh `StreamProvider`s every frame (which
+/// leaks the previous Firestore subscription).
+final allBusinessesProvider = StreamProvider<List<Business>>((ref) {
+  return ref.watch(businessRepositoryProvider).streamAll();
+});
+final allReportsProvider = StreamProvider<List<Report>>((ref) {
+  return ref.watch(reportRepositoryProvider).streamAll();
+});
+
 /// Resolves recently-viewed product IDs into full Product objects.
 /// Silently skips deleted / inactive products so the UI never breaks.
+/// Fans out reads in parallel and preserves the input order.
 final recentlyViewedProductsProvider =
-    FutureProvider<List<Product>>((ref) async {
+    FutureProvider.autoDispose<List<Product>>((ref) async {
   final ids = await ref.watch(recentlyViewedServiceProvider).getIds();
   if (ids.isEmpty) return const [];
   final repo = ref.watch(productRepositoryProvider);
-  final results = <Product>[];
-  for (final id in ids) {
+  final fetched = await Future.wait(ids.map((id) async {
     try {
       final p = await repo.getById(id);
-      if (p.isActive) results.add(p);
+      return p.isActive ? p : null;
     } catch (_) {
-      // Skip missing products.
+      return null;
     }
-  }
-  return results;
+  }));
+  return fetched.whereType<Product>().toList();
 });
 
 // --- Auth State ---
@@ -90,7 +102,11 @@ final appUserProvider = StreamProvider<AppUser?>((ref) {
 });
 
 // --- Business for current user ---
-final currentUserBusinessProvider = FutureProvider<dynamic>((ref) async {
+//
+// Typed `Business?`. Callers can use `valueOrNull` directly without an
+// `as Business` cast. Invalidated explicitly after business create / edit
+// so the dashboard reflects changes.
+final currentUserBusinessProvider = FutureProvider<Business?>((ref) async {
   final appUser = ref.watch(appUserProvider).valueOrNull;
   if (appUser == null || !appUser.isBusiness) return null;
   if (appUser.businessId != null && appUser.businessId!.isNotEmpty) {

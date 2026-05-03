@@ -36,7 +36,8 @@ service cloud.firestore {
     // (excludes isVerified, membershipTier, ratingAvg, ratingCount, ownerUid).
     function businessOwnerMutableFields() {
       return ['businessName', 'location', 'description', 'phone', 'email',
-              'category', 'logoUrl', 'bannerUrl', 'latitude', 'longitude'];
+              'whatsappNumber', 'category', 'logoUrl', 'bannerUrl',
+              'latitude', 'longitude'];
     }
 
     // ---------- Users ----------
@@ -89,9 +90,11 @@ service cloud.firestore {
       //   2. Owner — may edit profile fields only (no isVerified / tier /
       //      rating changes, ownerUid frozen).
       //   3. Any signed-in user — only when the diff is exactly the rating
-      //      fields (needed for review aggregation). This is a pragmatic
-      //      compromise; the proper long-term fix is to move rating
-      //      aggregation to a Cloud Function so clients don't touch it.
+      //      fields, AND the new average is in the valid 1..5 range, AND
+      //      the count is incremented by exactly 1. Without these bounds
+      //      anyone could pin a competitor at 0.0 / 0 reviews. The proper
+      //      long-term fix is to move rating aggregation to a Cloud Function
+      //      so clients don't touch these fields at all.
       allow update: if isAdmin()
                     || (
                       isSignedIn()
@@ -106,6 +109,12 @@ service cloud.firestore {
                       && request.resource.data.diff(resource.data)
                            .affectedKeys()
                            .hasOnly(['ratingAvg', 'ratingCount'])
+                      && request.resource.data.ratingAvg is number
+                      && request.resource.data.ratingCount is int
+                      && request.resource.data.ratingAvg >= 1.0
+                      && request.resource.data.ratingAvg <= 5.0
+                      && request.resource.data.ratingCount > resource.data.ratingCount
+                      && request.resource.data.ratingCount <= resource.data.ratingCount + 1
                     );
 
       allow delete: if isAdmin();
@@ -153,14 +162,17 @@ service cloud.firestore {
     match /reviews/{reviewId} {
       allow read: if true;
 
-      // Create: caller must stamp themselves as the reviewer. Prevents
-      // impersonation / spamming reviews under someone else's userId.
+      // Create: caller must stamp themselves as the reviewer AND the
+      // referenced business must actually exist. Prevents impersonation,
+      // userId spoofing, and spam reviews against random / fake business
+      // IDs that would otherwise pollute the collection.
       allow create: if isSignedIn()
                     && request.resource.data.userId == request.auth.uid
                     && request.resource.data.businessId is string
                     && request.resource.data.rating is number
                     && request.resource.data.rating >= 1
-                    && request.resource.data.rating <= 5;
+                    && request.resource.data.rating <= 5
+                    && exists(/databases/$(database)/documents/businesses/$(request.resource.data.businessId));
 
       // No edits from clients. Moderation = admin; author can re-review by
       // submitting a new review (or via admin tooling).
@@ -202,9 +214,14 @@ service cloud.firestore {
       allow read: if isSignedIn()
                   && resource.data.userId == request.auth.uid;
 
-      // Create is server-only (Cloud Functions / Admin SDK). Clients never
-      // mint notifications for other users.
-      allow create: if isAdmin();
+      // Clients may stage notifications addressed to themselves (e.g. the
+      // welcome message at sign-up). Cross-user notifications still require
+      // a trusted backend (Cloud Functions / Admin SDK).
+      allow create: if isAdmin()
+                    || (
+                      isSignedIn()
+                      && request.resource.data.userId == request.auth.uid
+                    );
 
       // Users can mark their own notifications read, but not change userId
       // or the notification content.

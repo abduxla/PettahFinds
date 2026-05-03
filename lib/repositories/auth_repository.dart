@@ -45,6 +45,16 @@ class AuthRepository {
     final user = cred.user!;
     await user.updateDisplayName(displayName.trim());
 
+    // Send verification email. Sign-in is intentionally NOT gated on
+    // emailVerified yet — that would break existing accounts. The link
+    // gives accountability for new signups; tighten later via a soft
+    // banner / hard gate in a separate change.
+    try {
+      await user.sendEmailVerification();
+    } catch (_) {
+      // Don't let a transient mail-send failure block the signup.
+    }
+
     final appUser = AppUser(
       uid: user.uid,
       email: email.trim(),
@@ -59,6 +69,15 @@ class AuthRepository {
         .set(appUser.toMap());
 
     return appUser;
+  }
+
+  /// Resend the verification email for the currently-signed-in user.
+  /// Call from a "verify your email" banner.
+  Future<void> resendEmailVerification() async {
+    final u = _auth.currentUser;
+    if (u != null && !u.emailVerified) {
+      await u.sendEmailVerification();
+    }
   }
 
   Future<AppUser> signIn({

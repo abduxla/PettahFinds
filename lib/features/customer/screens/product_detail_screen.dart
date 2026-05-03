@@ -13,6 +13,7 @@ import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/sign_in_required.dart';
+import '../../../utils/whatsapp.dart';
 
 final _productDetailProvider =
     FutureProvider.autoDispose.family<Product, String>((ref, id) async {
@@ -313,8 +314,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         ),
                         const SizedBox(height: 12),
                         businessAsync.when(
-                          data: (business) =>
-                              _SellerCard(business: business),
+                          data: (business) => _SellerCard(
+                            business: business,
+                            productTitle: product.title,
+                          ),
                           loading: () =>
                               const ShimmerBox(height: 80, radius: 12),
                           error: (_, _) => OutlinedButton.icon(
@@ -378,21 +381,25 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
 class _SellerCard extends StatelessWidget {
   final Business business;
-  const _SellerCard({required this.business});
+  final String productTitle;
+  const _SellerCard({required this.business, required this.productTitle});
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => context.go('/home/business/${business.id}'),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.bg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: () => context.go('/home/business/${business.id}'),
+            borderRadius: BorderRadius.circular(8),
+            child: Row(
           children: [
             Container(
               decoration: BoxDecoration(
@@ -475,6 +482,47 @@ class _SellerCard extends StatelessWidget {
                 color: AppColors.text3),
           ],
         ),
+          ),
+          if (business.whatsappNumber.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 40,
+              child: FilledButton.icon(
+                onPressed: () => launchWhatsApp(
+                  context: context,
+                  rawNumber: business.whatsappNumber,
+                  message:
+                      'Hi, I saw your product on PetaFinds: $productTitle. '
+                      'I want to inquire about it.',
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF25D366),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                icon: const Icon(Icons.chat_bubble, size: 16),
+                label: Text(
+                  'Chat on WhatsApp',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: 8),
+            Text(
+              'Business WhatsApp not available',
+              style: GoogleFonts.dmSans(
+                fontSize: 11.5,
+                color: AppColors.text4,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

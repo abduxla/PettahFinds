@@ -43,9 +43,12 @@ service firebase.storage {
     }
 
     // ---------- Product images ----------
-    // Product paths must be scoped to the business that owns them. The app
-    // uploads to /products/{businessId}/{productId}/... so that the rule
-    // can authorize by owning business, not by arbitrary productId.
+    // Product paths are scoped to the business that owns them so the rule
+    // can authorize by business ownership. The app currently uploads to
+    //   /products/{businessId}/{timestamp}_{index}.{ext}
+    // (productId isn't allocated until after upload). The {allPaths=**}
+    // wildcard accepts that layout; if you tighten the path here, update
+    // add_edit_product_screen.dart::_uploadNewImages in lockstep.
     match /products/{businessId}/{allPaths=**} {
       allow read: if true;
       allow write: if (ownsBusiness(businessId) || isAdmin())

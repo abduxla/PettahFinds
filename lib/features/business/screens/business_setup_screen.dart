@@ -23,6 +23,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
   final _locationCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _whatsappCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _categoryCtrl = TextEditingController();
   bool _loading = false;
@@ -41,6 +42,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
     _locationCtrl.dispose();
     _descCtrl.dispose();
     _phoneCtrl.dispose();
+    _whatsappCtrl.dispose();
     _emailCtrl.dispose();
     _categoryCtrl.dispose();
     super.dispose();
@@ -70,6 +72,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
               location: _locationCtrl.text.trim(),
               description: _descCtrl.text.trim(),
               phone: _phoneCtrl.text.trim(),
+              whatsappNumber: _whatsappCtrl.text.trim(),
               email: _emailCtrl.text.trim(),
               category: _categoryCtrl.text.trim(),
               createdAt: DateTime.now(),
@@ -81,6 +84,9 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
             appUser.copyWith(
                 businessId: business.id, onboardingCompleted: true),
           );
+
+      // Refresh the cached business so the dashboard sees the new doc.
+      ref.invalidate(currentUserBusinessProvider);
 
       if (mounted) {
         context.showSuccessSnackBar('Business created successfully!');
@@ -200,6 +206,15 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                   if (req != null) return req;
                   return Validators.phone(v);
                 },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _whatsappCtrl,
+                decoration: const InputDecoration(
+                    labelText: 'WhatsApp Number (optional)',
+                    hintText: '+94 77 123 4567',
+                    prefixIcon: Icon(Icons.chat_bubble_outline)),
+                keyboardType: TextInputType.phone,
               ),
               const SizedBox(height: 16),
               TextFormField(

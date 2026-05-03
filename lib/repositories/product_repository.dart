@@ -86,9 +86,22 @@ class ProductRepository {
         .map((snap) => snap.docs.map(Product.fromFirestore).toList());
   }
 
+  /// Substring search over title / keywords / category.
+  ///
+  /// NOTE: Firestore has no native substring search. To keep cost bounded
+  /// we cap the scan at the most recent [_searchScanLimit] active products
+  /// and filter in memory. This is fine for the current Pettah catalog
+  /// size; swap to Algolia / Typesense once the directory grows past a
+  /// few thousand items (the privacy policy already mentions Algolia).
+  static const _searchScanLimit = 200;
+
   Future<List<Product>> search(String query) async {
     final lower = query.toLowerCase();
-    final snap = await _ref.where('isActive', isEqualTo: true).get();
+    final snap = await _ref
+        .where('isActive', isEqualTo: true)
+        .orderBy('createdAt', descending: true)
+        .limit(_searchScanLimit)
+        .get();
     return snap.docs
         .map(Product.fromFirestore)
         .where((p) =>

@@ -12,6 +12,7 @@ import '../../../widgets/error_widget.dart';
 import '../../../widgets/empty_state_widget.dart';
 import '../../../widgets/sign_in_required.dart';
 import '../../../core/extensions/context_extensions.dart';
+import '../../../utils/whatsapp.dart';
 
 // Stable family providers — defined top-level so `ref.invalidate` targets
 // the same instance the UI is watching and rebuilds don't re-subscribe.
@@ -290,7 +291,9 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
             ),
 
             // Contact info
-            if (business.phone.isNotEmpty || business.email.isNotEmpty)
+            if (business.phone.isNotEmpty ||
+                business.email.isNotEmpty ||
+                business.whatsappNumber.trim().isNotEmpty)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
@@ -328,8 +331,45 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
                                   fontWeight: FontWeight.w600,
                                 )),
                           ),
-                        if (business.phone.isNotEmpty &&
-                            business.email.isNotEmpty)
+                        if (business.whatsappNumber.trim().isNotEmpty) ...[
+                          if (business.phone.isNotEmpty)
+                            Divider(
+                                height: 1,
+                                indent: 60,
+                                color: theme.dividerTheme.color),
+                          ListTile(
+                            dense: true,
+                            onTap: () => launchWhatsApp(
+                              context: context,
+                              rawNumber: business.whatsappNumber,
+                              message:
+                                  'Hi, I found your business on PetaFinds. '
+                                  'I want to inquire about your products.',
+                            ),
+                            leading: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFDCFCE7),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.chat_bubble_rounded,
+                                  size: 18, color: Color(0xFF25D366)),
+                            ),
+                            title: Text(business.whatsappNumber,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                )),
+                            subtitle: const Text('Chat on WhatsApp',
+                                style: TextStyle(fontSize: 11)),
+                            trailing: const Icon(Icons.open_in_new,
+                                size: 16, color: Color(0xFF25D366)),
+                          ),
+                        ],
+                        if (business.email.isNotEmpty &&
+                            (business.phone.isNotEmpty ||
+                                business.whatsappNumber.trim().isNotEmpty))
                           Divider(
                               height: 1,
                               indent: 60,
