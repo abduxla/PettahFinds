@@ -8,6 +8,7 @@ import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/business.dart';
 import '../../../utils/validators.dart';
+import '../../../utils/whatsapp.dart';
 
 class BusinessSetupScreen extends ConsumerStatefulWidget {
   const BusinessSetupScreen({super.key});
@@ -215,6 +216,13 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                     hintText: '+94 77 123 4567',
                     prefixIcon: Icon(Icons.chat_bubble_outline)),
                 keyboardType: TextInputType.phone,
+                validator: (v) {
+                  final t = (v ?? '').trim();
+                  if (t.isEmpty) return null;
+                  return cleanWhatsAppNumber(t) == null
+                      ? 'Enter a valid number (e.g. +94 77 123 4567)'
+                      : null;
+                },
               ),
               const SizedBox(height: 16),
               TextFormField(

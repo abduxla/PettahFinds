@@ -1,0 +1,155 @@
+name: Weekly Maintenance
+
+# Runs every Monday at 03:15 UTC (Mon 08:45 in Sri Lanka). Also manually
+# triggerable from the Actions tab.
+on:
+  schedule:
+    - cron: '15 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Show versions
+        run: |
+          flutter --version
+          dart --version
+
+      - name: flutter pub get
+        id: pub_get
+        run: flutter pub get
+
+      - name: flutter analyze
+        id: analyze
+        run: flutter analyze
+
+      - name: flutter test (only if tests exist)
+        id: test
+        run: |
+          if [ -d test ] && find test -name '*.dart' -not -name '*.g.dart' | grep -q .; then
+            flutter test
+          else
+            echo "No tests — skipping."
+          fi
+
+      - name: flutter build web
+        id: build_web
+        run: flutter build web --release
+
+      - name: Verify Firebase config files
+        id: firebase_files
+        run: |
+          missing=0
+          for f in firebase/firestore.rules firebase/storage.rules firebase/firestore.indexes.json; do
+            if [ ! -f "$f" ]; then
+              echo "::error file=$f::Missing $f"
+              missing=1
+            fi
+          done
+          if [ $missing -ne 0 ]; then exit 1; fi
+
+      - name: Secret scan
+        id: secret_scan
+        run: |
+          set +e
+          # Patterns: Mapbox secret token, generic stripe-style secret keys,
+          # GCP service-account private keys, committed .env files.
+          patterns=(
+            'sk\.eyJ'
+            'MAPBOX_SECRET'
+            'BEGIN PRIVATE KEY'
+            'BEGIN RSA PRIVATE KEY'
+            'service_account'
+          )
+          hits=0
+          for p in "${patterns[@]}"; do
+            # Exclude lock files, build outputs, this workflow, and the
+            # generated firebase_options.dart (public client API keys live
+            # there; not secrets).
+            matches=$(grep -RIn --binary-files=without-match \
+              --exclude-dir=.git \
+              --exclude-dir=build \
+              --exclude-dir=.dart_tool \
+              --exclude='pubspec.lock' \
+              --exclude='*.lock' \
+              --exclude='weekly-maintenance.yml' \
+              -E "$p" . || true)
+            if [ -n "$matches" ]; then
+              echo "::warning::Possible secret pattern '$p' found:"
+              echo "$matches"
+              hits=1
+            fi
+          done
+          # Committed env files
+          envs=$(find . -maxdepth 4 -type f \( -name '.env' -o -name '.env.*' \) -not -path './.git/*' -not -path './build/*' -not -path './.dart_tool/*' || true)
+          if [ -n "$envs" ]; then
+            echo "::error::Committed .env file(s) detected:"
+            echo "$envs"
+            hits=1
+          fi
+          if [ $hits -ne 0 ]; then exit 1; fi
+
+      - name: Open / update GitHub issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const today = new Date().toISOString().slice(0, 10);
+            const title = 'Weekly Maintenance Failed';
+            const body = [
+              `**Date:** ${today}`,
+              `**Workflow run:** ${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+              ``,
+              `One or more weekly maintenance steps failed. Steps run in order:`,
+              `1. \`flutter pub get\``,
+              `2. \`flutter analyze\``,
+              `3. \`flutter test\` (skipped if no tests)`,
+              `4. \`flutter build web\``,
+              `5. Firebase config file presence check`,
+              `6. Secret scan`,
+              ``,
+              `**Next action:** open the run linked above, find the first red step, and fix the underlying issue. If a secret was detected, rotate it before merging any fix.`,
+            ].join('\n');
+
+            // De-dupe: if an open issue with this title already exists, just
+            // post a new comment instead of opening a duplicate.
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'maintenance',
+              per_page: 50,
+            });
+            const dup = existing.data.find(i => i.title === title);
+            if (dup) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: dup.number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['maintenance'],
+              });
+            }

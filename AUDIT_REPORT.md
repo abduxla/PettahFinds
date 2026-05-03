@@ -1,366 +1,355 @@
-# PetaFinds — Project Audit Report
+# PetaFinds — Project Audit Report (Refresh)
 
-**Date:** 2026-04-30
-**Branch:** main (clean)
-**flutter analyze:** 66 issues — 0 errors, 1 warning, 65 info (mostly `unnecessary_underscores`, 3 `deprecated_member_use`)
+**Date:** 2026-05-03
+**Branch:** main (`?? .firebaserc` only — clean otherwise)
+**flutter pub get:** OK (67 packages have newer majors, none breaking the resolve)
+**flutter analyze:** 65 info-level issues, 0 warnings, 0 errors
+**flutter test:** 1 passed (default `widget_test.dart` placeholder)
+**flutter build web --release:** built successfully; **wasm warnings** for `flutter_secure_storage_web` (`dart:html`, `dart:js_util`, `package:js`)
 
-This audit inspects code only — no changes made. Issues are grouped by severity. Each entry follows: **Issue · File · Why bad · User impact · Fix · Priority**.
+This refresh supersedes the prior audit. Items previously flagged that have since been **fixed in the codebase** are listed under §10 for traceability. Open items follow the original severity layout.
 
 ---
 
 ## 1. Critical Blockers
 
-### 1.1 Firestore rule lets ANY signed-in user mutate `ratingAvg` / `ratingCount` on any business
-- **File:** `firebase/firestore.rules:104-109`
-- **Why bad:** The escape clause `affectedKeys().hasOnly(['ratingAvg', 'ratingCount'])` permits any signed-in user to write any value to these fields on any business. There is no check that the writer ever created a review, no clamping, no business-existence check.
-- **User impact:** Trivial ranking manipulation. A bad actor can pin any competitor to 0.0 / 1 review or boost their own to 5.0 / 99999 reviews from the client. Public app, public abuse vector.
-- **Fix:** Move rating aggregation into a Cloud Function triggered by `onCreate` of `reviews/*`. Block all client writes to those two fields. Until then, restrict to numeric ranges + delta-only writes from the review author at minimum.
-- **Priority:** P0
+### 1.1 `flutter_secure_storage` is in pubspec but unused — blocks future wasm web target
+- **File:** `pubspec.yaml:44`, `flutter build web --release` output
+- **Why bad:** The package's web shim imports `dart:html`, `dart:js`, `dart:js_util` and `package:js`, none of which compile to wasm. Standard JS web build still works today, but any move to wasm (Flutter's default trajectory) is blocked. No code in `lib/` references the package.
+- **User impact:** Locks the project out of wasm release builds with no benefit, since the dependency is dead.
+- **Fix:** Remove from `pubspec.yaml`, run `flutter pub get`. If it ever comes back, gate it with a non-web import.
+- **Priority:** P0 (release correctness)
 
-### 1.2 Notifications can never be created — system is dead in production
-- **File:** `firebase/firestore.rules:207`, `lib/repositories/notification_repository.dart`
-- **Why bad:** Rule says `allow create: if isAdmin();` and the repo has no `create()` method. There is no Cloud Function in the repo. Nothing can write notifications, so the bell, notifications screen, and "Mark all read" are decorative.
-- **User impact:** Notifications screen is permanently empty for everyone. Feature ships broken.
-- **Fix:** Either ship a Cloud Functions package that mints notifications on review/order/report events, or remove the feature from the UI until backend exists. If keeping for now, set expectations clearly.
-- **Priority:** P0
+### 1.2 No producer ever writes notifications — bell + screen permanently empty
+- **File:** `lib/repositories/notification_repository.dart`, `firebase/firestore.rules:200-220`, `lib/features/customer/screens/notifications_screen.dart`
+- **Why bad:** Rule was loosened to allow self-create (good), but no client code or Cloud Function ever calls `notification_repository.create(...)` (the method doesn't exist either). Bell, "Mark all read", notifications screen all sit on a stream that never emits non-empty.
+- **User impact:** Visible feature ships dead. Looks like an outage to the user.
+- **Fix:** Either add a `create()` method + a welcome-notification call at signup *and* a Cloud Function for cross-user (review reply, business update, etc.), or hide the bell + screen until backend is shipped.
+- **Priority:** P0 (release readiness)
 
-### 1.3 Product / business search loads the entire collection client-side
-- **Files:** `lib/repositories/product_repository.dart:89-99`, `lib/repositories/business_repository.dart:77-87`
-- **Why bad:** `search()` does `_ref.where('isActive', isEqualTo: true).get()` (or unfiltered for businesses) with **no `limit()`**, then filters in memory by substring. Cost scales with every product/business in Firestore, not with results.
-- **User impact:** At 5k products this is ~5k document reads per search and noticeable lag. At 50k, billing & latency become unsustainable. Also burns mobile data.
-- **Fix:** Add Algolia / Typesense (referenced in privacy policy already), or at minimum add `keywordsLower` denormalised array fields and use `array-contains` with `.limit(50)`. Cache on client.
-- **Priority:** P0
+### 1.3 Email verification not enforced anywhere user-visible
+- **File:** `lib/repositories/auth_repository.dart:46-55`, `lib/features/auth/screens/sign_in_screen.dart`
+- **Why bad:** Sign-up now sends verification email (good), but nothing in the UI surfaces "verify your email" status, nothing nudges, nothing gates write-heavy actions (review create, report, business setup) on `emailVerified`. Spam accounts can still post reviews and reports.
+- **User impact:** Account abuse, fake reviews, fake reports — same risk as before, just with a paper trail.
+- **Fix:** Add a soft banner on the customer/business shell when `currentUser.emailVerified == false` with a "Resend" button (helper already exists: `resendEmailVerification()`). Optionally hard-gate review create on the AuthRepository.
+- **Priority:** P0 (security + trust)
 
-### 1.4 Email sign-up has no email verification gate
-- **File:** `lib/repositories/auth_repository.dart:33-62`, `lib/features/auth/screens/sign_in_screen.dart`
-- **Why bad:** `signUp` creates the account and the AppUser doc immediately. `signIn` does not check `user.emailVerified`. Anyone can register with `someone-else@gmail.com`, never confirm it, and start writing reviews/reports/listings.
-- **User impact:** Spam accounts, impersonation, abusive reviews, abusive reports — all hard to attribute. Also breaks legal compliance for "we know who you are" claims in Terms.
-- **Fix:** Call `cred.user!.sendEmailVerification()` at signup. Gate sign-in or sensitive actions (reviews, reports, business creation) behind `currentUser.emailVerified`.
-- **Priority:** P0
-
-### 1.5 `currentUserBusinessProvider` is `Provider<dynamic>` with no autoDispose / invalidation
-- **File:** `lib/core/providers/providers.dart:93-100`
-- **Why bad:** Returns `dynamic` (loses type safety; consumers cast to `Business`). It's a `FutureProvider` (not autoDispose), never invalidated after edits. Stale business data across the business shell.
-- **User impact:** Owner edits business profile → goes back to dashboard → still sees old data. Has to kill the app to see changes.
-- **Fix:** Type as `FutureProvider<Business?>`. Add `ref.invalidate(currentUserBusinessProvider)` after every successful business update / setup.
-- **Priority:** P0
+### 1.4 No App Check enforced
+- **File:** `lib/main.dart`, `pubspec.yaml`
+- **Why bad:** Anyone can hit Firestore + Storage with the public API keys in `firebase_options.dart`. Combined with §1.3, account abuse cost is near-zero.
+- **User impact:** DoS, cost spikes, abuse traffic.
+- **Fix:** Add `firebase_app_check` package, init in `main()` with debug provider for dev (`AndroidProvider.debug` / `AppleProvider.debug`) and Play Integrity / DeviceCheck for prod, then enforce in console.
+- **Priority:** P0 (security)
 
 ---
 
-## 2. High Priority Bugs
+## 2. High Bugs
 
-### 2.1 Admin dashboard creates new StreamProviders inside `build()`
-- **File:** `lib/features/admin/screens/admin_dashboard_screen.dart:16-27`
-- **Why bad:** Every rebuild constructs three new `StreamProvider` instances, leaking the previous Firestore subscriptions. Admin screen is the most-watched page; this leaks fast.
-- **User impact:** Memory growth, duplicate listeners, possible quota hits over time.
-- **Fix:** Lift the providers to top-level (like `allActiveProductsProvider` already is), then `ref.watch` the existing top-level provider.
+### 2.1 WhatsApp number cleaner falls through to a broken link for non-LK formats
+- **File:** `lib/utils/whatsapp.dart:24` (`return digits;`)
+- **Why bad:** When input doesn't match LK heuristics (already-94, leading-0, bare-9-digit), the function returns whatever digits remain. wa.me requires a country code, so a 10-digit number like `1234567890` becomes `https://wa.me/1234567890` and either dials the wrong country or silently fails.
+- **User impact:** Customer taps green "Chat on WhatsApp" → WhatsApp opens to nobody / wrong number / errors. Trust dies.
+- **Fix:** Return `null` from `cleanWhatsAppNumber` for un-handled lengths and surface a snackbar. Or accept non-LK only if the input started with `+`.
 - **Priority:** P1
 
-### 2.2 Favorite toggle is racy
-- **File:** `lib/repositories/favorite_repository.dart:14-38`
-- **Why bad:** Read-then-write without a transaction. Double-tap or fast network can create duplicate favorite docs for the same `(userId, targetType, targetId)`.
-- **User impact:** Duplicate hearts, inconsistent state, "unfavorite" leaving a dangling doc.
-- **Fix:** Use a deterministic doc id (e.g. `${userId}_${targetType}_${targetId}`) and a transaction or `set(merge:false)` with `exists` precondition.
+### 2.2 WhatsApp number not validated on save
+- **Files:** `lib/features/business/screens/business_setup_screen.dart`, `lib/features/business/screens/edit_business_profile_screen.dart`
+- **Why bad:** The new TextFormField has no validator. A business owner can type "asdf" and save. Later customers tap the CTA and get the snackbar from §2.1.
+- **User impact:** Garbage saved to Firestore; broken CTA at runtime.
+- **Fix:** Run input through `cleanWhatsAppNumber`; if non-empty and `cleanWhatsAppNumber == null`, show `Validators.required`-style error.
 - **Priority:** P1
 
-### 2.3 Recently-viewed resolves products serially
-- **File:** `lib/core/providers/providers.dart:57-72`
-- **Why bad:** Iterates IDs and calls `repo.getById()` one at a time. N round trips on the home screen mount.
-- **User impact:** Visible lag / waterfall on home open when ≥3 recently viewed.
-- **Fix:** Batch with `Future.wait` or use `whereIn` (max 30) for a single Firestore query.
+### 2.3 Splash 8-second fallback can route logged-in customer to /home before role check
+- **File:** `lib/features/auth/screens/splash_screen.dart:48-66, 80-94`
+- **Why bad:** The hardened `_safeFallbackRoute` reads `appUserProvider.valueOrNull` first (good). But if Firestore is slow, AppUser may still be null at 8s while Firebase user is loaded. We then route to `/home` and rely on the router redirect. The redirect is correct, but it produces visible flicker for admin/business users on cold start.
+- **User impact:** Brief customer-home flash before bouncing to admin/business shell on first launch.
+- **Fix:** Either extend the timeout to 15s (Firestore cold reads can be slow), or show an in-place "syncing your account..." loader instead of routing.
 - **Priority:** P1
 
-### 2.4 Splash 8-second timeout drops admin/business users on `/home` momentarily
-- **File:** `lib/features/auth/screens/splash_screen.dart:47`
-- **Why bad:** If AppUser stream is slow, timeout fires `_goGuestStart()` even when a Firebase user exists. They land on `/home`, then router redirect bounces them to the role home — visible flicker, broken back stack.
-- **User impact:** Admin/business users may briefly see customer home, then be teleported. Confusing on first launch with cold network.
-- **Fix:** Branch the timeout: if `authState.valueOrNull != null`, route to `_routeByRole` with a fallback default; only guests should hit `/home` / `/onboarding`.
+### 2.4 `streamAll` / `streamAllByBusiness` / `streamByBusiness` still unbounded
+- **Files:** `lib/repositories/product_repository.dart:54-78`, `lib/repositories/business_repository.dart:54-58`
+- **Why bad:** Search was capped (good), but home, products list, business detail "all products" still stream every active product / every business. With the Pettah catalog at hundreds it's fine; at thousands it isn't.
+- **User impact:** Linear cost & bandwidth in catalog size; slow cold loads when the directory grows.
+- **Fix:** `.limit(100)` server-side + paginate with `startAfter`. Or move home + lists to an "infinite scroll" paginator.
 - **Priority:** P1
 
-### 2.5 Settings screen "Edit Profile" / "Change Password" buttons do nothing
-- **File:** `lib/features/customer/screens/settings_screen.dart:29-39`
-- **Why bad:** Tapping does nothing (TODO stubs). No snackbar, no "coming soon".
-- **User impact:** Looks broken to the user. They'll think the app is buggy.
-- **Fix:** Either implement, or show a "Coming soon" snackbar like the business membership tile already does.
+### 2.5 Storage `contentType` regex is trivially spoofable
+- **File:** `firebase/storage.rules:23-26`
+- **Why bad:** Rule trusts `request.resource.contentType.matches('image/.*')`. A malicious uploader can set any contentType client-side; the bytes don't have to be an image.
+- **User impact:** Storage can be used to host arbitrary blobs labelled as image.
+- **Fix:** Combine with Firebase Storage extension that re-reads + validates magic bytes, or use Cloud Functions on upload to verify.
 - **Priority:** P1
 
-### 2.6 Reviews can be created without verifying the business exists
-- **File:** `firebase/firestore.rules:158-163`
-- **Why bad:** Rule only checks `businessId is string`. Anyone can spam-create reviews against fake or arbitrary IDs.
-- **User impact:** Spam reviews bloating the collection; bad data feeding rating writes (which are themselves unprotected — see 1.1).
-- **Fix:** Add `exists(/databases/$(database)/documents/businesses/$(request.resource.data.businessId))` to the create rule.
+### 2.6 Recently-viewed / favorites can show deleted-soft products
+- **Files:** `lib/core/providers/providers.dart:60-78` (recently viewed handles isActive), `lib/repositories/favorite_repository.dart` (does not)
+- **Why bad:** Favorites resolves `productId` to a Product without checking `isActive`. Soft-deleted products still appear under "Favorites".
+- **User impact:** Customer taps a favorite → opens detail → sees "This product is no longer available".
+- **Fix:** When resolving favorite IDs to Product objects, drop entries where `!p.isActive`. Or hide the row.
 - **Priority:** P1
-
-### 2.7 Splash → `/onboarding` writes prefs only after the user reaches slide 3 or taps Skip
-- **File:** `lib/features/auth/screens/onboarding_screen.dart`
-- **Why bad:** If the user kills the app on slide 1, onboarding replays next launch — fine. But if they backgrounded mid-flow and came back hours later, same thing. Acceptable, but the splash route is `/home` for the timeout fallback and `/onboarding` only for fresh prefs check — race possible if SharedPreferences resolves slow.
-- **User impact:** Edge: very slow disk I/O could cause onboarding to replay once on reinstall.
-- **Fix:** Read the flag once early (in `initState`) and stash, then make routing decisions from the in-memory copy.
-- **Priority:** P1
-
-### 2.8 Storage rules path comment vs upload path mismatch
-- **File:** `firebase/storage.rules:46-49`, `lib/features/business/screens/add_edit_product_screen.dart:131`
-- **Why bad:** Comment says uploads go to `/products/{businessId}/{productId}/...` but the app actually uploads `/products/{businessId}/{ts}_{i}.{ext}` (no productId segment, since productId doesn't exist at upload time for new products). Rule still works because `{allPaths=**}` is permissive, but the documented contract is wrong.
-- **User impact:** Future maintainers will tighten the rule based on the comment, breaking uploads.
-- **Fix:** Update the comment to match the actual layout, or refactor uploads to write under `/products/{businessId}/{productId}/...` (need productId allocated before upload, e.g. `_ref.doc().id`).
-- **Priority:** P1
-
-### 2.9 No business existence check on product create at write time
-- **File:** `firebase/firestore.rules:125-126`
-- **Why bad:** `ownsBusiness()` does check ownership via Firestore `get`, so this is fine. (Marking as **OK** — kept as a checklist item only.)
-- **Priority:** N/A — verified safe.
 
 ---
 
-## 3. Medium Priority Bugs
+## 3. Medium Bugs
 
-### 3.1 No `limit()` on home / list streams
-- **Files:** `lib/repositories/product_repository.dart:72-78` (`streamAll`), `lib/repositories/business_repository.dart:54-58`
-- **Why bad:** `streamAll()` streams every active product to every customer device.
-- **User impact:** Cost scales with directory size; cold-load on home will get slower.
-- **Fix:** Add `.limit(100)` server-side, paginate further with `startAfter`.
+### 3.1 `recentlyViewedProductsProvider` can issue up to 30 parallel reads with no cap
+- **File:** `lib/core/providers/providers.dart:60-78`
+- **Why bad:** Now uses `Future.wait` (good) but the underlying `RecentlyViewedService` doesn't trim history. A power user with 100 product views would fan out 100 simultaneous Firestore gets on home open.
+- **User impact:** Cold-load spike on home for heavy users.
+- **Fix:** Cap the IDs list to the latest 12 in either the service or the provider before fetching.
 - **Priority:** P2
 
-### 3.2 `firebase_options.dart` is committed; `windows` reuses web's appId
-- **File:** `lib/firebase_options.dart:82-89`
-- **Why bad:** Windows app ID matches web's web appId; not a security issue (FlutterFire generates this), but worth noting if Windows is a release target.
-- **User impact:** Analytics / messaging may misattribute on Windows.
-- **Fix:** If shipping desktop, regenerate via `flutterfire configure` and pick a real Windows appId.
+### 3.2 Firestore rule on rating writes still trusts review-author count math
+- **File:** `firebase/firestore.rules:104-122`
+- **Why bad:** Bounds (1.0–5.0, +1) are correct. But a determined attacker who creates one review can drift the average toward their value by re-submitting their own review to bump count by 1 each time. Cloud Function for rating aggregation is still the right fix.
+- **User impact:** Slower abuse, but still possible.
+- **Fix:** Cloud Function recomputes ratings on review create/update; lock client writes to admin-only.
 - **Priority:** P2
 
-### 3.3 `unused_local_variable` warning in `manage_products_screen.dart:113`
-- **File:** `lib/features/business/screens/manage_products_screen.dart:113`
-- **Why bad:** Lint warning. Pre-existing.
-- **User impact:** None at runtime.
-- **Fix:** Delete the unused `theme` line.
+### 3.3 Business search is an O(n) scan on full collection (capped at 200)
+- **File:** `lib/repositories/business_repository.dart:78-99`
+- **Why bad:** Capped (good) but the cap means the 201st-newest business is unsearchable.
+- **User impact:** Older businesses become invisible to search as catalog grows.
+- **Fix:** Algolia / Typesense for real text search; mentioned in privacy policy already.
 - **Priority:** P2
 
-### 3.4 Mapbox deprecated APIs
+### 3.4 Map screen streams every business unbounded
+- **File:** `lib/features/customer/screens/map_screen.dart:37-40`
+- **Why bad:** No limit, no viewport bounds query. Renders every business marker.
+- **User impact:** Map sluggish at scale.
+- **Fix:** Geohash + bounds-based query, or `.limit(500)`.
+- **Priority:** P2
+
+### 3.5 `currentUserBusinessProvider` is `FutureProvider` — no live updates when biz doc changes externally
+- **File:** `lib/core/providers/providers.dart:96-105`
+- **Why bad:** Now properly typed `Business?` and invalidated after edit/setup (good). But if an admin verifies the business or a Cloud Function changes membership tier, the user's dashboard won't update until app restart or manual invalidate.
+- **User impact:** Stale state across devices.
+- **Fix:** Convert to `StreamProvider<Business?>` driven by `_ref.doc(businessId).snapshots()`.
+- **Priority:** P2
+
+### 3.6 Settings "Coming soon" snackbars accumulate stack
+- **File:** `lib/features/customer/screens/settings_screen.dart:32-44`
+- **Why bad:** Tapping multiple times stacks snackbars instead of replacing.
+- **User impact:** Visual stutter; minor.
+- **Fix:** `ScaffoldMessenger.of(context).clearSnackBars()` before showing.
+- **Priority:** P2
+
+### 3.7 Mapbox deprecated APIs still in use
 - **File:** `lib/features/customer/screens/map_screen.dart:87, 350`
-- **Why bad:** `addOnPointAnnotationClickListener` / `OnPointAnnotationClickListener` will be removed; Mapbox flutter SDK 3.x uses `tapEvents`.
-- **User impact:** Map will break when the package is bumped past current major.
-- **Fix:** Migrate to `tapEvents` API.
+- **Why bad:** `addOnPointAnnotationClickListener` / `OnPointAnnotationClickListener` deprecated in mapbox_maps_flutter 2.x.
+- **User impact:** Will break when the package bumps.
+- **Fix:** Migrate to `tapEvents`.
 - **Priority:** P2
 
-### 3.5 Material Radio deprecated API
-- **File:** `lib/features/customer/screens/product_detail_screen.dart:642-643`
-- **Why bad:** `groupValue` + `onChanged` on `Radio` deprecated; new API expects `RadioGroup` ancestor.
-- **User impact:** Will break on future Flutter.
+### 3.8 Material Radio deprecated API
+- **File:** `lib/features/customer/screens/product_detail_screen.dart` (report sheet `RadioListTile` `groupValue` / `onChanged`)
+- **Why bad:** Deprecated; future Flutter will need `RadioGroup`.
+- **User impact:** Compile break on future SDK bump.
 - **Fix:** Wrap reasons list in `RadioGroup`.
 - **Priority:** P2
 
-### 3.6 `recentlyViewedProductsProvider` is not autoDispose
-- **File:** `lib/core/providers/providers.dart:57`
-- **Why bad:** Holds resolved Product list across navigation forever.
-- **User impact:** Slight memory bloat in long sessions.
-- **Fix:** Make it `FutureProvider.autoDispose`.
-- **Priority:** P2
-
-### 3.7 Sign-in "Continue browsing as guest" leaves auth screen state
-- **File:** `lib/features/auth/screens/sign_in_screen.dart:182-185`
-- **Why bad:** Plain `context.go('/home')`. Combined with router redirect logic, fine — but no analytics event for the guest funnel.
-- **User impact:** Minor product hygiene.
-- **Fix:** Add analytics; not critical.
-- **Priority:** P3
-
-### 3.8 65 outdated package warnings; Riverpod 2.x in use while 3.x is GA
-- **File:** `pubspec.yaml`
-- **Why bad:** Long-term tech debt; Riverpod 2 → 3 migration is non-trivial.
-- **User impact:** None now; harder upgrade later.
-- **Fix:** Plan a Riverpod 3 migration sprint after launch.
-- **Priority:** P3
-
-### 3.9 `unnecessary_underscores` info lints (62×)
-- **Files:** Various.
-- **Why bad:** Style only — lint introduced after this project's code was written.
-- **User impact:** None.
-- **Fix:** One-shot codemod when convenient.
-- **Priority:** P3
-
 ---
 
-## 4. UI / UX Flaws
+## 4. UI Bugs
 
-### 4.1 Settings screen uses `theme.colorScheme.primary` while the rest of the app uses `AppColors.teal`
+### 4.1 Customer settings screen still drifts from the rest of the app's brand
 - **File:** `lib/features/customer/screens/settings_screen.dart`
-- **Why bad:** Inconsistent with the new Nunito/DM Sans, AppColors-based design. Also still uses dummy `Color(0xFF6366F1)`, `Color(0xFF22C55E)`, `Color(0xFFF59E0B)` icon colours that don't match the brand teal/orange palette.
-- **User impact:** Settings screen looks like a different app.
-- **Fix:** Rebuild with `AppColors` + GoogleFonts to match `business_settings_screen.dart`.
+- **Why bad:** Uses `theme.colorScheme.primary` and dummy hex colors (`0xFF6366F1`, `0xFF22C55E`, `0xFFF59E0B`) instead of `AppColors.teal/orange`. The rest of the app, including the new business settings, uses `AppColors` + GoogleFonts.
+- **User impact:** Settings page looks like a different app.
+- **Fix:** Rebuild against `AppColors` + Nunito/DM Sans matching `business_settings_screen.dart` `_SectionCard` pattern.
 - **Priority:** P2
 
-### 4.2 `business_settings_screen.dart` and `settings_screen.dart` have divergent layouts for the same job
-- **Files:** Both.
-- **Why bad:** Business settings uses card-grouped sections; customer settings uses raw `ListTile`s.
-- **User impact:** App feels incoherent.
-- **Fix:** Unify on the `_SectionCard` pattern from business settings.
+### 4.2 Product detail seller card structure changed in WhatsApp work — verify visual
+- **File:** `lib/features/customer/screens/product_detail_screen.dart:382-540` (`_SellerCard`)
+- **Why bad:** The original `InkWell` wrapping the whole card was replaced with a `Container > Column > InkWell(InkWell only over the row part)`. The chevron icon still points right but the whole card no longer ripples. Needs a visual sanity check on real device — formatter passed, but the brace nesting was hand-edited.
+- **User impact:** Possible reduced tap target / off-center ink response.
+- **Fix:** Use `Column` and wrap each tappable child in its own `InkWell`. Verify on device.
 - **Priority:** P2
 
-### 4.3 No empty state on `/profile` when guest goes via tab tap (only on /favorites and /notifications)
-- **File:** `lib/features/customer/screens/profile_screen.dart` (not deeply inspected — flag for review).
-- **Why bad:** Sign-in CTA pattern should be consistent.
+### 4.3 Onboarding slide-1 map mock chips can overlap on small Androids
+- **File:** `lib/features/auth/screens/onboarding_screen.dart`
+- **Why bad:** Hard-coded `Positioned` chips. Below ~640dp height some chips overlap.
+- **User impact:** Looks busy / broken on older Samsung A series.
+- **Fix:** `LayoutBuilder` to scale, or simplify on small screens.
+- **Priority:** P2
+
+### 4.4 Profile screen has no guest sign-in CTA equivalent to favorites/notifications
+- **File:** `lib/features/customer/screens/profile_screen.dart`
+- **Why bad:** Inconsistent with the rest of the guest-allowed shell.
 - **User impact:** Mild confusion for guests.
-- **Fix:** Add `SignInRequired` empty state in the guest branch of profile.
-- **Priority:** P2
+- **Fix:** Add `SignInRequired` for the guest branch.
+- **Priority:** P3
 
-### 4.4 Onboarding slide 1's lost-shopper map mock is dense at small heights
-- **File:** `lib/features/auth/screens/onboarding_screen.dart` (`_MapMockCard`)
-- **Why bad:** Hard-coded positioned chips will overlap on phones below ~640dp height.
-- **User impact:** Looks busy on small Androids (e.g. older Samsung A series).
-- **Fix:** Use `LayoutBuilder` to scale chip positions, or simplify on small screens.
-- **Priority:** P2
-
-### 4.5 No skeleton on home recently-viewed
+### 4.5 Home recently-viewed has no skeleton during load
 - **File:** `lib/features/customer/screens/home_screen.dart`
-- **Why bad:** While `recentlyViewedProductsProvider` resolves N round trips (see 2.3), there's no skeleton row.
-- **User impact:** Visible blank space on slow networks.
-- **Fix:** Render `ShimmerBox` placeholders during `loading`.
+- **Why bad:** Visible blank gap during the parallel fetch.
+- **User impact:** Empty space on slow networks.
+- **Fix:** `ShimmerBox` placeholders during loading.
 - **Priority:** P3
 
 ---
 
 ## 5. Security Risks
 
-### 5.1 `ratingAvg` / `ratingCount` writable by any signed-in user — see **1.1**
-- **Priority:** P0
+### 5.1 No App Check — see §1.4.
+### 5.2 Email verification not user-visible / not gating writes — see §1.3.
+### 5.3 Storage contentType spoofable — see §2.5.
+### 5.4 Rating-write abuse partially mitigated, not eliminated — see §3.2.
 
-### 5.2 No email verification — see **1.4**
-- **Priority:** P0
-
-### 5.3 No rate limiting on reviews / reports / favorites
-- **Files:** `firebase/firestore.rules` (reviews / reports / favorites blocks)
-- **Why bad:** A signed-in user can hammer create endpoints. No App Check, no per-user quotas.
-- **User impact:** DoS / spam vector.
-- **Fix:** Enable Firebase App Check (Play Integrity / DeviceCheck) and add Firestore rule guards on `request.time` deltas where feasible. Long term: Cloud Functions with rate limiting.
+### 5.5 No rate limiting on review / report / favorite create
+- **File:** `firebase/firestore.rules`
+- **Why bad:** App Check would mostly fix this; without it, a signed-in user can still hammer create endpoints up to per-second Firestore quotas.
+- **User impact:** Spam, cost spikes.
+- **Fix:** App Check (P0) + per-user rate limit via Cloud Functions if needed.
 - **Priority:** P1
 
-### 5.4 No App Check enforced
-- **File:** `lib/main.dart`
-- **Why bad:** Any HTTP client with the public API key can read public collections (intended) and create write requests up to rule limits (also currently abusable per 1.1, 5.3).
-- **User impact:** Anyone with the apk can poke the backend.
-- **Fix:** Add `firebase_app_check` package, initialise in `main()`, enforce in console.
-- **Priority:** P1
-
-### 5.5 `flutter_secure_storage` is in dependencies but not used in repo
+### 5.6 `pubspec.yaml` includes unused `flutter_secure_storage`
 - **File:** `pubspec.yaml:44`
-- **Why bad:** Suggests a removed feature; dead dep.
-- **User impact:** Slightly larger build.
-- **Fix:** Remove if truly unused, or wire it for token storage.
-- **Priority:** P3
-
-### 5.6 No client-side enforcement of password complexity beyond what `Validators.password` provides
-- **File:** `lib/utils/validators.dart` (not opened — verify)
-- **Why bad:** If the validator is loose, weak passwords get through.
-- **User impact:** Accounts compromised easier.
-- **Fix:** Confirm validator enforces ≥8 chars and a mix; otherwise tighten.
-- **Priority:** P2
+- **Why bad:** Unused crypto/secret-store dependency. Larger attack surface for what's bundled.
+- **User impact:** Bigger bundle, blocked wasm path (§1.1).
+- **Fix:** Remove.
+- **Priority:** P1
 
 ---
 
 ## 6. Firebase / Rules Risks
 
-### 6.1 Rating rule abuse — see **1.1**.
-### 6.2 Notifications create disabled with no Functions backend — see **1.2**.
-### 6.3 Reviews create lacks business-existence check — see **2.6**.
-### 6.4 Reports have no rate limit — see **5.3**.
-### 6.5 No `firestore.indexes.json` entry for `notifications.read + userId` (mark-all-read query)
-- **File:** `firebase/firestore.indexes.json`, `lib/repositories/notification_repository.dart:27-37`
-- **Why bad:** `markAllAsRead` does `where('userId').where('read', false)`. This needs a composite index that's not in the file. First production call will throw with a "create index" link.
-- **User impact:** "Mark all read" button errors on prod (until manual index creation).
-- **Fix:** Add `[userId asc, read asc]` index.
-- **Priority:** P1
+### 6.1 Notifications create allows self-mint with no body validation
+- **File:** `firebase/firestore.rules:200-220`
+- **Why bad:** The new `request.resource.data.userId == request.auth.uid` rule lets a user write any shape of notification doc into their own inbox (e.g., gigantic strings, fields the model doesn't expect). Doesn't break anyone else's inbox but pollutes the collection.
+- **User impact:** No external impact, but Cloud Function consumers need to defensive-parse.
+- **Fix:** Tighten to specific allowed fields and length caps.
+- **Priority:** P2
 
-### 6.6 `categories.isActive + name` index exists but the repo doesn't seem to query it
-- **File:** `firebase/firestore.indexes.json:3-10`
-- **Why bad:** Dead index — minor cost.
-- **User impact:** None.
-- **Fix:** Delete if unused.
+### 6.2 Reviews business-existence check is good but expensive
+- **File:** `firebase/firestore.rules:158-167`
+- **Why bad:** Each review create now does a Firestore `exists()` lookup at rule-eval time. That's billed.
+- **User impact:** Slightly more cost per review.
+- **Fix:** Acceptable — leave as is; cost is bounded by per-user write rate.
 - **Priority:** P3
 
-### 6.7 Storage path comment vs reality — see **2.8**.
+### 6.3 Storage rules path comment now matches reality (fixed)
+- See §10.
+
+### 6.4 No security event logging
+- **File:** N/A
+- **Why bad:** Failed signs-ins, suspicious activity, denied writes — none observable.
+- **User impact:** Hard to tell during an attack.
+- **Fix:** Cloud Functions on `auth.user().onSignIn` etc., write to a `securityEvents/` log.
+- **Priority:** P2
+
+### 6.5 Unused `categories.isActive + name` index
+- **File:** `firebase/firestore.indexes.json:3-10`
+- **Why bad:** Dead index, minor cost.
+- **Fix:** Remove if no query uses it.
+- **Priority:** P3
 
 ---
 
 ## 7. Performance Risks
 
-### 7.1 Unbounded search & list streams — see **1.3**, **3.1**.
-### 7.2 Serial recently-viewed resolution — see **2.3**.
-### 7.3 Admin dashboard in-build provider creation — see **2.1**.
-### 7.4 Map screen streams every business unbounded
-- **File:** `lib/features/customer/screens/map_screen.dart:37-40`
-- **Why bad:** `streamAll()` again — see 3.1. Map may render hundreds of markers, hammer Mapbox.
-- **User impact:** Map laggy with many businesses.
-- **Fix:** Bound by viewport bounds query (geohash) or limit + paginate.
-- **Priority:** P2
+### 7.1 Unbounded list streams — see §2.4, §3.4.
+### 7.2 No pagination on home — same.
 
-### 7.5 No image dimension cap on upload (Storage rule only checks size)
-- **File:** `firebase/storage.rules:23-26`, `lib/features/business/screens/add_edit_product_screen.dart`
-- **Why bad:** `imageQuality: 80, maxWidth: 1600` is set in image_picker, but a determined client can bypass and upload anything ≤5 MB.
-- **User impact:** Heavy product images bloat the catalog.
-- **Fix:** Add a Cloud Function that resizes on upload (`firebase-resize-images` extension).
-- **Priority:** P2
-
-### 7.6 Cached image widget without preferred-size hints (verify)
-- **File:** `lib/widgets/cached_image.dart` (not deeply read in this audit)
-- **Why bad:** If `cacheHeight`/`cacheWidth` aren't set, decoded image stays at full res in memory.
+### 7.3 Cached image not given size hints
+- **File:** `lib/widgets/cached_image.dart` (verify)
+- **Why bad:** Without `cacheHeight` / `cacheWidth` / `memCacheHeight`, decoded bitmaps stay full-resolution in memory.
 - **User impact:** Memory bloat on grid screens.
 - **Fix:** Pass `memCacheHeight: ~targetSize * dpr`.
 - **Priority:** P2
 
+### 7.4 Image upload size cap (5 MB) but no dimension cap
+- **File:** `firebase/storage.rules:23-26`, `lib/features/business/screens/add_edit_product_screen.dart:99-101`
+- **Why bad:** Picker uses `imageQuality:80, maxWidth:1600` (good) but is bypassable. Storage allows up to 5 MB of any shape image.
+- **User impact:** Heavy images slow grids and waste CDN bandwidth.
+- **Fix:** Cloud Function or `firebase-resize-images` extension to resize on upload.
+- **Priority:** P2
+
+### 7.5 Recently-viewed history not capped
+- See §3.1.
+
 ---
 
-## 8. Release Readiness Checklist
+## 8. Release Checklist
 
 | Item | Status | Notes |
 |---|---|---|
-| `flutter analyze` clean (no errors) | OK | 1 warning, 65 info |
-| Firestore rules cover all collections | OK | But abuse paths exist (1.1, 2.6, 5.3) |
-| Storage rules cover all paths | OK | Default deny in place |
-| Email verification | Missing | See 1.4 |
-| App Check | Missing | See 5.4 |
-| Cloud Functions for notifications & rating aggregation | Missing | See 1.1, 1.2 |
-| Composite indexes for all queries | Partial | See 6.5 |
-| Mapbox token wiring documented | OK | `--dart-define=MAPBOX_ACCESS_TOKEN=...` |
-| Onboarding gating once-per-install | OK | See 2.7 edge |
-| Brand consistency (Nunito/DM Sans + AppColors) | Partial | Customer settings drifts (4.1) |
-| Tests | Missing | No `test/` directory |
-| CI | Missing | No workflow files |
-| Privacy Policy / ToS / Listing Agreement / Prohibited Listings | OK | All routes wired (`/legal/...`) |
-| Account deletion path | Missing | Privacy Policy promises it; not implemented |
-| Crashlytics wired | Unknown | `firebase_messaging` is in deps; Crashlytics is not |
-| Outdated packages | 65 | Plan post-launch upgrade |
+| `flutter analyze` clean (no errors/warnings) | OK | 65 info-level only |
+| `flutter test` passes | OK | 1 placeholder test |
+| `flutter build web --release` succeeds | OK | wasm dry-run warns (§1.1) |
+| Email verification visible to user | Missing | §1.3 |
+| App Check | Missing | §1.4 |
+| Notifications producer (welcome msg / Cloud Functions) | Missing | §1.2 |
+| Cloud Functions for rating aggregation | Missing | §3.2 |
+| WhatsApp number validation | Missing | §2.1, §2.2 |
+| Composite indexes for known queries | OK | Added `[userId, read]` last sprint |
+| Firestore rules locked on business profile fields | OK | `whatsappNumber` whitelisted §10 |
+| Storage rules path comment matches code | OK | Fixed §10 |
+| Brand consistency (Nunito/DM Sans + AppColors) | Partial | Customer settings drifts (§4.1) |
+| Account deletion path (privacy promise) | Missing | Privacy Policy promises this; not implemented |
+| Crashlytics wired | Unknown | `firebase_messaging` present; Crashlytics not |
+| CI workflow | Missing | None in repo |
+| Tests beyond placeholder | Missing | Only `widget_test.dart` placeholder |
+| `flutter_secure_storage` removed | Pending | §1.1, §5.6 |
+| Outdated packages | 67 | Plan post-launch upgrade |
 
 ---
 
 ## 9. Recommended Fix Order
 
-1. **P0 — Security correctness (must ship before public release)**
-   1. Fix rating-write abuse (1.1) — disable client writes, plan Cloud Function.
-   2. Decide notifications (1.2) — either ship a Cloud Function or hide the surface.
-   3. Send email verification + gate sign-in (1.4).
-   4. Type and invalidate `currentUserBusinessProvider` (1.5).
-   5. Bound search + add `keywordsLower` array or Algolia (1.3).
+1. **P0 — must ship before public launch**
+   1. Drop unused `flutter_secure_storage` (§1.1, §5.6).
+   2. Decide notifications direction — implement welcome-notif self-mint at signup *or* hide bell + screen until backend exists (§1.2).
+   3. Add an "Unverified email" banner + soft gate on review/report create (§1.3).
+   4. Wire Firebase App Check (§1.4).
 
-2. **P1 — Stability + correctness**
-   1. Lift admin dashboard providers (2.1).
-   2. Make favorites toggle deterministic (2.2).
-   3. Enable App Check (5.4).
-   4. Add notifications composite index (6.5).
-   5. Splash timeout race fix (2.4).
-   6. Reviews business-existence check (2.6).
-   7. Settings dead buttons → coming-soon snackbars (2.5).
+2. **P1 — security + correctness**
+   1. WhatsApp validator on save + `null` return for unknown formats (§2.1, §2.2).
+   2. Splash timeout: extend or replace with in-place loader (§2.3).
+   3. Pagination / `.limit(100)` on home & list streams (§2.4).
+   4. Image content validation Cloud Function or extension (§2.5).
+   5. Drop soft-deleted favorites (§2.6).
+   6. App Check rate-limits → §1.4.
 
-3. **P2 — Performance + polish**
-   1. Limit + paginate `streamAll` queries (3.1, 7.4).
-   2. Migrate Mapbox + Radio deprecated APIs (3.4, 3.5).
-   3. Brand-align customer settings screen (4.1, 4.2).
-   4. autoDispose recently-viewed; batch reads (3.6, 2.3).
-   5. Image resize Cloud Function (7.5).
+3. **P2 — performance + polish**
+   1. Cap recently-viewed history (§3.1).
+   2. Cloud Function for rating aggregation (§3.2).
+   3. Algolia/Typesense for search (§3.3).
+   4. Map viewport-bounds query (§3.4).
+   5. Convert `currentUserBusinessProvider` to `StreamProvider` (§3.5).
+   6. Mapbox + Radio deprecated API migration (§3.7, §3.8).
+   7. Brand-align customer settings (§4.1).
+   8. CachedImage memCacheHeight (§7.3).
+   9. Storage upload resize Cloud Function (§7.4).
 
-4. **P3 — Cleanup**
-   1. Codemod the 62 underscore lints.
-   2. Drop unused dep `flutter_secure_storage` (or wire it).
-   3. Remove dead category index (6.6).
-   4. Plan Riverpod 3 + outdated-package bump.
+4. **P3 — cleanup**
+   1. Profile guest CTA (§4.4).
+   2. Recently-viewed skeleton (§4.5).
+   3. Tighten notif rule schema (§6.1).
+   4. Drop dead category index (§6.5).
+   5. Codemod the 65 info lints.
+   6. Plan Riverpod 3 + outdated bump.
+
+---
+
+## 10. Verified-Fixed Since Prior Audit (informational)
+
+These were P0/P1 in the prior report and are confirmed fixed in the current code:
+
+- ✅ **Rating writes** bounded to [1.0, 5.0] and `+1` count delta — `firestore.rules:104-122`.
+- ✅ **Notifications create** allows self (admin still allowed) — `firestore.rules:200-220`. (See §1.2 — rule is unblocked but still no producer.)
+- ✅ **Search** capped at 200 newest — `product_repository.dart:89-105`, `business_repository.dart:78-99`.
+- ✅ **Email verification email sent on signup** + helper `resendEmailVerification()` — `auth_repository.dart:42-60`. (See §1.3 — still not surfaced in UI.)
+- ✅ **`currentUserBusinessProvider` typed `Business?`** + invalidated after setup/edit — `providers.dart`, callers cleaned.
+- ✅ **Admin dashboard providers lifted** to top-level — `providers.dart`, `admin_dashboard_screen.dart`.
+- ✅ **Favorite toggle deterministic + transactional** — `favorite_repository.dart`.
+- ✅ **Recently-viewed parallelized** — `providers.dart` (`Future.wait`).
+- ✅ **Splash 8s timeout reads auth state first** — `splash_screen.dart` (`_safeFallbackRoute`). (Edge in §2.3 remains.)
+- ✅ **Settings dead buttons** → "Coming soon" snackbars — `settings_screen.dart`.
+- ✅ **Reviews business-existence check** — `firestore.rules:158-167`.
+- ✅ **Onboarding flag cached in initState** — `splash_screen.dart`.
+- ✅ **Storage rules path comment** updated to match upload code — `storage.rules`.
+- ✅ **Notifications composite index** `[userId, read]` — `firestore.indexes.json`.
+- ✅ **WhatsApp** model field, helper, setup form, edit form, product detail CTA, business detail row — Business model + 5 screens + new util.
 
 ---
 

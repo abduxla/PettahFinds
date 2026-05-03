@@ -13,6 +13,7 @@ import '../../../models/product.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/sign_in_required.dart';
+import '../../../widgets/verify_email_banner.dart';
 
 // ---------- Real-data providers ----------
 final _homeBusinessByIdProvider =
@@ -109,6 +110,9 @@ class HomeScreen extends ConsumerWidget {
               slivers: [
                 // ---- Header ----
                 const SliverToBoxAdapter(child: _TealHeader()),
+
+                // ---- Email verification nudge (shows only when applicable) ----
+                const SliverToBoxAdapter(child: VerifyEmailBanner()),
 
                 // ---- Featured Carousel (white section) ----
                 const SliverToBoxAdapter(child: _FeaturedSection()),

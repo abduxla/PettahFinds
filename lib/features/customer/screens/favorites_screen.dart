@@ -18,13 +18,17 @@ final _userFavoritesProvider =
 
 /// Resolve a single favorite target (product or business) — safe against
 /// deleted docs (returns null on error so the row renders a placeholder).
+/// Soft-deleted products (`isActive == false`) also resolve to null so
+/// users don't tap through to the "no longer available" detail screen.
 final _favoriteTargetProvider =
     FutureProvider.autoDispose.family<Object?, Favorite>((ref, fav) async {
   try {
     if (fav.targetType == 'business') {
       return await ref.watch(businessRepositoryProvider).getById(fav.targetId);
     }
-    return await ref.watch(productRepositoryProvider).getById(fav.targetId);
+    final product =
+        await ref.watch(productRepositoryProvider).getById(fav.targetId);
+    return product.isActive ? product : null;
   } catch (_) {
     return null;
   }

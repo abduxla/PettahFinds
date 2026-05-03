@@ -7,6 +7,7 @@ import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/business.dart';
 import '../../../utils/validators.dart';
+import '../../../utils/whatsapp.dart';
 import '../../../widgets/loading_widget.dart';
 import '../../../widgets/error_widget.dart';
 
@@ -207,6 +208,13 @@ class _EditBusinessProfileScreenState
                       hintText: '+94 77 123 4567',
                     ),
                     keyboardType: TextInputType.phone,
+                    validator: (v) {
+                      final t = (v ?? '').trim();
+                      if (t.isEmpty) return null;
+                      return cleanWhatsAppNumber(t) == null
+                          ? 'Enter a valid number (e.g. +94 77 123 4567)'
+                          : null;
+                    },
                   ),
                   const SizedBox(height: 16),
                   TextFormField(

@@ -51,9 +51,14 @@ class BusinessRepository {
     await _ref.doc(id).update({'isVerified': verified});
   }
 
+  /// Caps the live stream of businesses. Same rationale as
+  /// [ProductRepository._streamLimit] — protects cost; pageable later.
+  static const _streamLimit = 100;
+
   Stream<List<Business>> streamAll() {
     return _ref
         .orderBy('createdAt', descending: true)
+        .limit(_streamLimit)
         .snapshots()
         .map((snap) => snap.docs.map(Business.fromFirestore).toList());
   }
@@ -62,6 +67,7 @@ class BusinessRepository {
     return _ref
         .where('category', isEqualTo: category)
         .orderBy('createdAt', descending: true)
+        .limit(_streamLimit)
         .snapshots()
         .map((snap) => snap.docs.map(Business.fromFirestore).toList());
   }
@@ -70,6 +76,7 @@ class BusinessRepository {
     return _ref
         .where('isVerified', isEqualTo: true)
         .orderBy('createdAt', descending: true)
+        .limit(_streamLimit)
         .snapshots()
         .map((snap) => snap.docs.map(Business.fromFirestore).toList());
   }

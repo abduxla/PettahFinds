@@ -9,19 +9,31 @@ import 'package:url_launcher/url_launcher.dart';
 ///   "077-123 4567"     → "94771234567"  (leading 0 → country code 94)
 ///   "771234567"        → "94771234567"  (assume LK if no country code)
 String? cleanWhatsAppNumber(String raw) {
+  final hadPlus = raw.trim().startsWith('+');
   final digits = raw.replaceAll(RegExp(r'\D'), '');
   if (digits.length < 7) return null;
 
-  // If it already starts with a country code, keep as-is.
-  if (digits.startsWith('94') && digits.length >= 11) return digits;
+  // LK with country code (94 + 9 digits = 11). Reject 94-prefixed strings
+  // that are too short / too long since wa.me silently fails on those.
+  if (digits.startsWith('94')) {
+    if (digits.length == 11) return digits;
+    return null;
+  }
 
-  // Local LK format: drop leading 0 and prefix 94.
-  if (digits.startsWith('0')) return '94${digits.substring(1)}';
+  // Local LK format: 0 + 9 digits → 94 + 9 digits.
+  if (digits.startsWith('0') && digits.length == 10) {
+    return '94${digits.substring(1)}';
+  }
 
-  // Anything else: assume the user typed the local part without 0.
-  if (digits.length == 9) return '94$digits';
+  // Bare 9-digit local part without 0.
+  if (digits.length == 9 && !digits.startsWith('0')) return '94$digits';
 
-  return digits;
+  // International (starts with `+`) but not LK — trust the user only when
+  // a leading `+` made the country code explicit. Otherwise we'd silently
+  // dial whichever country wa.me decides the digits map to.
+  if (hadPlus && digits.length >= 10 && digits.length <= 15) return digits;
+
+  return null;
 }
 
 /// Opens the system WhatsApp deep-link for [rawNumber] with [message]

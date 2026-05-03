@@ -52,9 +52,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     });
 
     // Timeout safely routes by *current* auth state; logged-in users go to
-    // their role home, guests go through onboarding once.
+    // their role home, guests go through onboarding once. 15s is enough
+    // headroom for cold Firestore reads on slow networks before we give
+    // up and route by whatever we have.
     _timeoutTimer =
-        Timer(const Duration(seconds: 8), _safeFallbackRoute);
+        Timer(const Duration(seconds: 15), _safeFallbackRoute);
 
     Future.delayed(const Duration(milliseconds: 1600), () {
       if (mounted) _tryNavigate();

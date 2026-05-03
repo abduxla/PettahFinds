@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../core/constants/app_constants.dart';
 import '../models/app_user.dart';
+import 'notification_repository.dart';
 
 class AuthRepository {
   final FirebaseAuth _auth;
@@ -67,6 +68,19 @@ class AuthRepository {
         .collection(AppConstants.usersCollection)
         .doc(user.uid)
         .set(appUser.toMap());
+
+    // Seed the inbox with a welcome message so the bell + notifications
+    // screen aren't empty on first run. Best-effort: a failure here must
+    // not roll back signup.
+    try {
+      await NotificationRepository(firestore: _firestore).createForSelf(
+        userId: user.uid,
+        title: 'Welcome to PetaFinds',
+        body: safeRole == 'business'
+            ? 'Finish setting up your business so customers can find you.'
+            : 'Browse Pettah\'s wholesale shops, save favorites, and chat with sellers on WhatsApp.',
+      );
+    } catch (_) {}
 
     return appUser;
   }

@@ -11,6 +11,7 @@ import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/empty_state_widget.dart';
+import '../../../widgets/verify_email_banner.dart';
 
 /// Merchant dashboard — uses the same visual language as the customer
 /// home: Teal-Dark header with "Merchant Hub." logo + bell, bgSection
@@ -64,6 +65,9 @@ class BusinessDashboardScreen extends ConsumerWidget {
                   slivers: [
                     // ---- Teal-dark header (matches customer home) ----
                     SliverToBoxAdapter(child: _MerchantHeader(business: business)),
+
+                    // ---- Email verification nudge ----
+                    const SliverToBoxAdapter(child: VerifyEmailBanner()),
 
                     // ---- Welcome + CTA (white section) ----
                     SliverToBoxAdapter(

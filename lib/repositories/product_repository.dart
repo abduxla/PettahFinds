@@ -51,11 +51,17 @@ class ProductRepository {
     await _ref.doc(id).update({'isActive': false});
   }
 
+  /// Caps the live stream of products. Anything beyond this is pageable
+  /// later via `startAfter`; for now the cap protects cost on large
+  /// catalogs without changing day-one UX (most screens render < 60 items).
+  static const _streamLimit = 100;
+
   Stream<List<Product>> streamByBusiness(String businessId) {
     return _ref
         .where('businessId', isEqualTo: businessId)
         .where('isActive', isEqualTo: true)
         .orderBy('createdAt', descending: true)
+        .limit(_streamLimit)
         .snapshots()
         .map((snap) => snap.docs.map(Product.fromFirestore).toList());
   }
@@ -65,6 +71,7 @@ class ProductRepository {
     return _ref
         .where('businessId', isEqualTo: businessId)
         .orderBy('createdAt', descending: true)
+        .limit(_streamLimit)
         .snapshots()
         .map((snap) => snap.docs.map(Product.fromFirestore).toList());
   }
@@ -73,6 +80,7 @@ class ProductRepository {
     return _ref
         .where('isActive', isEqualTo: true)
         .orderBy('createdAt', descending: true)
+        .limit(_streamLimit)
         .snapshots()
         .map((snap) => snap.docs.map(Product.fromFirestore).toList());
   }
@@ -82,6 +90,7 @@ class ProductRepository {
         .where('isActive', isEqualTo: true)
         .where('category', isEqualTo: category)
         .orderBy('createdAt', descending: true)
+        .limit(_streamLimit)
         .snapshots()
         .map((snap) => snap.docs.map(Product.fromFirestore).toList());
   }

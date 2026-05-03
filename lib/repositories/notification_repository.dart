@@ -11,6 +11,26 @@ class NotificationRepository {
   CollectionReference get _ref =>
       _firestore.collection(AppConstants.notificationsCollection);
 
+  /// Mints a notification addressed to the caller. Firestore rules allow
+  /// self-create only — `userId` MUST match `request.auth.uid` or the
+  /// write is rejected. Used at signup to seed the inbox so the bell
+  /// surface isn't empty out of the box.
+  Future<void> createForSelf({
+    required String userId,
+    required String title,
+    required String body,
+  }) async {
+    final doc = _ref.doc();
+    await doc.set({
+      'id': doc.id,
+      'userId': userId,
+      'title': title,
+      'body': body,
+      'read': false,
+      'createdAt': Timestamp.fromDate(DateTime.now()),
+    });
+  }
+
   Stream<List<AppNotification>> streamByUser(String userId) {
     return _ref
         .where('userId', isEqualTo: userId)
