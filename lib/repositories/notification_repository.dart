@@ -31,10 +31,15 @@ class NotificationRepository {
     });
   }
 
+  /// Caps the notifications stream. Older items are still in Firestore;
+  /// "show more" can paginate later. 100 newest is plenty for the bell.
+  static const _streamLimit = 100;
+
   Stream<List<AppNotification>> streamByUser(String userId) {
     return _ref
         .where('userId', isEqualTo: userId)
         .orderBy('createdAt', descending: true)
+        .limit(_streamLimit)
         .snapshots()
         .map((snap) =>
             snap.docs.map(AppNotification.fromFirestore).toList());

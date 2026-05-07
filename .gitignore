@@ -43,3 +43,16 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Secrets / local config — never commit actual env files. Use
+# .env.example as the documented template.
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+google-services.json.local
+GoogleService-Info.plist.local
+firebase-adminsdk-*.json
+secrets/
+

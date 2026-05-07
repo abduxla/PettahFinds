@@ -165,13 +165,19 @@ service cloud.firestore {
       // Create: caller must stamp themselves as the reviewer AND the
       // referenced business must actually exist. Prevents impersonation,
       // userId spoofing, and spam reviews against random / fake business
-      // IDs that would otherwise pollute the collection.
+      // IDs that would otherwise pollute the collection. Comment is also
+      // length-capped so a single doc can't blow up storage cost.
       allow create: if isSignedIn()
                     && request.resource.data.userId == request.auth.uid
                     && request.resource.data.businessId is string
                     && request.resource.data.rating is number
                     && request.resource.data.rating >= 1
                     && request.resource.data.rating <= 5
+                    && (
+                      !('comment' in request.resource.data.keys())
+                      || (request.resource.data.comment is string
+                          && request.resource.data.comment.size() <= 2000)
+                    )
                     && exists(/databases/$(database)/documents/businesses/$(request.resource.data.businessId));
 
       // No edits from clients. Moderation = admin; author can re-review by
@@ -201,8 +207,20 @@ service cloud.firestore {
       allow read: if isAdmin()
                   || (isSignedIn() && resource.data.userId == request.auth.uid);
 
+      // `details` is user-supplied free text — cap to keep a single report
+      // from blowing up storage / read cost.
       allow create: if isSignedIn()
-                    && request.resource.data.userId == request.auth.uid;
+                    && request.resource.data.userId == request.auth.uid
+                    && (
+                      !('details' in request.resource.data.keys())
+                      || (request.resource.data.details is string
+                          && request.resource.data.details.size() <= 2000)
+                    )
+                    && (
+                      !('reason' in request.resource.data.keys())
+                      || (request.resource.data.reason is string
+                          && request.resource.data.reason.size() <= 200)
+                    );
 
       allow update: if isAdmin();
       allow delete: if isAdmin();
@@ -216,11 +234,16 @@ service cloud.firestore {
 
       // Clients may stage notifications addressed to themselves (e.g. the
       // welcome message at sign-up). Cross-user notifications still require
-      // a trusted backend (Cloud Functions / Admin SDK).
+      // a trusted backend (Cloud Functions / Admin SDK). Title + body are
+      // length-capped so a self-mint can't be used to bloat the collection.
       allow create: if isAdmin()
                     || (
                       isSignedIn()
                       && request.resource.data.userId == request.auth.uid
+                      && request.resource.data.title is string
+                      && request.resource.data.title.size() <= 200
+                      && request.resource.data.body is string
+                      && request.resource.data.body.size() <= 1000
                     );
 
       // Users can mark their own notifications read, but not change userId

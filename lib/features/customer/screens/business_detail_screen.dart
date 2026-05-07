@@ -46,6 +46,10 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
   final _commentCtrl = TextEditingController();
   double _rating = 5.0;
   bool _submittingReview = false;
+  // "Load more" state for reviews older than the live-stream window.
+  final List<Review> _olderReviews = [];
+  bool _loadingMore = false;
+  bool _moreExhausted = false;
 
   @override
   void dispose() {
@@ -547,7 +551,9 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
 
             // Reviews list
             reviewsAsync.when(
-              data: (reviews) => reviews.isEmpty
+              data: (liveReviews) {
+                final reviews = [...liveReviews, ..._olderReviews];
+                return reviews.isEmpty
                   ? SliverToBoxAdapter(
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
@@ -647,7 +653,8 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
                         },
                         childCount: reviews.length,
                       ),
-                    ),
+                    );
+              },
               loading: () => const SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20),
@@ -656,6 +663,12 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
               ),
               error: (e, _) => SliverToBoxAdapter(
                   child: AppErrorWidget(message: e.toString())),
+            ),
+
+            // Load older reviews — only shown once the live window
+            // (newest 100) is full and we haven't exhausted history.
+            SliverToBoxAdapter(
+              child: _buildLoadMoreButton(theme, reviewsAsync.valueOrNull),
             ),
 
             const SliverToBoxAdapter(child: SizedBox(height: 32)),
@@ -668,6 +681,59 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
           message: e.toString(),
           onRetry: () =>
               ref.invalidate(_businessByIdProvider(widget.businessId)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadMoreButton(ThemeData theme, List<Review>? liveReviews) {
+    // Live stream caps at 100 newest. If fewer rendered, no older history
+    // to fetch. If we already loaded everything, hide the button.
+    if (liveReviews == null || liveReviews.length < 100) {
+      return const SizedBox.shrink();
+    }
+    if (_moreExhausted) return const SizedBox.shrink();
+
+    final oldestRendered = _olderReviews.isNotEmpty
+        ? _olderReviews.last.createdAt
+        : liveReviews.last.createdAt;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+      child: OutlinedButton.icon(
+        onPressed: _loadingMore
+            ? null
+            : () async {
+                setState(() => _loadingMore = true);
+                try {
+                  final older = await ref
+                      .read(reviewRepositoryProvider)
+                      .getOlderByBusiness(
+                        businessId: widget.businessId,
+                        before: oldestRendered,
+                        limit: 50,
+                      );
+                  if (!mounted) return;
+                  setState(() {
+                    _olderReviews.addAll(older);
+                    _moreExhausted = older.length < 50;
+                    _loadingMore = false;
+                  });
+                } catch (_) {
+                  if (mounted) setState(() => _loadingMore = false);
+                }
+              },
+        icon: _loadingMore
+            ? const SizedBox(
+                height: 14,
+                width: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.history_rounded, size: 16),
+        label: Text(_loadingMore ? 'Loading...' : 'Load older reviews'),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size.fromHeight(44),
+          foregroundColor: theme.colorScheme.primary,
         ),
       ),
     );

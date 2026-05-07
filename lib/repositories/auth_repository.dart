@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import '../core/constants/app_constants.dart';
 import '../models/app_user.dart';
 import 'notification_repository.dart';
@@ -80,7 +81,12 @@ class AuthRepository {
             ? 'Finish setting up your business so customers can find you.'
             : 'Browse Pettah\'s wholesale shops, save favorites, and chat with sellers on WhatsApp.',
       );
-    } catch (_) {}
+    } catch (e) {
+      // Best-effort. Most likely cause once App Check is enforced is a
+      // missing debug token in dev. Log so it's visible in DevTools but
+      // never roll back signup over a missing welcome card.
+      debugPrint('[auth] welcome notification failed: $e');
+    }
 
     return appUser;
   }
