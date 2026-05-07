@@ -19,9 +19,13 @@ service firebase.storage {
              .data.ownerUid == request.auth.uid;
     }
 
-    // Standard image constraints: ≤ 5 MB, image/* only.
+    // Standard image constraints: ≤ 3 MB, image/* only. The picker downscales
+    // to maxWidth 1600 + quality 80 which keeps real uploads well under
+    // ~600 KB; 3 MB is the safety ceiling for raw camera shots that slip
+    // through. (contentType is client-supplied and spoofable — defense in
+    // depth would be a Cloud Function that re-reads magic bytes.)
     function isValidImage() {
-      return request.resource.size < 5 * 1024 * 1024
+      return request.resource.size < 3 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
     }
 

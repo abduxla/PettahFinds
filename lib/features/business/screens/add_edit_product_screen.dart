@@ -118,9 +118,16 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     if (_newFiles.isEmpty) return const [];
     final storage = ref.read(storageServiceProvider);
     final urls = <String>[];
+    // Matches the Storage rule cap (3 MB). Reject before upload so we
+    // don't waste the user's data plan on a doomed request.
+    const maxBytes = 3 * 1024 * 1024;
     for (var i = 0; i < _newFiles.length; i++) {
       final file = _newFiles[i];
       final bytes = await file.readAsBytes();
+      if (bytes.lengthInBytes > maxBytes) {
+        throw Exception(
+            'Image #${i + 1} is too large. Pick one under 3 MB.');
+      }
       // Pick sensible contentType + extension from the picked file.
       final mime = (file.mimeType ?? '').isNotEmpty
           ? file.mimeType!

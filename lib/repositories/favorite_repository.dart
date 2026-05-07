@@ -51,10 +51,16 @@ class FavoriteRepository {
     });
   }
 
+  /// Caps the favorites stream. 200 newest is far more than any user is
+  /// expected to keep; protects cost on power users without changing the
+  /// favorites screen UX.
+  static const _streamLimit = 200;
+
   Stream<List<Favorite>> streamByUser(String userId) {
     return _ref
         .where('userId', isEqualTo: userId)
         .orderBy('createdAt', descending: true)
+        .limit(_streamLimit)
         .snapshots()
         .map((snap) => snap.docs.map(Favorite.fromFirestore).toList());
   }

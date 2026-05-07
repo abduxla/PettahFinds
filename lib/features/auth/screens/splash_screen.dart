@@ -63,7 +63,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     });
   }
 
-  void _safeFallbackRoute() {
+  Future<void> _safeFallbackRoute() async {
     if (_navigated || !mounted) return;
     final user = ref.read(appUserProvider).valueOrNull;
     if (user != null) {
@@ -78,6 +78,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       _go('/home');
       return;
     }
+    // Cold prefs read may not have completed by the time the timeout fires.
+    // Re-read here so a slow disk doesn't replay onboarding to a returning
+    // guest user.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _onboardingDone = prefs.getBool(onboardingCompletedKey) ?? false;
+    } catch (_) {}
     _goGuestStart();
   }
 

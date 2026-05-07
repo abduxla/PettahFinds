@@ -38,7 +38,14 @@ class _EditBusinessProfileScreenState
     _locationCtrl.text = business.location;
     _descCtrl.text = business.description;
     _phoneCtrl.text = business.phone;
-    _whatsappCtrl.text = business.whatsappNumber;
+    // If the stored WhatsApp number predates the validator and is now
+    // invalid, drop it on first load so the owner isn't locked out of
+    // saving unrelated edits. Empty is valid; they can re-type a clean
+    // number when convenient.
+    final storedWa = business.whatsappNumber.trim();
+    _whatsappCtrl.text = (storedWa.isEmpty || cleanWhatsAppNumber(storedWa) != null)
+        ? storedWa
+        : '';
     _emailCtrl.text = business.email;
     _categoryCtrl.text = business.category;
     _initialized = true;
