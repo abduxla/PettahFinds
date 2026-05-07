@@ -233,7 +233,9 @@ class ProfileScreen extends ConsumerWidget {
                     ),
                   ),
 
-                  const SizedBox(height: 32),
+                  // Bottom pad clears the floating bottom nav (~90 px)
+                  // plus safe-area so the Sign Out button is fully visible.
+                  const SizedBox(height: 120),
                 ],
               ),
             ),
