@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/extensions/context_extensions.dart';
-import '../../../models/report.dart';
 import '../../../widgets/loading_widget.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/empty_state_widget.dart';
@@ -14,10 +13,7 @@ class AdminReportsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final reportsAsync = ref.watch(
-      StreamProvider<List<Report>>(
-          (ref) => ref.read(reportRepositoryProvider).streamAll()),
-    );
+    final reportsAsync = ref.watch(allReportsProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Reports')),

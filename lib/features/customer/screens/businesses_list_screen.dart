@@ -8,17 +8,13 @@ import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/empty_state_widget.dart';
 
-final _allBusinessesProvider = StreamProvider<List<Business>>((ref) {
-  return ref.watch(businessRepositoryProvider).streamAll();
-});
-
 class BusinessesListScreen extends ConsumerWidget {
   const BusinessesListScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final businessesAsync = ref.watch(_allBusinessesProvider);
+    final businessesAsync = ref.watch(allBusinessesProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -41,7 +37,7 @@ class BusinessesListScreen extends ConsumerWidget {
           }
           return RefreshIndicator(
             color: theme.colorScheme.primary,
-            onRefresh: () async => ref.invalidate(_allBusinessesProvider),
+            onRefresh: () async => ref.invalidate(allBusinessesProvider),
             child: ListView.builder(
               itemCount: businesses.length,
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -52,7 +48,7 @@ class BusinessesListScreen extends ConsumerWidget {
         loading: () => const BusinessCardSkeleton(count: 4),
         error: (e, _) => AppErrorWidget(
           message: e.toString(),
-          onRetry: () => ref.invalidate(_allBusinessesProvider),
+          onRetry: () => ref.invalidate(allBusinessesProvider),
         ),
       ),
     );

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/providers/providers.dart';
-import '../../../models/business.dart';
 import '../../../widgets/loading_widget.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/empty_state_widget.dart';
@@ -14,13 +13,7 @@ class CategoryBusinessesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final stream = ref.watch(
-      StreamProvider<List<Business>>((ref) {
-        return ref
-            .watch(businessRepositoryProvider)
-            .streamByCategory(categoryName);
-      }),
-    );
+    final stream = ref.watch(businessesByCategoryProvider(categoryName));
 
     return Scaffold(
       appBar: AppBar(title: Text(categoryName)),
