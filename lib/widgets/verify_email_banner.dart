@@ -66,18 +66,16 @@ class _VerifyEmailBannerState extends ConsumerState<VerifyEmailBanner> {
                       await ref
                           .read(authRepositoryProvider)
                           .resendEmailVerification();
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Verification email sent')),
-                        );
-                      }
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text('Verification email sent')),
+                      );
                     } on FirebaseAuthException catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(e.message ?? 'Failed')),
-                        );
-                      }
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(e.message ?? 'Failed')),
+                      );
                     } finally {
                       if (mounted) setState(() => _sending = false);
                     }

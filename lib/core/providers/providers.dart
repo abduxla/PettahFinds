@@ -54,14 +54,23 @@ final businessActiveProductsProvider =
   return ref.watch(productRepositoryProvider).streamByBusiness(businessId);
 });
 
-/// Top-level streams for the admin dashboard. Lifted out of `build()` so
-/// rebuilds don't construct fresh `StreamProvider`s every frame (which
-/// leaks the previous Firestore subscription).
+/// Top-level streams for the admin dashboard + listing screens. Lifted
+/// out of `build()` so rebuilds don't construct fresh `StreamProvider`s
+/// every frame (which leaks the previous Firestore subscription).
 final allBusinessesProvider = StreamProvider<List<Business>>((ref) {
   return ref.watch(businessRepositoryProvider).streamAll();
 });
 final allReportsProvider = StreamProvider<List<Report>>((ref) {
   return ref.watch(reportRepositoryProvider).streamAll();
+});
+
+/// Businesses filtered by category. Family keyed on category name so each
+/// distinct filter shares one Firestore subscription instead of creating
+/// a fresh provider per `build()`.
+final businessesByCategoryProvider = StreamProvider.autoDispose
+    .family<List<Business>, String>((ref, category) {
+  if (category.isEmpty) return Stream.value(const []);
+  return ref.watch(businessRepositoryProvider).streamByCategory(category);
 });
 
 /// Resolves recently-viewed product IDs into full Product objects.
