@@ -173,8 +173,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       ? const EmptyStateWidget(
                           icon: Icons.shopping_bag_outlined,
                           title: 'Search products',
-                          subtitle:
-                              'Find wholesale products listed by Pettah businesses.',
+                          subtitle: 'Find products from Pettah businesses.',
                         )
                       : _products.isEmpty
                           ? const EmptyStateWidget(
