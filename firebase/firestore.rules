@@ -226,6 +226,58 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // ---------- Conversations (in-app chat) ----------
+    match /conversations/{conversationId} {
+      // Only the customer or the seller listed on the doc can read/update.
+      allow read: if isSignedIn()
+                  && request.auth.uid in resource.data.participantIds;
+
+      // Customer side creates the doc. Caller must stamp themselves as
+      // customerId and be a member of participantIds. participantIds must
+      // contain both the customer and the seller, no one else.
+      allow create: if isSignedIn()
+                    && request.resource.data.customerId == request.auth.uid
+                    && request.resource.data.participantIds is list
+                    && request.resource.data.participantIds.size() == 2
+                    && request.auth.uid in request.resource.data.participantIds
+                    && request.resource.data.sellerId in request.resource.data.participantIds
+                    && request.resource.data.sellerId != request.auth.uid
+                    && request.resource.data.productId is string
+                    && request.resource.data.businessId is string;
+
+      // Either party may update the conversation (last-message summary +
+      // unread counters). participantIds / sellerId / customerId / ids stay
+      // frozen so a participant can't reassign the thread.
+      allow update: if isSignedIn()
+                    && request.auth.uid in resource.data.participantIds
+                    && request.resource.data.participantIds == resource.data.participantIds
+                    && request.resource.data.sellerId == resource.data.sellerId
+                    && request.resource.data.customerId == resource.data.customerId
+                    && request.resource.data.productId == resource.data.productId
+                    && request.resource.data.businessId == resource.data.businessId;
+
+      // Deletes happen via admin tooling only.
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        function parentParticipants() {
+          return get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        }
+
+        allow read: if isSignedIn() && request.auth.uid in parentParticipants();
+
+        allow create: if isSignedIn()
+                      && request.auth.uid in parentParticipants()
+                      && request.resource.data.senderId == request.auth.uid
+                      && request.resource.data.text is string
+                      && request.resource.data.text.size() > 0
+                      && request.resource.data.text.size() <= 1000;
+
+        // Messages are immutable from the client.
+        allow update, delete: if false;
+      }
+    }
+
     // ---------- Notifications ----------
     match /notifications/{notificationId} {
       // Users can only read their own notifications.

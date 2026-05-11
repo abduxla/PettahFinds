@@ -125,6 +125,11 @@ class ProfileScreen extends ConsumerWidget {
                     label: 'MARKETPLACE ACTIVITY',
                     items: [
                       _MenuItem(
+                        icon: Icons.forum_outlined,
+                        label: 'Messages',
+                        onTap: () => context.go('/chat'),
+                      ),
+                      _MenuItem(
                         icon: Icons.bookmark_outline_rounded,
                         label: 'My Saved Items',
                         onTap: () => context.go('/favorites'),
