@@ -9,9 +9,12 @@ import '../../repositories/review_repository.dart';
 import '../../repositories/favorite_repository.dart';
 import '../../repositories/report_repository.dart';
 import '../../repositories/notification_repository.dart';
+import '../../services/chat_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/recently_viewed_service.dart';
 import '../../models/business.dart';
+import '../../models/chat_message.dart';
+import '../../models/conversation.dart';
 import '../../models/product.dart';
 import '../../models/report.dart';
 
@@ -30,6 +33,32 @@ final notificationRepositoryProvider =
 final storageServiceProvider = Provider((ref) => StorageService());
 final recentlyViewedServiceProvider =
     Provider((ref) => RecentlyViewedService());
+final chatServiceProvider = Provider((ref) => ChatService());
+
+// --- Chat streams ---
+final conversationStreamProvider = StreamProvider.autoDispose
+    .family<Conversation?, String>((ref, id) {
+  if (id.isEmpty) return Stream.value(null);
+  return ref.watch(chatServiceProvider).streamConversation(id);
+});
+
+final conversationMessagesProvider = StreamProvider.autoDispose
+    .family<List<ChatMessage>, String>((ref, id) {
+  if (id.isEmpty) return Stream.value(const []);
+  return ref.watch(chatServiceProvider).streamMessages(id);
+});
+
+final customerConversationsProvider = StreamProvider.autoDispose
+    .family<List<Conversation>, String>((ref, uid) {
+  if (uid.isEmpty) return Stream.value(const []);
+  return ref.watch(chatServiceProvider).streamCustomerConversations(uid);
+});
+
+final sellerConversationsProvider = StreamProvider.autoDispose
+    .family<List<Conversation>, String>((ref, uid) {
+  if (uid.isEmpty) return Stream.value(const []);
+  return ref.watch(chatServiceProvider).streamSellerConversations(uid);
+});
 
 /// Shared stream of all active products. Used by home and products list
 /// so we keep a single Firestore subscription instead of duplicating.

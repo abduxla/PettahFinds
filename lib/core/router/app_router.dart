@@ -35,6 +35,8 @@ import '../../features/admin/screens/admin_products_screen.dart';
 import '../../features/admin/screens/admin_reports_screen.dart';
 import '../../features/legal/legal_document_screen.dart';
 import '../../features/legal/legal_documents.dart';
+import '../../features/chat/screens/chat_list_screen.dart';
+import '../../features/chat/screens/chat_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _customerShellKey = GlobalKey<NavigatorState>(debugLabel: 'customer');
@@ -59,6 +61,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Legal docs are reachable from everywhere (sign-up, settings, product
       // form), regardless of auth state or role.
       if (currentPath.startsWith('/legal/')) return null;
+
+      // Chat surfaces handle their own guest gating + role logic.
+      if (currentPath == '/chat' || currentPath.startsWith('/chat/')) {
+        return null;
+      }
 
       // While auth is still initializing, don't redirect — stay put
       if (isAuthLoading) return null;
@@ -175,6 +182,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const LegalDocumentScreen(
           title: LegalDocuments.prohibitedListingsTitle,
           body: LegalDocuments.prohibitedListingsBody,
+        ),
+      ),
+
+      // --- Chat (top-level so it can be opened from any shell) ---
+      GoRoute(path: '/chat', builder: (_, __) => const ChatListScreen()),
+      GoRoute(
+        path: '/chat/:conversationId',
+        builder: (_, state) => ChatScreen(
+          conversationId: state.pathParameters['conversationId']!,
         ),
       ),
 

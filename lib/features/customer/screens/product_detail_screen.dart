@@ -13,7 +13,6 @@ import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/sign_in_required.dart';
-import '../../../utils/whatsapp.dart';
 
 final _productDetailProvider =
     FutureProvider.autoDispose.family<Product, String>((ref, id) async {
@@ -483,46 +482,108 @@ class _SellerCard extends StatelessWidget {
           ],
         ),
           ),
-          if (business.whatsappNumber.trim().isNotEmpty) ...[
-            const SizedBox(height: 10),
-            SizedBox(
-              height: 40,
-              child: FilledButton.icon(
-                onPressed: () => launchWhatsApp(
-                  context: context,
-                  rawNumber: business.whatsappNumber,
-                  message:
-                      'Hi, I saw your product on PetaFinds: $productTitle. '
-                      'I want to inquire about it.',
-                ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF25D366),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                icon: const Icon(Icons.chat_bubble, size: 16),
-                label: Text(
-                  'Chat on WhatsApp',
-                  style: GoogleFonts.dmSans(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-          ] else ...[
-            const SizedBox(height: 8),
-            Text(
-              'Business WhatsApp not available',
-              style: GoogleFonts.dmSans(
-                fontSize: 11.5,
-                color: AppColors.text4,
-              ),
-            ),
-          ],
+          const SizedBox(height: 10),
+          _ChatSellerButton(business: business),
         ],
+      ),
+    );
+  }
+}
+
+/// Teal "Chat Seller" CTA. Reads the auth/app-user state so:
+///   - guests get redirected to sign-in,
+///   - the seller viewing their own product sees no button at all,
+///   - other signed-in users open (or create) a thread and navigate to it.
+class _ChatSellerButton extends ConsumerStatefulWidget {
+  final Business business;
+  const _ChatSellerButton({required this.business});
+
+  @override
+  ConsumerState<_ChatSellerButton> createState() =>
+      _ChatSellerButtonState();
+}
+
+class _ChatSellerButtonState extends ConsumerState<_ChatSellerButton> {
+  bool _opening = false;
+
+  Future<void> _onTap(BuildContext context, String productId) async {
+    if (_opening) return;
+    final appUser = ref.read(appUserProvider).valueOrNull;
+    if (appUser == null) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to message sellers')),
+      );
+      // Small delay so the snackbar shows before the route swap.
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      if (!context.mounted) return;
+      context.go('/sign-in');
+      return;
+    }
+    setState(() => _opening = true);
+    try {
+      final product = ref
+          .read(_productDetailProvider(productId))
+          .valueOrNull;
+      if (product == null) {
+        throw Exception('Product not loaded yet.');
+      }
+      final conv = await ref.read(chatServiceProvider).openConversation(
+            product: product,
+            business: widget.business,
+            customerId: appUser.uid,
+          );
+      if (!context.mounted) return;
+      context.go('/chat/${conv.id}');
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open chat: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appUser = ref.watch(appUserProvider).valueOrNull;
+    // Seller viewing own product — no point chatting yourself.
+    if (appUser != null &&
+        appUser.isBusiness &&
+        appUser.uid == widget.business.ownerUid) {
+      return const SizedBox.shrink();
+    }
+    final productId =
+        (context.findAncestorWidgetOfExactType<ProductDetailScreen>())
+                ?.productId ??
+            '';
+    return SizedBox(
+      height: 44,
+      child: FilledButton.icon(
+        onPressed: _opening ? null : () => _onTap(context, productId),
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.teal,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        icon: _opening
+            ? const SizedBox(
+                height: 16,
+                width: 16,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white),
+              )
+            : const Icon(Icons.chat_bubble_outline_rounded, size: 16),
+        label: Text(
+          _opening ? 'Opening...' : 'Chat Seller',
+          style: GoogleFonts.dmSans(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
     );
   }

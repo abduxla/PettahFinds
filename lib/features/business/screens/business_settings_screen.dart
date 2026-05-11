@@ -39,6 +39,11 @@ class BusinessSettingsScreen extends ConsumerWidget {
                 label: 'Manage Products',
                 onTap: () => context.go('/business/products'),
               ),
+              _MenuItem(
+                icon: Icons.forum_outlined,
+                label: 'Messages',
+                onTap: () => context.go('/chat'),
+              ),
             ],
           ),
 
