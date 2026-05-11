@@ -114,6 +114,10 @@ class HomeScreen extends ConsumerWidget {
                 // ---- Email verification nudge (shows only when applicable) ----
                 const SliverToBoxAdapter(child: VerifyEmailBanner()),
 
+                // Breathing room between the teal header and the first
+                // content card. Premium-feel spacing — not a giant gap.
+                const SliverToBoxAdapter(child: SizedBox(height: 14)),
+
                 // ---- Featured Carousel (white section) ----
                 const SliverToBoxAdapter(child: _FeaturedSection()),
 

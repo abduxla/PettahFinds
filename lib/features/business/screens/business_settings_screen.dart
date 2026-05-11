@@ -44,25 +44,6 @@ class BusinessSettingsScreen extends ConsumerWidget {
 
           const SizedBox(height: 18),
 
-          // ---- ACCOUNT ----
-          _SectionCard(
-            label: 'ACCOUNT',
-            items: [
-              _MenuItem(
-                icon: Icons.workspace_premium_rounded,
-                label: 'Membership & Billing',
-                subtitle: 'Manage your subscription',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Coming soon')),
-                  );
-                },
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 18),
-
           // ---- LEGAL ----
           _SectionCard(
             label: 'LEGAL',
@@ -196,13 +177,6 @@ class _SectionCard extends StatelessWidget {
                         color: AppColors.text1,
                       ),
                     ),
-                    subtitle: item.subtitle != null
-                        ? Text(item.subtitle!,
-                            style: GoogleFonts.dmSans(
-                              fontSize: 12,
-                              color: AppColors.text3,
-                            ))
-                        : null,
                     trailing: const Icon(Icons.chevron_right_rounded,
                         color: AppColors.text4, size: 22),
                     onTap: item.onTap,
@@ -226,12 +200,10 @@ class _SectionCard extends StatelessWidget {
 class _MenuItem {
   final IconData icon;
   final String label;
-  final String? subtitle;
   final VoidCallback onTap;
   const _MenuItem({
     required this.icon,
     required this.label,
-    this.subtitle,
     required this.onTap,
   });
 }
