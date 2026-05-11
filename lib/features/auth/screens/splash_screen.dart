@@ -4,8 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
+import 'onboarding_screen.dart';
 
 /// Splash — solid Teal-Dark field, centered "PetaFinds." wordmark
 /// (Nunito 900, orange period) and tagline. Fades in on mount, fades
@@ -21,6 +23,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     with SingleTickerProviderStateMixin {
   bool _navigated = false;
   Timer? _timeoutTimer;
+  // Cached once on init so navigation decisions don't race the prefs read.
+  bool _onboardingDone = false;
 
   late final AnimationController _fadeController;
   late final Animation<double> _fadeAnim;
@@ -41,11 +45,47 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     );
     _fadeController.forward();
 
-    _timeoutTimer = Timer(const Duration(seconds: 8), () => _go('/home'));
+    // Resolve the onboarding flag up front so all navigation paths
+    // (timeout, fast auth, slow auth) read the same value synchronously.
+    SharedPreferences.getInstance().then((prefs) {
+      _onboardingDone = prefs.getBool(onboardingCompletedKey) ?? false;
+    });
+
+    // Timeout safely routes by *current* auth state; logged-in users go to
+    // their role home, guests go through onboarding once. 15s is enough
+    // headroom for cold Firestore reads on slow networks before we give
+    // up and route by whatever we have.
+    _timeoutTimer =
+        Timer(const Duration(seconds: 15), _safeFallbackRoute);
 
     Future.delayed(const Duration(milliseconds: 1600), () {
       if (mounted) _tryNavigate();
     });
+  }
+
+  Future<void> _safeFallbackRoute() async {
+    if (_navigated || !mounted) return;
+    final user = ref.read(appUserProvider).valueOrNull;
+    if (user != null) {
+      _routeByRole(user);
+      return;
+    }
+    final firebaseUser = ref.read(authStateProvider).valueOrNull;
+    if (firebaseUser != null) {
+      // Firebase user resolved but AppUser doc not yet — route conservatively
+      // to /home so we don't strand them; router redirect will correct once
+      // the AppUser stream emits.
+      _go('/home');
+      return;
+    }
+    // Cold prefs read may not have completed by the time the timeout fires.
+    // Re-read here so a slow disk doesn't replay onboarding to a returning
+    // guest user.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _onboardingDone = prefs.getBool(onboardingCompletedKey) ?? false;
+    } catch (_) {}
+    _goGuestStart();
   }
 
   @override
@@ -64,18 +104,26 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     context.go(path);
   }
 
+  /// Guest landing: first run goes through onboarding once, then home.
+  /// Uses the value cached in [initState] to avoid racing the prefs read
+  /// against the navigation timer.
+  void _goGuestStart() {
+    if (_navigated || !mounted) return;
+    _go(_onboardingDone ? '/home' : '/onboarding');
+  }
+
   void _tryNavigate() {
     final authState = ref.read(authStateProvider);
     authState.when(
       data: (firebaseUser) {
         if (firebaseUser == null) {
-          _go('/home');
+          _goGuestStart();
           return;
         }
         _waitForAppUser();
       },
       loading: _listenAuth,
-      error: (_, __) => _go('/home'),
+      error: (_, __) => _goGuestStart(),
     );
   }
 
@@ -84,13 +132,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       next.when(
         data: (firebaseUser) {
           if (firebaseUser == null) {
-            _go('/home');
+            _goGuestStart();
           } else {
             _waitForAppUser();
           }
         },
         loading: () {},
-        error: (_, __) => _go('/home'),
+        error: (_, __) => _goGuestStart(),
       );
     });
   }

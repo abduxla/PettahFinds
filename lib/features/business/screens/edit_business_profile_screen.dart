@@ -7,6 +7,7 @@ import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/business.dart';
 import '../../../utils/validators.dart';
+import '../../../utils/whatsapp.dart';
 import '../../../widgets/loading_widget.dart';
 import '../../../widgets/error_widget.dart';
 
@@ -25,6 +26,7 @@ class _EditBusinessProfileScreenState
   final _locationCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _whatsappCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _categoryCtrl = TextEditingController();
   bool _loading = false;
@@ -36,6 +38,14 @@ class _EditBusinessProfileScreenState
     _locationCtrl.text = business.location;
     _descCtrl.text = business.description;
     _phoneCtrl.text = business.phone;
+    // If the stored WhatsApp number predates the validator and is now
+    // invalid, drop it on first load so the owner isn't locked out of
+    // saving unrelated edits. Empty is valid; they can re-type a clean
+    // number when convenient.
+    final storedWa = business.whatsappNumber.trim();
+    _whatsappCtrl.text = (storedWa.isEmpty || cleanWhatsAppNumber(storedWa) != null)
+        ? storedWa
+        : '';
     _emailCtrl.text = business.email;
     _categoryCtrl.text = business.category;
     _initialized = true;
@@ -47,6 +57,7 @@ class _EditBusinessProfileScreenState
     _locationCtrl.dispose();
     _descCtrl.dispose();
     _phoneCtrl.dispose();
+    _whatsappCtrl.dispose();
     _emailCtrl.dispose();
     _categoryCtrl.dispose();
     super.dispose();
@@ -63,6 +74,7 @@ class _EditBusinessProfileScreenState
               location: _locationCtrl.text.trim(),
               description: _descCtrl.text.trim(),
               phone: _phoneCtrl.text.trim(),
+              whatsappNumber: _whatsappCtrl.text.trim(),
               email: _emailCtrl.text.trim(),
               category: _categoryCtrl.text.trim(),
             ),
@@ -85,11 +97,10 @@ class _EditBusinessProfileScreenState
     final businessAsync = ref.watch(currentUserBusinessProvider);
 
     return businessAsync.when(
-      data: (businessDynamic) {
-        if (businessDynamic == null) {
+      data: (business) {
+        if (business == null) {
           return const Scaffold(body: Center(child: Text('No business')));
         }
-        final business = businessDynamic as Business;
         _initFields(business);
 
         return Scaffold(
@@ -195,6 +206,22 @@ class _EditBusinessProfileScreenState
                     decoration: const InputDecoration(labelText: 'Phone'),
                     keyboardType: TextInputType.phone,
                     validator: Validators.phone,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _whatsappCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'WhatsApp Number (optional)',
+                      hintText: '+94 77 123 4567',
+                    ),
+                    keyboardType: TextInputType.phone,
+                    validator: (v) {
+                      final t = (v ?? '').trim();
+                      if (t.isEmpty) return null;
+                      return cleanWhatsAppNumber(t) == null
+                          ? 'Enter a valid number (e.g. +94 77 123 4567)'
+                          : null;
+                    },
                   ),
                   const SizedBox(height: 16),
                   TextFormField(

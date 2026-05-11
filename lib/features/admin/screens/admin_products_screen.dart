@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/providers.dart';
-import '../../../models/product.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/loading_widget.dart';
 import '../../../widgets/error_widget.dart';
@@ -12,10 +11,7 @@ class AdminProductsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final productsAsync = ref.watch(
-      StreamProvider<List<Product>>(
-          (ref) => ref.read(productRepositoryProvider).streamAll()),
-    );
+    final productsAsync = ref.watch(allActiveProductsProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('All Products')),

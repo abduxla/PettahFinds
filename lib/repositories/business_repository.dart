@@ -51,9 +51,14 @@ class BusinessRepository {
     await _ref.doc(id).update({'isVerified': verified});
   }
 
+  /// Caps the live stream of businesses. Same rationale as
+  /// [ProductRepository._streamLimit] — protects cost; pageable later.
+  static const _streamLimit = 100;
+
   Stream<List<Business>> streamAll() {
     return _ref
         .orderBy('createdAt', descending: true)
+        .limit(_streamLimit)
         .snapshots()
         .map((snap) => snap.docs.map(Business.fromFirestore).toList());
   }
@@ -62,6 +67,7 @@ class BusinessRepository {
     return _ref
         .where('category', isEqualTo: category)
         .orderBy('createdAt', descending: true)
+        .limit(_streamLimit)
         .snapshots()
         .map((snap) => snap.docs.map(Business.fromFirestore).toList());
   }
@@ -70,13 +76,25 @@ class BusinessRepository {
     return _ref
         .where('isVerified', isEqualTo: true)
         .orderBy('createdAt', descending: true)
+        .limit(_streamLimit)
         .snapshots()
         .map((snap) => snap.docs.map(Business.fromFirestore).toList());
   }
 
+  /// Substring search over name / category / location.
+  ///
+  /// NOTE: Firestore has no native substring search. To keep cost bounded
+  /// we cap the scan at the most recent [_searchScanLimit] businesses and
+  /// filter in memory. Swap to Algolia / Typesense once the directory
+  /// grows past a few thousand entries.
+  static const _searchScanLimit = 200;
+
   Future<List<Business>> search(String query) async {
     final lower = query.toLowerCase();
-    final snap = await _ref.get();
+    final snap = await _ref
+        .orderBy('createdAt', descending: true)
+        .limit(_searchScanLimit)
+        .get();
     return snap.docs
         .map(Business.fromFirestore)
         .where((b) =>

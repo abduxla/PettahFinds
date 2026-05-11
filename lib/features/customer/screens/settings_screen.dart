@@ -26,17 +26,17 @@ class SettingsScreen extends ConsumerWidget {
             icon: Icons.person_outline_rounded,
             iconColor: theme.colorScheme.primary,
             title: 'Edit Profile',
-            onTap: () {
-              // TODO: navigate to edit profile
-            },
+            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Coming soon')),
+            ),
           ),
           _SettingsTile(
             icon: Icons.lock_outline_rounded,
             iconColor: const Color(0xFF6366F1),
             title: 'Change Password',
-            onTap: () {
-              // TODO: navigate to change password
-            },
+            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Coming soon')),
+            ),
           ),
           _Section(title: 'Preferences', theme: theme),
           SwitchListTile(

@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import '../core/constants/app_constants.dart';
 import '../models/app_user.dart';
+import 'notification_repository.dart';
 
 class AuthRepository {
   final FirebaseAuth _auth;
@@ -45,6 +47,16 @@ class AuthRepository {
     final user = cred.user!;
     await user.updateDisplayName(displayName.trim());
 
+    // Send verification email. Sign-in is intentionally NOT gated on
+    // emailVerified yet — that would break existing accounts. The link
+    // gives accountability for new signups; tighten later via a soft
+    // banner / hard gate in a separate change.
+    try {
+      await user.sendEmailVerification();
+    } catch (_) {
+      // Don't let a transient mail-send failure block the signup.
+    }
+
     final appUser = AppUser(
       uid: user.uid,
       email: email.trim(),
@@ -58,7 +70,34 @@ class AuthRepository {
         .doc(user.uid)
         .set(appUser.toMap());
 
+    // Seed the inbox with a welcome message so the bell + notifications
+    // screen aren't empty on first run. Best-effort: a failure here must
+    // not roll back signup.
+    try {
+      await NotificationRepository(firestore: _firestore).createForSelf(
+        userId: user.uid,
+        title: 'Welcome to PetaFinds',
+        body: safeRole == 'business'
+            ? 'Finish setting up your business so customers can find you.'
+            : 'Browse Pettah\'s wholesale shops, save favorites, and chat with sellers on WhatsApp.',
+      );
+    } catch (e) {
+      // Best-effort. Most likely cause once App Check is enforced is a
+      // missing debug token in dev. Log so it's visible in DevTools but
+      // never roll back signup over a missing welcome card.
+      debugPrint('[auth] welcome notification failed: $e');
+    }
+
     return appUser;
+  }
+
+  /// Resend the verification email for the currently-signed-in user.
+  /// Call from a "verify your email" banner.
+  Future<void> resendEmailVerification() async {
+    final u = _auth.currentUser;
+    if (u != null && !u.emailVerified) {
+      await u.sendEmailVerification();
+    }
   }
 
   Future<AppUser> signIn({

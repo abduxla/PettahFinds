@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../models/business.dart';
 import '../../../models/product.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
@@ -21,8 +20,8 @@ class ManageProductsScreen extends ConsumerWidget {
     final businessAsync = ref.watch(currentUserBusinessProvider);
 
     return businessAsync.when(
-      data: (businessDynamic) {
-        if (businessDynamic == null) {
+      data: (business) {
+        if (business == null) {
           return Scaffold(
             appBar: AppBar(title: const Text('Manage Products')),
             body: const EmptyStateWidget(
@@ -32,7 +31,6 @@ class ManageProductsScreen extends ConsumerWidget {
             ),
           );
         }
-        final business = businessDynamic as Business;
         // Use streamAllByBusiness so inactive products still appear
         final productsAsync =
             ref.watch(businessProductsProvider(business.id));
@@ -110,7 +108,6 @@ class _ProductTileState extends State<_ProductTile> {
   @override
   Widget build(BuildContext context) {
     final p = widget.product;
-    final theme = widget.theme;
 
     return Opacity(
       opacity: p.isActive ? 1.0 : 0.7,

@@ -11,6 +11,7 @@ import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/empty_state_widget.dart';
+import '../../../widgets/verify_email_banner.dart';
 
 /// Merchant dashboard — uses the same visual language as the customer
 /// home: Teal-Dark header with "Merchant Hub." logo + bell, bgSection
@@ -24,8 +25,8 @@ class BusinessDashboardScreen extends ConsumerWidget {
     final businessAsync = ref.watch(currentUserBusinessProvider);
 
     return businessAsync.when(
-      data: (businessDynamic) {
-        if (businessDynamic == null) {
+      data: (business) {
+        if (business == null) {
           return Scaffold(
             backgroundColor: AppColors.bgSection,
             body: EmptyStateWidget(
@@ -37,7 +38,6 @@ class BusinessDashboardScreen extends ConsumerWidget {
             ),
           );
         }
-        final business = businessDynamic as Business;
         final productsAsync =
             ref.watch(businessActiveProductsProvider(business.id));
         final products = productsAsync.valueOrNull ?? const <Product>[];
@@ -65,6 +65,9 @@ class BusinessDashboardScreen extends ConsumerWidget {
                   slivers: [
                     // ---- Teal-dark header (matches customer home) ----
                     SliverToBoxAdapter(child: _MerchantHeader(business: business)),
+
+                    // ---- Email verification nudge ----
+                    const SliverToBoxAdapter(child: VerifyEmailBanner()),
 
                     // ---- Welcome + CTA (white section) ----
                     SliverToBoxAdapter(

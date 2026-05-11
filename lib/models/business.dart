@@ -8,6 +8,7 @@ class Business {
   final String description;
   final String phone;
   final String email;
+  final String whatsappNumber;
   final String category;
   final String logoUrl;
   final String bannerUrl;
@@ -27,6 +28,7 @@ class Business {
     required this.description,
     required this.phone,
     required this.email,
+    this.whatsappNumber = '',
     required this.category,
     this.logoUrl = '',
     this.bannerUrl = '',
@@ -51,6 +53,7 @@ class Business {
       description: data['description'] ?? '',
       phone: data['phone'] ?? '',
       email: data['email'] ?? '',
+      whatsappNumber: data['whatsappNumber'] ?? '',
       category: data['category'] ?? '',
       logoUrl: data['logoUrl'] ?? '',
       bannerUrl: data['bannerUrl'] ?? '',
@@ -72,6 +75,7 @@ class Business {
         'description': description,
         'phone': phone,
         'email': email,
+        'whatsappNumber': whatsappNumber,
         'category': category,
         'logoUrl': logoUrl,
         'bannerUrl': bannerUrl,
@@ -90,6 +94,7 @@ class Business {
     String? description,
     String? phone,
     String? email,
+    String? whatsappNumber,
     String? category,
     String? logoUrl,
     String? bannerUrl,
@@ -108,6 +113,7 @@ class Business {
         description: description ?? this.description,
         phone: phone ?? this.phone,
         email: email ?? this.email,
+        whatsappNumber: whatsappNumber ?? this.whatsappNumber,
         category: category ?? this.category,
         logoUrl: logoUrl ?? this.logoUrl,
         bannerUrl: bannerUrl ?? this.bannerUrl,

@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,7 +9,6 @@ import '../../../core/constants/categories.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../models/business.dart';
 import '../../../models/product.dart';
 import '../../../utils/validators.dart';
 import '../../../widgets/cached_image.dart';
@@ -35,6 +34,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
   bool _saving = false;
   bool _loadingProduct = false;
   bool _loadError = false;
+  bool _acceptedListingResponsibility = false;
   Product? _existingProduct;
 
   // Up to 4 product images. `_existingUrls` holds already-uploaded URLs
@@ -116,20 +116,36 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
   /// Storage; only the https download URL goes into Firestore.
   Future<List<String>> _uploadNewImages(String businessId) async {
     if (_newFiles.isEmpty) return const [];
+    if (businessId.isEmpty) {
+      throw Exception('Missing business — cannot upload images.');
+    }
     final storage = ref.read(storageServiceProvider);
     final urls = <String>[];
+    // Matches the Storage rule cap (3 MB). Reject before upload so we
+    // don't waste the user's data plan on a doomed request.
+    const maxBytes = 3 * 1024 * 1024;
+    debugPrint('[product] uploading ${_newFiles.length} image(s) for biz=$businessId');
     for (var i = 0; i < _newFiles.length; i++) {
       final file = _newFiles[i];
       final bytes = await file.readAsBytes();
+      if (bytes.lengthInBytes > maxBytes) {
+        throw Exception(
+            'Image #${i + 1} is too large. Pick one under 3 MB.');
+      }
       // Pick sensible contentType + extension from the picked file.
       final mime = (file.mimeType ?? '').isNotEmpty
           ? file.mimeType!
           : _mimeFromName(file.name);
       final ext = _extFromMime(mime);
+      // millisecond + uniqueId-ish (loop index) makes collisions across a
+      // single submit impossible. Concurrent submits from the same biz
+      // still can't collide because the path includes the millisecond ts.
       final ts = DateTime.now().millisecondsSinceEpoch;
+      final path = 'products/$businessId/${ts}_$i.$ext';
+      debugPrint('[product] upload #$i path=$path bytes=${bytes.length}');
       final url = await storage
           .uploadBytes(
-            path: 'products/$businessId/${ts}_$i.$ext',
+            path: path,
             bytes: bytes,
             contentType: mime,
           )
@@ -139,8 +155,10 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       if (url.isEmpty) {
         throw Exception('Image upload failed (empty URL)');
       }
+      debugPrint('[product] upload #$i ok');
       urls.add(url);
     }
+    debugPrint('[product] all ${urls.length} image(s) uploaded');
     return urls;
   }
 
@@ -173,23 +191,36 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       context.showErrorSnackBar('Please select a category');
       return;
     }
+    if (!_acceptedListingResponsibility) {
+      context.showErrorSnackBar(
+          'Please confirm the listing responsibility to continue.');
+      return;
+    }
     setState(() => _saving = true);
     try {
       // Resolve business without blocking on a possibly-stale FutureProvider.
       final cached = ref.read(currentUserBusinessProvider).valueOrNull;
-      final businessDynamic = cached ??
+      final business = cached ??
           await ref
               .read(currentUserBusinessProvider.future)
               .timeout(const Duration(seconds: 15),
                   onTimeout: () =>
                       throw Exception('Could not load business. Try again.'));
-      if (businessDynamic == null) throw Exception('No business found');
-      final business = businessDynamic as Business;
+      if (business == null) throw Exception('No business found');
+      if (business.id.isEmpty) {
+        // Should never happen — businessRepository.create stamps an id,
+        // but guard anyway so a corrupt cache doesn't drive uploads to
+        // `products//<ts>_0.jpg` which the rule would reject.
+        throw Exception('Business id missing. Re-open the app and retry.');
+      }
+
+      debugPrint('[product] submit start (editing=$_isEditing) biz=${business.id}');
 
       // Upload any new files first (with a per-file timeout so a hung
       // Storage request can't freeze the save forever).
       final uploaded = await _uploadNewImages(business.id);
       final allUrls = [..._existingUrls, ...uploaded];
+      debugPrint('[product] writing firestore (${allUrls.length} image url(s))');
       final img1 = allUrls.isNotEmpty ? allUrls[0] : '';
       final img2 = allUrls.length > 1 ? allUrls[1] : '';
       final img3 = allUrls.length > 2 ? allUrls[2] : '';
@@ -250,9 +281,12 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       if (!mounted) return;
       setState(() => _saving = false);
       _refreshBusinessProducts(business.id);
+      debugPrint('[product] create ok');
       context.showSuccessSnackBar('Product created successfully');
       context.pop();
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[product] submit FAIL: $e');
+      debugPrint('$st');
       if (mounted) {
         setState(() => _saving = false);
         context.showErrorSnackBar(e);
@@ -430,13 +464,21 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
               hint: 'Comma separated keywords for search',
             ),
             const SizedBox(height: 24),
+            _ListingResponsibilityCheckbox(
+              accepted: _acceptedListingResponsibility,
+              onChanged: (v) => setState(
+                  () => _acceptedListingResponsibility = v ?? false),
+            ),
+            const SizedBox(height: 12),
             _ProhibitedListingsNote(),
             const SizedBox(height: 16),
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               height: 54,
               child: FilledButton(
-                onPressed: _saving ? null : _submit,
+                onPressed: (_saving || !_acceptedListingResponsibility)
+                    ? null
+                    : _submit,
                 child: _saving
                     ? const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -731,6 +773,75 @@ class _ProhibitedListingsNote extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ListingResponsibilityCheckbox extends StatelessWidget {
+  final bool accepted;
+  final ValueChanged<bool?> onChanged;
+  const _ListingResponsibilityCheckbox({
+    required this.accepted,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => onChanged(!accepted),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(8, 10, 14, 12),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: accepted ? AppColors.teal : AppColors.border,
+            width: accepted ? 1.4 : 1,
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Checkbox(
+              value: accepted,
+              onChanged: onChanged,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              activeColor: AppColors.teal,
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 11, bottom: 4),
+                    child: Text(
+                      'By listing products, you confirm that:',
+                      style: GoogleFonts.dmSans(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.text1,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '• items are legal\n'
+                    '• information is accurate\n'
+                    '• you accept full responsibility',
+                    style: GoogleFonts.dmSans(
+                      fontSize: 12,
+                      color: AppColors.text2,
+                      height: 1.55,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

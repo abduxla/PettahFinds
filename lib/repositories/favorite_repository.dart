@@ -11,36 +11,56 @@ class FavoriteRepository {
   CollectionReference get _ref =>
       _firestore.collection(AppConstants.favoritesCollection);
 
+  /// Deterministic doc id keeps `(user, target)` unique without a query +
+  /// transaction. Double-taps map to the same doc, so the worst case is
+  /// "toggled twice" (back to start), not duplicate favorite rows.
+  String _favoriteId({
+    required String userId,
+    required String targetType,
+    required String targetId,
+  }) =>
+      '${userId}_${targetType}_$targetId';
+
   Future<void> toggle({
     required String userId,
     required String targetType,
     required String targetId,
   }) async {
-    final snap = await _ref
-        .where('userId', isEqualTo: userId)
-        .where('targetType', isEqualTo: targetType)
-        .where('targetId', isEqualTo: targetId)
-        .limit(1)
-        .get();
-
-    if (snap.docs.isNotEmpty) {
-      await snap.docs.first.reference.delete();
-    } else {
-      final doc = _ref.doc();
-      await doc.set(Favorite(
-        id: doc.id,
-        userId: userId,
-        targetType: targetType,
-        targetId: targetId,
-        createdAt: DateTime.now(),
-      ).toMap());
-    }
+    final id = _favoriteId(
+      userId: userId,
+      targetType: targetType,
+      targetId: targetId,
+    );
+    final docRef = _ref.doc(id);
+    await _firestore.runTransaction((txn) async {
+      final snap = await txn.get(docRef);
+      if (snap.exists) {
+        txn.delete(docRef);
+      } else {
+        txn.set(
+          docRef,
+          Favorite(
+            id: id,
+            userId: userId,
+            targetType: targetType,
+            targetId: targetId,
+            createdAt: DateTime.now(),
+          ).toMap(),
+        );
+      }
+    });
   }
+
+  /// Caps the favorites stream. 200 newest is far more than any user is
+  /// expected to keep; protects cost on power users without changing the
+  /// favorites screen UX.
+  static const _streamLimit = 200;
 
   Stream<List<Favorite>> streamByUser(String userId) {
     return _ref
         .where('userId', isEqualTo: userId)
         .orderBy('createdAt', descending: true)
+        .limit(_streamLimit)
         .snapshots()
         .map((snap) => snap.docs.map(Favorite.fromFirestore).toList());
   }
@@ -50,12 +70,12 @@ class FavoriteRepository {
     required String targetType,
     required String targetId,
   }) async {
-    final snap = await _ref
-        .where('userId', isEqualTo: userId)
-        .where('targetType', isEqualTo: targetType)
-        .where('targetId', isEqualTo: targetId)
-        .limit(1)
-        .get();
-    return snap.docs.isNotEmpty;
+    final id = _favoriteId(
+      userId: userId,
+      targetType: targetType,
+      targetId: targetId,
+    );
+    final snap = await _ref.doc(id).get();
+    return snap.exists;
   }
 }
