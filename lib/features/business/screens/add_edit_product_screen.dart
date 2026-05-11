@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -116,11 +116,15 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
   /// Storage; only the https download URL goes into Firestore.
   Future<List<String>> _uploadNewImages(String businessId) async {
     if (_newFiles.isEmpty) return const [];
+    if (businessId.isEmpty) {
+      throw Exception('Missing business — cannot upload images.');
+    }
     final storage = ref.read(storageServiceProvider);
     final urls = <String>[];
     // Matches the Storage rule cap (3 MB). Reject before upload so we
     // don't waste the user's data plan on a doomed request.
     const maxBytes = 3 * 1024 * 1024;
+    debugPrint('[product] uploading ${_newFiles.length} image(s) for biz=$businessId');
     for (var i = 0; i < _newFiles.length; i++) {
       final file = _newFiles[i];
       final bytes = await file.readAsBytes();
@@ -133,10 +137,15 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
           ? file.mimeType!
           : _mimeFromName(file.name);
       final ext = _extFromMime(mime);
+      // millisecond + uniqueId-ish (loop index) makes collisions across a
+      // single submit impossible. Concurrent submits from the same biz
+      // still can't collide because the path includes the millisecond ts.
       final ts = DateTime.now().millisecondsSinceEpoch;
+      final path = 'products/$businessId/${ts}_$i.$ext';
+      debugPrint('[product] upload #$i path=$path bytes=${bytes.length}');
       final url = await storage
           .uploadBytes(
-            path: 'products/$businessId/${ts}_$i.$ext',
+            path: path,
             bytes: bytes,
             contentType: mime,
           )
@@ -146,8 +155,10 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       if (url.isEmpty) {
         throw Exception('Image upload failed (empty URL)');
       }
+      debugPrint('[product] upload #$i ok');
       urls.add(url);
     }
+    debugPrint('[product] all ${urls.length} image(s) uploaded');
     return urls;
   }
 
@@ -196,11 +207,20 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                   onTimeout: () =>
                       throw Exception('Could not load business. Try again.'));
       if (business == null) throw Exception('No business found');
+      if (business.id.isEmpty) {
+        // Should never happen — businessRepository.create stamps an id,
+        // but guard anyway so a corrupt cache doesn't drive uploads to
+        // `products//<ts>_0.jpg` which the rule would reject.
+        throw Exception('Business id missing. Re-open the app and retry.');
+      }
+
+      debugPrint('[product] submit start (editing=$_isEditing) biz=${business.id}');
 
       // Upload any new files first (with a per-file timeout so a hung
       // Storage request can't freeze the save forever).
       final uploaded = await _uploadNewImages(business.id);
       final allUrls = [..._existingUrls, ...uploaded];
+      debugPrint('[product] writing firestore (${allUrls.length} image url(s))');
       final img1 = allUrls.isNotEmpty ? allUrls[0] : '';
       final img2 = allUrls.length > 1 ? allUrls[1] : '';
       final img3 = allUrls.length > 2 ? allUrls[2] : '';
@@ -261,9 +281,12 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       if (!mounted) return;
       setState(() => _saving = false);
       _refreshBusinessProducts(business.id);
+      debugPrint('[product] create ok');
       context.showSuccessSnackBar('Product created successfully');
       context.pop();
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[product] submit FAIL: $e');
+      debugPrint('$st');
       if (mounted) {
         setState(() => _saving = false);
         context.showErrorSnackBar(e);
