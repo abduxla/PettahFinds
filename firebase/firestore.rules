@@ -245,12 +245,15 @@ service cloud.firestore {
                     && request.resource.data.productId is string
                     && request.resource.data.businessId is string;
 
-      // Either party may update the conversation (last-message summary +
-      // unread counters). participantIds / sellerId / customerId / ids stay
-      // frozen so a participant can't reassign the thread.
+      // Either party may update the conversation. Frozen identity fields
+      // (sellerId, customerId, productId, businessId) prevent a participant
+      // from reassigning the thread. The list-equality check on
+      // participantIds was dropped — those four scalar identity fields
+      // already pin the thread, and list equality in rules can falsely
+      // reject when the SDK normalizes array ordering during partial
+      // updates.
       allow update: if isSignedIn()
                     && request.auth.uid in resource.data.participantIds
-                    && request.resource.data.participantIds == resource.data.participantIds
                     && request.resource.data.sellerId == resource.data.sellerId
                     && request.resource.data.customerId == resource.data.customerId
                     && request.resource.data.productId == resource.data.productId

@@ -10,6 +10,7 @@ import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/product.dart';
+import '../../../services/storage_service.dart';
 import '../../../utils/validators.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
@@ -95,10 +96,13 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     }
     try {
       final picker = ImagePicker();
+      // imageQuality 70 + maxWidth 1280 keeps real uploads well under 1 MB
+      // on every device we've measured. Devices that ignore these hints
+      // are caught by the post-pick byte check in _uploadNewImages.
       final picked = await picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 80,
-        maxWidth: 1600,
+        imageQuality: 70,
+        maxWidth: 1280,
       );
       if (picked == null) return;
       setState(() => _newFiles.add(picked));
@@ -121,16 +125,17 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     }
     final storage = ref.read(storageServiceProvider);
     final urls = <String>[];
-    // Matches the Storage rule cap (3 MB). Reject before upload so we
+    // Matches the Storage rule cap (5 MB). Reject before upload so we
     // don't waste the user's data plan on a doomed request.
-    const maxBytes = 3 * 1024 * 1024;
+    const maxBytes = 5 * 1024 * 1024;
     debugPrint('[product] uploading ${_newFiles.length} image(s) for biz=$businessId');
     for (var i = 0; i < _newFiles.length; i++) {
       final file = _newFiles[i];
       final bytes = await file.readAsBytes();
       if (bytes.lengthInBytes > maxBytes) {
         throw Exception(
-            'Image #${i + 1} is too large. Pick one under 3 MB.');
+            'Image #${i + 1} is ${(bytes.lengthInBytes / (1024 * 1024)).toStringAsFixed(1)} MB. '
+            'Pick a smaller image (under 5 MB).');
       }
       // Pick sensible contentType + extension from the picked file.
       final mime = (file.mimeType ?? '').isNotEmpty
@@ -143,15 +148,12 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       final ts = DateTime.now().millisecondsSinceEpoch;
       final path = 'products/$businessId/${ts}_$i.$ext';
       debugPrint('[product] upload #$i path=$path bytes=${bytes.length}');
-      final url = await storage
-          .uploadBytes(
-            path: path,
-            bytes: bytes,
-            contentType: mime,
-          )
-          .timeout(const Duration(seconds: 45),
-              onTimeout: () => throw Exception(
-                  'Image upload timed out. Try a smaller image.'));
+      final url = await _uploadWithRetry(
+        storage: storage,
+        path: path,
+        bytes: bytes,
+        mime: mime,
+      );
       if (url.isEmpty) {
         throw Exception('Image upload failed (empty URL)');
       }
@@ -160,6 +162,28 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     }
     debugPrint('[product] all ${urls.length} image(s) uploaded');
     return urls;
+  }
+
+  /// One automatic retry on transient failures. 60 s timeout per attempt
+  /// gives slow networks a chance.
+  Future<String> _uploadWithRetry({
+    required StorageService storage,
+    required String path,
+    required Uint8List bytes,
+    required String mime,
+  }) async {
+    Future<String> attempt() => storage
+        .uploadBytes(path: path, bytes: bytes, contentType: mime)
+        .timeout(const Duration(seconds: 60),
+            onTimeout: () => throw Exception(
+                'Image upload timed out. Check connection and try again.'));
+    try {
+      return await attempt();
+    } catch (e) {
+      debugPrint('[product] upload retry after fail: $e');
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      return await attempt();
+    }
   }
 
   String _mimeFromName(String name) {

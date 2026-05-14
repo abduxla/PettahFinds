@@ -82,6 +82,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (!isLoggedIn) {
         final needsAuth = currentPath.startsWith('/business') ||
             currentPath.startsWith('/business-profile') ||
+            currentPath.startsWith('/business-messages') ||
             currentPath.startsWith('/business-settings') ||
             currentPath.startsWith('/admin');
         if (needsAuth) return '/sign-in';
@@ -118,6 +119,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         // chosen — otherwise force to setup.
         if (currentPath.startsWith('/business') ||
             currentPath.startsWith('/business-profile') ||
+            currentPath.startsWith('/business-messages') ||
             currentPath.startsWith('/business-settings') ||
             currentPath.startsWith('/home') ||
             currentPath.startsWith('/admin')) {
@@ -130,6 +132,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final inBusinessShell = currentPath == '/business/setup' ||
           currentPath.startsWith('/business') ||
           currentPath.startsWith('/business-profile') ||
+          currentPath.startsWith('/business-messages') ||
           currentPath.startsWith('/business-settings');
       final inCustomerShell = currentPath.startsWith('/home') ||
           currentPath.startsWith('/search') ||
@@ -326,6 +329,15 @@ final routerProvider = Provider<GoRouter>((ref) {
                   builder: (_, __) => const EditBusinessProfileScreen(),
                 ),
               ],
+            ),
+          ]),
+          // Messages branch — keeps the bottom nav visible while merchant
+          // browses chats. Reuses the same ChatListScreen the customer
+          // header icon opens; ChatListScreen self-detects role.
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/business-messages',
+              builder: (_, __) => const ChatListScreen(),
             ),
           ]),
           StatefulShellBranch(routes: [

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -86,33 +87,167 @@ class ChatListScreen extends ConsumerWidget {
       );
 }
 
-class _CustomerList extends ConsumerWidget {
+class _CustomerList extends ConsumerStatefulWidget {
   final String uid;
   const _CustomerList({required this.uid});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(customerConversationsProvider(uid));
+  ConsumerState<_CustomerList> createState() => _CustomerListState();
+}
+
+class _CustomerListState extends ConsumerState<_CustomerList> {
+  Timer? _watchdog;
+  bool _stuck = false;
+
+  void _arm() {
+    _watchdog?.cancel();
+    _stuck = false;
+    _watchdog = Timer(const Duration(seconds: 10), () {
+      if (mounted) setState(() => _stuck = true);
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _arm();
+  }
+
+  @override
+  void dispose() {
+    _watchdog?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(customerConversationsProvider(widget.uid));
     return async.when(
-      data: (items) =>
-          _renderList(context, items, viewerIsSeller: false),
-      loading: () => const _ChatListSkeleton(),
-      error: (e, _) => AppErrorWidget(message: e.toString()),
+      data: (items) {
+        _watchdog?.cancel();
+        return _renderList(context, items, viewerIsSeller: false);
+      },
+      loading: () => _stuck
+          ? _StuckRetry(
+              onRetry: () {
+                _arm();
+                ref.invalidate(customerConversationsProvider(widget.uid));
+              },
+            )
+          : const _ChatListSkeleton(),
+      error: (e, _) => AppErrorWidget(
+        message: e.toString(),
+        onRetry: () {
+          _arm();
+          ref.invalidate(customerConversationsProvider(widget.uid));
+        },
+      ),
     );
   }
 }
 
-class _SellerList extends ConsumerWidget {
+class _SellerList extends ConsumerStatefulWidget {
   final String uid;
   const _SellerList({required this.uid});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(sellerConversationsProvider(uid));
+  ConsumerState<_SellerList> createState() => _SellerListState();
+}
+
+class _SellerListState extends ConsumerState<_SellerList> {
+  Timer? _watchdog;
+  bool _stuck = false;
+
+  void _arm() {
+    _watchdog?.cancel();
+    _stuck = false;
+    _watchdog = Timer(const Duration(seconds: 10), () {
+      if (mounted) setState(() => _stuck = true);
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _arm();
+  }
+
+  @override
+  void dispose() {
+    _watchdog?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(sellerConversationsProvider(widget.uid));
     return async.when(
-      data: (items) => _renderList(context, items, viewerIsSeller: true),
-      loading: () => const _ChatListSkeleton(),
-      error: (e, _) => AppErrorWidget(message: e.toString()),
+      data: (items) {
+        _watchdog?.cancel();
+        return _renderList(context, items, viewerIsSeller: true);
+      },
+      loading: () => _stuck
+          ? _StuckRetry(
+              onRetry: () {
+                _arm();
+                ref.invalidate(sellerConversationsProvider(widget.uid));
+              },
+            )
+          : const _ChatListSkeleton(),
+      error: (e, _) => AppErrorWidget(
+        message: e.toString(),
+        onRetry: () {
+          _arm();
+          ref.invalidate(sellerConversationsProvider(widget.uid));
+        },
+      ),
+    );
+  }
+}
+
+class _StuckRetry extends StatelessWidget {
+  final VoidCallback onRetry;
+  const _StuckRetry({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_tethering_error_rounded,
+                color: AppColors.text4, size: 36),
+            const SizedBox(height: 12),
+            Text(
+              'Taking longer than usual...',
+              style: GoogleFonts.dmSans(
+                fontSize: 13.5,
+                color: AppColors.text2,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Check your connection and try again.',
+              style: GoogleFonts.dmSans(
+                fontSize: 12,
+                color: AppColors.text3,
+              ),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded, size: 16),
+              label: const Text('Retry'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.teal,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
