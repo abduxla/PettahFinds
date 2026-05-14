@@ -188,9 +188,18 @@ service cloud.firestore {
 
     // ---------- Favorites ----------
     match /favorites/{favoriteId} {
-      // Reads restricted to the favorite's owner — favorites are personal.
+      // Reads restricted to the favorite's owner. The `resource == null`
+      // short-circuit is required because the toggle's pre-write `get`
+      // hits a non-existent doc on the very first favorite tap, and
+      // Firestore evaluates this rule even for missing docs — without it,
+      // first-time favorite silently fails with permission-denied. For
+      // existing docs the standard `userId == auth.uid` check applies, so
+      // list queries (`where('userId', isEqualTo: uid)`) work normally.
       allow read: if isSignedIn()
-                  && resource.data.userId == request.auth.uid;
+                  && (
+                    resource == null
+                    || resource.data.userId == request.auth.uid
+                  );
 
       allow create: if isSignedIn()
                     && request.resource.data.userId == request.auth.uid;
@@ -229,8 +238,20 @@ service cloud.firestore {
     // ---------- Conversations (in-app chat) ----------
     match /conversations/{conversationId} {
       // Only the customer or the seller listed on the doc can read/update.
+      // The `resource == null` short-circuit is required because
+      // `openConversation`'s pre-write `get` hits a non-existent doc on
+      // the very first "Chat Seller" tap, and Firestore evaluates this
+      // rule even for missing docs — without it, the customer's first
+      // tap silently fails with permission-denied. For existing docs the
+      // standard participantIds check applies, so both the customer's
+      // list query (`where('customerId', isEqualTo: uid)`) and the
+      // seller's (`where('sellerId', isEqualTo: uid)`) work normally
+      // because every returned doc has the requester in participantIds.
       allow read: if isSignedIn()
-                  && request.auth.uid in resource.data.participantIds;
+                  && (
+                    resource == null
+                    || request.auth.uid in resource.data.participantIds
+                  );
 
       // Customer side creates the doc. Caller must stamp themselves as
       // customerId and be a member of participantIds. participantIds must

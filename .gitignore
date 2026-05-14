@@ -56,3 +56,6 @@ GoogleService-Info.plist.local
 firebase-adminsdk-*.json
 secrets/
 
+# Local-only dev wrappers (e.g. run-on-d.ps1 redirects %TEMP% to D: on
+# Windows machines with a near-full C: drive — useless to other devs).
+run-on-d.ps1

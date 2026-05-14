@@ -83,22 +83,34 @@ class ChatService {
     return snap.docs.map(ChatMessage.fromFirestore).toList();
   }
 
-  Stream<List<Conversation>> streamCustomerConversations(String customerId) {
+  /// Single source-of-truth stream of every conversation the user is in.
+  /// Filters by `participantIds array-contains uid` so the query matches
+  /// the Firestore security rule's predicate exactly — Firestore rejects
+  /// list queries whose filters don't statically prove the rule is
+  /// satisfied for every returned doc, which is why filtering by
+  /// `customerId` / `sellerId` against a `participantIds`-based rule was
+  /// failing with "Missing or insufficient permissions".
+  Stream<List<Conversation>> _streamAllForUser(String uid) {
     return _conversations
-        .where('customerId', isEqualTo: customerId)
+        .where('participantIds', arrayContains: uid)
         .orderBy('updatedAt', descending: true)
         .limit(100)
         .snapshots()
         .map((snap) => snap.docs.map(Conversation.fromFirestore).toList());
   }
 
+  /// Customer-side threads (caller is the customer). Post-filtered client
+  /// side so we don't need a second Firestore listener.
+  Stream<List<Conversation>> streamCustomerConversations(String customerId) {
+    return _streamAllForUser(customerId)
+        .map((list) =>
+            list.where((c) => c.customerId == customerId).toList());
+  }
+
+  /// Seller-side threads (caller is the seller). Post-filtered client side.
   Stream<List<Conversation>> streamSellerConversations(String sellerId) {
-    return _conversations
-        .where('sellerId', isEqualTo: sellerId)
-        .orderBy('updatedAt', descending: true)
-        .limit(100)
-        .snapshots()
-        .map((snap) => snap.docs.map(Conversation.fromFirestore).toList());
+    return _streamAllForUser(sellerId)
+        .map((list) => list.where((c) => c.sellerId == sellerId).toList());
   }
 
   /// Batches the message write + conversation summary update so other
