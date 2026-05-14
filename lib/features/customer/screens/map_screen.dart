@@ -223,7 +223,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: GestureDetector(
-                          onTap: () => context.go('/search'),
+                          // The pill says "Search businesses" — route to the
+                          // dedicated business-search screen (BusinessRepository.search)
+                          // rather than the product search, which is what
+                          // this used to do.
+                          onTap: () => context.go('/search-businesses'),
                           child: Container(
                             height: 52,
                             padding: const EdgeInsets.symmetric(

@@ -11,6 +11,7 @@ import '../../features/customer/screens/customer_shell.dart';
 import '../../features/customer/screens/home_screen.dart';
 import '../../features/customer/screens/map_screen.dart';
 import '../../features/customer/screens/search_screen.dart';
+import '../../features/customer/screens/business_search_screen.dart';
 import '../../features/customer/screens/category_businesses_screen.dart';
 import '../../features/customer/screens/businesses_list_screen.dart';
 import '../../features/customer/screens/business_detail_screen.dart';
@@ -244,6 +245,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           StatefulShellBranch(routes: [
             GoRoute(path: '/search', builder: (_, __) => const SearchScreen()),
+            // Businesses-side search, opened from the map screen's pill.
+            // Sibling of /search on the same shell branch so the bottom nav
+            // stays in place and the existing `startsWith('/search')`
+            // redirect rule already covers it.
+            GoRoute(
+                path: '/search-businesses',
+                builder: (_, __) => const BusinessSearchScreen()),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(path: '/map', builder: (_, __) => const MapScreen()),
