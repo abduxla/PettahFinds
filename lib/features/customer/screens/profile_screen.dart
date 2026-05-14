@@ -98,22 +98,12 @@ class ProfileScreen extends ConsumerWidget {
                       _MenuItem(
                         icon: Icons.person_outline_rounded,
                         label: 'Edit Profile',
-                        onTap: () {
-                          ScaffoldMessenger.of(context).clearSnackBars();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Coming soon')),
-                          );
-                        },
+                        onTap: () => context.go('/profile/edit'),
                       ),
                       _MenuItem(
                         icon: Icons.lock_outline_rounded,
                         label: 'Change Password',
-                        onTap: () {
-                          ScaffoldMessenger.of(context).clearSnackBars();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Coming soon')),
-                          );
-                        },
+                        onTap: () => context.go('/profile/password'),
                       ),
                     ],
                   ),
@@ -183,32 +173,12 @@ class ProfileScreen extends ConsumerWidget {
                       _MenuItem(
                         icon: Icons.help_outline_rounded,
                         label: 'Help Center',
-                        onTap: () {
-                          showAboutDialog(
-                            context: context,
-                            applicationName: 'PetaFinds',
-                            applicationVersion: '1.0.0',
-                            children: [
-                              const Text(
-                                  'Discover local businesses & deals in Pettah.'),
-                            ],
-                          );
-                        },
+                        onTap: () => context.go('/profile/support'),
                       ),
                       _MenuItem(
                         icon: Icons.mail_outline_rounded,
                         label: 'Contact Us',
-                        onTap: () {
-                          showAboutDialog(
-                            context: context,
-                            applicationName: 'PetaFinds',
-                            applicationVersion: '1.0.0',
-                            children: [
-                              const Text(
-                                  'Email: support@pettahfinds.com'),
-                            ],
-                          );
-                        },
+                        onTap: () => context.go('/profile/support'),
                       ),
                     ],
                   ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -19,6 +20,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   List<Product> _products = [];
   bool _loading = false;
   bool _searched = false;
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -26,8 +28,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     _searchCtrl.addListener(_onQueryChanged);
   }
 
+  // Debounce live search so typing "phone" fires once at the end of the
+  // typing burst instead of 5 separate Firestore reads.
   void _onQueryChanged() {
     if (mounted) setState(() {});
+    _debounce?.cancel();
+    final q = _searchCtrl.text.trim();
+    if (q.isEmpty) return;
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      if (_searchCtrl.text.trim() == q) _search();
+    });
   }
 
   void _resetResults() {
@@ -40,6 +51,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchCtrl.removeListener(_onQueryChanged);
     _searchCtrl.dispose();
     super.dispose();

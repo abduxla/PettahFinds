@@ -102,6 +102,14 @@ final businessesByCategoryProvider = StreamProvider.autoDispose
   return ref.watch(businessRepositoryProvider).streamByCategory(category);
 });
 
+/// Products filtered by category. Customer-facing — category taps from
+/// the home grid land here.
+final productsByCategoryProvider = StreamProvider.autoDispose
+    .family<List<Product>, String>((ref, category) {
+  if (category.isEmpty) return Stream.value(const []);
+  return ref.watch(productRepositoryProvider).streamByCategory(category);
+});
+
 /// Resolves recently-viewed product IDs into full Product objects.
 /// Silently skips deleted / inactive products so the UI never breaks.
 /// Fans out reads in parallel and preserves the input order.

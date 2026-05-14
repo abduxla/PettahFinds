@@ -39,6 +39,14 @@ class ManageProductsScreen extends ConsumerWidget {
           backgroundColor: AppColors.bgSection,
           appBar: AppBar(
             backgroundColor: AppColors.bgSection,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded),
+              // Go back to whoever pushed us (typically business settings).
+              // Fallback to settings if there's no stack to pop.
+              onPressed: () => context.canPop()
+                  ? context.pop()
+                  : context.go('/business-settings'),
+            ),
             title: Text('Manage Products',
                 style: GoogleFonts.nunito(
                   color: AppColors.text1,
@@ -51,6 +59,8 @@ class ManageProductsScreen extends ConsumerWidget {
             onPressed: () => context.go('/business/products/add'),
             icon: const Icon(Icons.add_rounded),
             label: const Text('Add Product'),
+            backgroundColor: AppColors.teal,
+            foregroundColor: Colors.white,
           ),
           body: productsAsync.when(
             data: (products) => products.isEmpty
@@ -217,6 +227,18 @@ class _ProductTileState extends State<_ProductTile> {
                         ],
                       ),
                     ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline_rounded,
+                              size: 18, color: AppColors.red),
+                          SizedBox(width: 8),
+                          Text('Delete',
+                              style: TextStyle(color: AppColors.red)),
+                        ],
+                      ),
+                    ),
                   ],
                   onSelected: (val) async {
                     if (val == 'edit') {
@@ -233,6 +255,49 @@ class _ProductTileState extends State<_ProductTile> {
                                 ? 'Product deactivated'
                                 : 'Product activated',
                           );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          context.showErrorSnackBar(e);
+                        }
+                      } finally {
+                        if (mounted) setState(() => _toggling = false);
+                      }
+                    } else if (val == 'delete') {
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Delete product?'),
+                          content: Text(
+                            '"${p.title}" will be permanently removed, including its images.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: const Text('Cancel'),
+                            ),
+                            FilledButton(
+                              style: FilledButton.styleFrom(
+                                  backgroundColor: AppColors.red),
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: const Text('Delete'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirm != true) return;
+                      setState(() => _toggling = true);
+                      try {
+                        // Storage cleanup first — best effort.
+                        final storage = widget.ref.read(storageServiceProvider);
+                        for (final url in p.imageUrls) {
+                          await storage.deleteFile(url);
+                        }
+                        await widget.ref
+                            .read(productRepositoryProvider)
+                            .hardDelete(p.id);
+                        if (context.mounted) {
+                          context.showSuccessSnackBar('Product deleted');
                         }
                       } catch (e) {
                         if (context.mounted) {

@@ -10,6 +10,7 @@ import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/empty_state_widget.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../widgets/sign_in_required.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../utils/whatsapp.dart';
@@ -319,6 +320,22 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
                         if (business.phone.isNotEmpty)
                           ListTile(
                             dense: true,
+                            onTap: () async {
+                              final digits = business.phone
+                                  .replaceAll(RegExp(r'[^0-9+]'), '');
+                              final uri = Uri(scheme: 'tel', path: digits);
+                              try {
+                                await launchUrl(uri);
+                              } catch (_) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text(
+                                            'Could not open phone app')),
+                                  );
+                                }
+                              }
+                            },
                             leading: Container(
                               width: 36,
                               height: 36,
@@ -334,6 +351,8 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                 )),
+                            trailing: const Icon(Icons.call_rounded,
+                                size: 16, color: Color(0xFF16A34A)),
                           ),
                         if (business.whatsappNumber.trim().isNotEmpty) ...[
                           if (business.phone.isNotEmpty)
@@ -381,6 +400,27 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
                         if (business.email.isNotEmpty)
                           ListTile(
                             dense: true,
+                            onTap: () async {
+                              final uri = Uri(
+                                scheme: 'mailto',
+                                path: business.email,
+                                queryParameters: {
+                                  'subject':
+                                      'Inquiry from PetaFinds — ${business.businessName}',
+                                },
+                              );
+                              try {
+                                await launchUrl(uri);
+                              } catch (_) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text(
+                                            'Could not open mail app')),
+                                  );
+                                }
+                              }
+                            },
                             leading: Container(
                               width: 36,
                               height: 36,
@@ -396,6 +436,8 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                 )),
+                            trailing: const Icon(Icons.open_in_new,
+                                size: 16, color: Color(0xFF5C6BC0)),
                           ),
                       ],
                     ),

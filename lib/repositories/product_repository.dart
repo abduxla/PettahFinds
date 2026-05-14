@@ -47,8 +47,16 @@ class ProductRepository {
     });
   }
 
+  /// Soft delete — keeps the doc but flips `isActive` so streams hide it.
   Future<void> delete(String id) async {
     await _ref.doc(id).update({'isActive': false});
+  }
+
+  /// Hard delete — removes the Firestore doc entirely. Storage images
+  /// must be cleaned up separately by the caller (the doc no longer has
+  /// the URLs once this returns).
+  Future<void> hardDelete(String id) async {
+    await _ref.doc(id).delete();
   }
 
   /// Caps the live stream of products. Anything beyond this is pageable
