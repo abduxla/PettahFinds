@@ -1266,17 +1266,30 @@ class _HeartButton extends ConsumerWidget {
             .contains(productId);
 
     return GestureDetector(
-      onTap: () {
+      onTap: () async {
         if (authUser == null) {
           ScaffoldMessenger.of(context).clearSnackBars();
           showSignInRequiredSheet(context);
           return;
         }
-        ref.read(favoriteRepositoryProvider).toggle(
-              userId: authUser.uid,
-              targetType: 'product',
-              targetId: productId,
+        // Awaited so a permission-denied (e.g. rules not yet deployed)
+        // surfaces a snackbar instead of being silently swallowed by the
+        // unawaited Future. The streamed favorite set updates the icon
+        // optimistically as soon as Firestore acks the write.
+        try {
+          await ref.read(favoriteRepositoryProvider).toggle(
+                userId: authUser.uid,
+                targetType: 'product',
+                targetId: productId,
+              );
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).clearSnackBars();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Could not update favorite: $e')),
             );
+          }
+        }
       },
       child: Container(
         width: size,

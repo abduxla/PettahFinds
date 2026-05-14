@@ -29,7 +29,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   // Debounce live search so typing "phone" fires once at the end of the
-  // typing burst instead of 5 separate Firestore reads.
+  // typing burst instead of 5 separate Firestore reads. We pass
+  // `keepFocus: true` so the keyboard stays open across debounced
+  // searches — only an explicit submit (search button on the keyboard)
+  // dismisses focus.
   void _onQueryChanged() {
     if (mounted) setState(() {});
     _debounce?.cancel();
@@ -37,7 +40,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     if (q.isEmpty) return;
     _debounce = Timer(const Duration(milliseconds: 350), () {
       if (!mounted) return;
-      if (_searchCtrl.text.trim() == q) _search();
+      if (_searchCtrl.text.trim() == q) _search(keepFocus: true);
     });
   }
 
@@ -57,11 +60,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     super.dispose();
   }
 
-  Future<void> _search() async {
+  Future<void> _search({bool keepFocus = false}) async {
     if (_loading) return;
     final query = _searchCtrl.text.trim();
     if (query.isEmpty) return;
-    FocusScope.of(context).unfocus();
+    // Only dismiss the keyboard on explicit submit. Debounced live searches
+    // pass `keepFocus: true` so the keyboard stays open while the user
+    // continues typing (otherwise the cursor disappears every 350ms).
+    if (!keepFocus) FocusScope.of(context).unfocus();
     setState(() {
       _loading = true;
       _searched = true;

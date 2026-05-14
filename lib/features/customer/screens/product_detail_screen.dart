@@ -112,18 +112,31 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                               ? AppColors.red
                               : Colors.white,
                         ),
-                        onPressed: () {
+                        onPressed: () async {
                           if (appUser == null) {
                             ScaffoldMessenger.of(context)
                                 .clearSnackBars();
                             showSignInRequiredSheet(context);
                             return;
                           }
-                          ref.read(favoriteRepositoryProvider).toggle(
-                                userId: appUser.uid,
-                                targetType: 'product',
-                                targetId: product.id,
+                          try {
+                            await ref
+                                .read(favoriteRepositoryProvider)
+                                .toggle(
+                                  userId: appUser.uid,
+                                  targetType: 'product',
+                                  targetId: product.id,
+                                );
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).clearSnackBars();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text(
+                                        'Could not update favorite: $e')),
                               );
+                            }
+                          }
                         },
                       ),
                     ),
