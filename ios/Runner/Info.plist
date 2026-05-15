@@ -45,5 +45,24 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!--
+		Google Sign-In URL scheme. The google_sign_in iOS plugin launches
+		a URL with this custom scheme to open the Google account picker;
+		iOS then routes the OAuth callback back to the app through the
+		same scheme. Value is the REVERSED_CLIENT_ID from
+		ios/Runner/GoogleService-Info.plist and must stay in sync with
+		that file if Firebase regenerates the iOS OAuth client.
+	-->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.263905072020-rhmdc4qm4f2gqe27hmcmjqaogbgk5qp5</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

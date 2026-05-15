@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>263905072020-rhmdc4qm4f2gqe27hmcmjqaogbgk5qp5.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.263905072020-rhmdc4qm4f2gqe27hmcmjqaogbgk5qp5</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>263905072020-5q9slh96g3lt91tlm28rnbf8id2v3f8m.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyACy0k9Q3ZRJj5PUQB68nC5FyAvFgbIU88</string>
+	<key>GCM_SENDER_ID</key>
+	<string>263905072020</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.petafinds.petafinds</string>
+	<key>PROJECT_ID</key>
+	<string>pettahfinds-75075</string>
+	<key>STORAGE_BUCKET</key>
+	<string>pettahfinds-75075.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:263905072020:ios:866f9c8043f5aa2e7c3581</string>
+</dict>
+</plist>
