@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../models/app_user.dart';
 import '../../../utils/validators.dart';
 
 class SignInScreen extends ConsumerStatefulWidget {
@@ -38,21 +39,45 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
             password: _passwordCtrl.text,
           );
       if (!mounted) return;
-      if (appUser.isAdmin) {
-        context.go('/admin');
-      } else if (appUser.isBusiness) {
-        if (appUser.businessId == null || appUser.businessId!.isEmpty) {
-          context.go('/business/setup');
-        } else {
-          context.go('/business');
-        }
-      } else {
-        context.go('/home');
-      }
+      _routeAfterSignIn(appUser);
     } catch (e) {
       if (mounted) context.showErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  // Google one-tap. Reuses the same role-based router shared with the
+  // email path so a first-time Google user (role "user") lands on /home,
+  // and a returning business owner who originally signed up via Google
+  // would still hit /business if their account doc happened to have the
+  // business role. We never escalate role through Google sign-in.
+  Future<void> _signInWithGoogle() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      final appUser =
+          await ref.read(authRepositoryProvider).signInWithGoogle();
+      if (!mounted) return;
+      _routeAfterSignIn(appUser);
+    } catch (e) {
+      if (mounted) context.showErrorSnackBar(e);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _routeAfterSignIn(AppUser appUser) {
+    if (appUser.isAdmin) {
+      context.go('/admin');
+    } else if (appUser.isBusiness) {
+      if (appUser.businessId == null || appUser.businessId!.isEmpty) {
+        context.go('/business/setup');
+      } else {
+        context.go('/business');
+      }
+    } else {
+      context.go('/home');
     }
   }
 
@@ -166,6 +191,44 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                             child: CircularProgressIndicator(
                                 strokeWidth: 2, color: Colors.white))
                         : const Text('Sign In'),
+                  ),
+                  const SizedBox(height: 14),
+                  // OR divider between email/password and Google.
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Divider(color: AppColors.border, thickness: 1),
+                      ),
+                      Padding(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 12),
+                        child: Text(
+                          'or',
+                          style: GoogleFonts.dmSans(
+                            color: AppColors.text3,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const Expanded(
+                        child: Divider(color: AppColors.border, thickness: 1),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  OutlinedButton.icon(
+                    onPressed: _loading ? null : _signInWithGoogle,
+                    icon: const Icon(Icons.account_circle_outlined, size: 20),
+                    label: const Text('Continue with Google'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.text1,
+                      side: const BorderSide(color: AppColors.border),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Row(

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../core/constants/app_constants.dart';
 import '../models/app_user.dart';
 import 'notification_repository.dart';
@@ -116,7 +117,83 @@ class AuthRepository {
   }
 
   Future<void> signOut() async {
+    // Google session is signed out separately so the next Google sign-in
+    // shows the account picker again rather than silently re-using the
+    // last token. Firebase sign-out alone leaves the GoogleSignIn cache
+    // behind, which surprises users sharing a device.
+    try {
+      await GoogleSignIn().signOut();
+    } catch (_) {
+      // No Google session active, or platform not configured — ignore.
+    }
     await _auth.signOut();
+  }
+
+  /// One-tap Google sign-in. Flow:
+  ///  1. Trigger native Google account picker.
+  ///  2. Exchange the Google ID + access tokens for a Firebase credential.
+  ///  3. On first sign-in (no users/{uid} doc), seed an AppUser with role
+  ///     "user" so the rest of the app treats them as a regular customer.
+  ///     Business signup stays email/password — role escalation isn't
+  ///     supported through this flow.
+  ///
+  /// Console setup required (one-time, per platform):
+  ///  - Firebase Console → Authentication → Sign-in method → enable Google.
+  ///  - Android: add the app's SHA-1 (and SHA-256 for release) in Project
+  ///    Settings → Your apps → Android → Add fingerprint. Then re-download
+  ///    google-services.json and drop it into android/app/.
+  ///  - iOS: copy `REVERSED_CLIENT_ID` from the new GoogleService-Info.plist
+  ///    into ios/Runner/Info.plist as a CFBundleURLSchemes entry.
+  Future<AppUser> signInWithGoogle() async {
+    final googleUser = await GoogleSignIn().signIn();
+    if (googleUser == null) {
+      // User cancelled the picker — bubble a tame error so the sign-in
+      // screen can surface a snackbar instead of a stack trace.
+      throw Exception('Google sign-in cancelled.');
+    }
+    final googleAuth = await googleUser.authentication;
+    final credential = GoogleAuthProvider.credential(
+      idToken: googleAuth.idToken,
+      accessToken: googleAuth.accessToken,
+    );
+    final cred = await _auth.signInWithCredential(credential);
+    final user = cred.user!;
+
+    final userDoc = _firestore
+        .collection(AppConstants.usersCollection)
+        .doc(user.uid);
+    final snap = await userDoc.get();
+    if (snap.exists) {
+      return AppUser.fromFirestore(snap);
+    }
+
+    // First sign-in via Google — seed the AppUser doc. Display name and
+    // photo come from the Google profile; falls back gracefully if Google
+    // didn't provide them.
+    final appUser = AppUser(
+      uid: user.uid,
+      email: user.email ?? googleUser.email,
+      displayName:
+          (user.displayName ?? googleUser.displayName ?? 'PetaFinds user')
+              .trim(),
+      role: 'user',
+      photoUrl: user.photoURL ?? '',
+      createdAt: DateTime.now(),
+    );
+    await userDoc.set(appUser.toMap());
+
+    // Best-effort welcome notification, same pattern as email signup.
+    try {
+      await NotificationRepository(firestore: _firestore).createForSelf(
+        userId: user.uid,
+        title: 'Welcome to PetaFinds',
+        body:
+            'Browse Pettah\'s wholesale shops, save favorites, and chat with sellers.',
+      );
+    } catch (e) {
+      debugPrint('[auth] welcome notification (google) failed: $e');
+    }
+    return appUser;
   }
 
   Future<AppUser> getAppUser(String uid) async {
