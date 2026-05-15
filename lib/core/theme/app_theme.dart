@@ -103,6 +103,23 @@ abstract class AppTheme {
       textTheme: textTheme,
       fontFamily: GoogleFonts.dmSans().fontFamily,
 
+      // iOS-style edge-swipe-back on every platform. Material's default
+      // builder has no swipe gesture on Android — replacing it with the
+      // Cupertino builder gives the whole app the "drag from the left
+      // edge to pop" affordance users expect, in addition to the existing
+      // AppBar back buttons. Stacked routes inside the customer /
+      // business / admin shells all get it for free.
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.fuchsia: CupertinoPageTransitionsBuilder(),
+        },
+      ),
+
       appBarTheme: AppBarTheme(
         centerTitle: false,
         elevation: 0,
