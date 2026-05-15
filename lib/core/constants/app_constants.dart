@@ -23,11 +23,6 @@ abstract class AppConstants {
   static const String stockLow = 'low';
   static const String stockOut = 'out';
 
-  // Membership tiers
-  static const String tierFree = 'free';
-  static const String tierBasic = 'basic';
-  static const String tierPremium = 'premium';
-
   // Pagination
   static const int defaultPageSize = 20;
 

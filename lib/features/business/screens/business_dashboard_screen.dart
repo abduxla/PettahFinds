@@ -399,16 +399,10 @@ class _StatsSection extends StatelessWidget {
                       : 'N/A',
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _StatTile(
-                  icon: Icons.workspace_premium_rounded,
-                  iconColor: AppColors.text2,
-                  tileColor: AppColors.bgSection,
-                  label: 'Tier',
-                  value: business.membershipTier.toUpperCase(),
-                ),
-              ),
+              // Membership tier badge removed for now — paid plans aren't
+              // shipping in this iteration. Field also dropped from the
+              // Business model (existing Firestore docs keep their stored
+              // value but the client no longer reads or writes it).
             ],
           ),
         ],

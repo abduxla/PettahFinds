@@ -133,26 +133,10 @@ class BusinessProfileScreen extends ConsumerWidget {
                                             color: AppColors.teal,
                                           )),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.bg,
-                                        border: Border.all(
-                                            color: AppColors.border),
-                                        borderRadius:
-                                            BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                          business.membershipTier
-                                              .toUpperCase(),
-                                          style: GoogleFonts.dmSans(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppColors.text2,
-                                          )),
-                                    ),
+                                    // Membership tier badge removed —
+                                    // see business.dart for the data-model
+                                    // change. The category chip above is
+                                    // now the only badge in this row.
                                   ],
                                 ),
                               ],

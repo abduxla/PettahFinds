@@ -13,7 +13,6 @@ class Business {
   final String logoUrl;
   final String bannerUrl;
   final bool isVerified;
-  final String membershipTier;
   final double ratingAvg;
   final int ratingCount;
   final double? latitude;
@@ -33,7 +32,6 @@ class Business {
     this.logoUrl = '',
     this.bannerUrl = '',
     this.isVerified = false,
-    this.membershipTier = 'free',
     this.ratingAvg = 0.0,
     this.ratingCount = 0,
     this.latitude,
@@ -58,7 +56,6 @@ class Business {
       logoUrl: data['logoUrl'] ?? '',
       bannerUrl: data['bannerUrl'] ?? '',
       isVerified: data['isVerified'] ?? false,
-      membershipTier: data['membershipTier'] ?? 'free',
       ratingAvg: (data['ratingAvg'] ?? 0.0).toDouble(),
       ratingCount: data['ratingCount'] ?? 0,
       latitude: (data['latitude'] as num?)?.toDouble(),
@@ -80,7 +77,6 @@ class Business {
         'logoUrl': logoUrl,
         'bannerUrl': bannerUrl,
         'isVerified': isVerified,
-        'membershipTier': membershipTier,
         'ratingAvg': ratingAvg,
         'ratingCount': ratingCount,
         if (latitude != null) 'latitude': latitude,
@@ -99,7 +95,6 @@ class Business {
     String? logoUrl,
     String? bannerUrl,
     bool? isVerified,
-    String? membershipTier,
     double? ratingAvg,
     int? ratingCount,
     double? latitude,
@@ -118,7 +113,6 @@ class Business {
         logoUrl: logoUrl ?? this.logoUrl,
         bannerUrl: bannerUrl ?? this.bannerUrl,
         isVerified: isVerified ?? this.isVerified,
-        membershipTier: membershipTier ?? this.membershipTier,
         ratingAvg: ratingAvg ?? this.ratingAvg,
         ratingCount: ratingCount ?? this.ratingCount,
         latitude: latitude ?? this.latitude,
