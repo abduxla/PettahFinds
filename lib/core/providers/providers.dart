@@ -60,6 +60,26 @@ final sellerConversationsProvider = StreamProvider.autoDispose
   return ref.watch(chatServiceProvider).streamSellerConversations(uid);
 });
 
+/// Live total of unread chat messages for the signed-in user across every
+/// thread they're a participant in. Sums both the customer-side and
+/// seller-side unread counters because business owners are also customers
+/// of other businesses — they care about both inboxes. Powered by the
+/// same Firestore snapshot the chat list already subscribes to, so the
+/// badge tick updates instantly without an extra query.
+final totalUnreadCountProvider = StreamProvider.autoDispose<int>((ref) {
+  final uid = ref.watch(authStateProvider).valueOrNull?.uid;
+  if (uid == null || uid.isEmpty) return Stream.value(0);
+  final service = ref.watch(chatServiceProvider);
+  return service.streamAllForUser(uid).map((convs) {
+    var total = 0;
+    for (final c in convs) {
+      if (c.customerId == uid) total = total + c.unreadCountCustomer;
+      if (c.sellerId == uid) total = total + c.unreadCountSeller;
+    }
+    return total;
+  });
+});
+
 /// Shared stream of all active products. Used by home and products list
 /// so we keep a single Firestore subscription instead of duplicating.
 final allActiveProductsProvider = StreamProvider<List<Product>>((ref) {

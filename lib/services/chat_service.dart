@@ -90,7 +90,7 @@ class ChatService {
   /// satisfied for every returned doc, which is why filtering by
   /// `customerId` / `sellerId` against a `participantIds`-based rule was
   /// failing with "Missing or insufficient permissions".
-  Stream<List<Conversation>> _streamAllForUser(String uid) {
+  Stream<List<Conversation>> streamAllForUser(String uid) {
     return _conversations
         .where('participantIds', arrayContains: uid)
         .orderBy('updatedAt', descending: true)
@@ -102,14 +102,14 @@ class ChatService {
   /// Customer-side threads (caller is the customer). Post-filtered client
   /// side so we don't need a second Firestore listener.
   Stream<List<Conversation>> streamCustomerConversations(String customerId) {
-    return _streamAllForUser(customerId)
+    return streamAllForUser(customerId)
         .map((list) =>
             list.where((c) => c.customerId == customerId).toList());
   }
 
   /// Seller-side threads (caller is the seller). Post-filtered client side.
   Stream<List<Conversation>> streamSellerConversations(String sellerId) {
-    return _streamAllForUser(sellerId)
+    return streamAllForUser(sellerId)
         .map((list) => list.where((c) => c.sellerId == sellerId).toList());
   }
 

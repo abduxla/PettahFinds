@@ -118,6 +118,15 @@ class ProfileScreen extends ConsumerWidget {
                         icon: Icons.forum_outlined,
                         label: 'Messages',
                         onTap: () => context.go('/chat'),
+                        // Live unread count next to the row. Pulls from
+                        // the same Firestore snapshot the chat list does,
+                        // so this stays in sync with the home-header badge.
+                        trailing: _UnreadPill(
+                          count: ref
+                                  .watch(totalUnreadCountProvider)
+                                  .valueOrNull ??
+                              0,
+                        ),
                       ),
                       _MenuItem(
                         icon: Icons.bookmark_outline_rounded,
@@ -431,4 +440,34 @@ class _MenuItem {
     required this.onTap,
     this.trailing,
   });
+}
+
+/// Small orange pill shown in the Messages row trailing slot. Hides when
+/// the count is zero so the row reads cleanly when there's nothing new.
+class _UnreadPill extends StatelessWidget {
+  final int count;
+  const _UnreadPill({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    if (count <= 0) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      constraints: const BoxConstraints(minWidth: 22),
+      decoration: BoxDecoration(
+        color: AppColors.orange,
+        borderRadius: BorderRadius.circular(11),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        count > 99 ? '99+' : '$count',
+        style: GoogleFonts.dmSans(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          height: 1,
+        ),
+      ),
+    );
+  }
 }

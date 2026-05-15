@@ -234,6 +234,11 @@ class _TealHeader extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final topInset = MediaQuery.of(context).padding.top;
     final isGuest = ref.watch(authStateProvider).valueOrNull == null;
+    // Live unread total across every thread the user is in. Returns 0
+    // while loading or for guests, so the badge stays hidden until a
+    // real number streams through Firestore.
+    final unreadCount =
+        ref.watch(totalUnreadCountProvider).valueOrNull ?? 0;
     return Container(
       color: AppColors.tealDark,
       padding: EdgeInsets.fromLTRB(16, topInset + 10, 16, 14),
@@ -301,6 +306,7 @@ class _TealHeader extends ConsumerWidget {
                   const SizedBox(width: 4),
                   _HeaderIconButton(
                     icon: Icons.chat_bubble_outline_rounded,
+                    badgeCount: isGuest ? 0 : unreadCount,
                     onTap: () {
                       if (isGuest) {
                         ScaffoldMessenger.of(context).clearSnackBars();
@@ -372,9 +378,14 @@ class _TealHeader extends ConsumerWidget {
 class _HeaderIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
+  // Optional unread-count badge shown over the icon. 0 hides it. Used for
+  // the chat icon so the home header surfaces new messages without
+  // forcing the user to open Messages just to see the count refresh.
+  final int badgeCount;
   const _HeaderIconButton({
     required this.icon,
     required this.onTap,
+    this.badgeCount = 0,
   });
 
   @override
@@ -385,14 +396,50 @@ class _HeaderIconButton extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
         child: Center(
-          child: Container(
+          child: SizedBox(
             width: 38,
             height: 38,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 20),
+                ),
+                if (badgeCount > 0)
+                  Positioned(
+                    top: 2,
+                    right: 2,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 5, vertical: 1),
+                      constraints: const BoxConstraints(
+                          minWidth: 18, minHeight: 18),
+                      decoration: BoxDecoration(
+                        color: AppColors.orange,
+                        borderRadius: BorderRadius.circular(9),
+                        border: Border.all(color: Colors.white, width: 1.5),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        badgeCount > 99 ? '99+' : '$badgeCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          height: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            child: Icon(icon, color: Colors.white, size: 20),
           ),
         ),
       ),
