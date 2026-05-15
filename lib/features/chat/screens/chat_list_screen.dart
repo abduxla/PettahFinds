@@ -25,6 +25,14 @@ class ChatListScreen extends ConsumerWidget {
         appBar: AppBar(
           backgroundColor: AppColors.bgSection,
           title: Text('Messages', style: _title()),
+          // Guests reach this via context.go('/chat') with no back-stack.
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded, size: 22),
+            color: AppColors.text1,
+            onPressed: () => context.canPop()
+                ? context.pop()
+                : context.go('/home'),
+          ),
         ),
         body: const SignInRequired(
           icon: Icons.chat_bubble_outline_rounded,
@@ -51,6 +59,23 @@ class ChatListScreen extends ConsumerWidget {
         appBar: AppBar(
           backgroundColor: AppColors.bgSection,
           title: Text('Messages', style: _title()),
+          // /chat is a top-level route reached via `context.go(...)` from
+          // home, profile, and the business shell — there's no parent
+          // back-stack, so we'd otherwise leave the user stranded here.
+          // Fall back to the role-aware home if nothing to pop.
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded, size: 22),
+            color: AppColors.text1,
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                // Router's redirect rules send business users on /home
+                // straight to /business, so /home is a universal fallback.
+                context.go(appUser.isBusiness ? '/business' : '/home');
+              }
+            },
+          ),
           bottom: isBusiness
               ? TabBar(
                   indicatorColor: AppColors.teal,
