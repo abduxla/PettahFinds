@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "263905072020-5q9slh96g3lt91tlm28rnbf8id2v3f8m.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.petafinds.petafinds",
+            "certificate_hash": "11bce9576de59f780b635d59aec2aefd8e9fa629"
+          }
+        },
+        {
           "client_id": "263905072020-70072lha7t7gd2hjpqd0rid10ha7ipbr.apps.googleusercontent.com",
           "client_type": 3
         }

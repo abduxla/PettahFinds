@@ -20,6 +20,14 @@
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="A new Flutter project.">
 
+  <!-- Google Sign-In web client ID. Required for google_sign_in on the web
+       platform — the package reads this meta tag at startup to drive the
+       OAuth flow. Value comes from android/app/google-services.json
+       (oauth_client entry with client_type=3, the auto-created web client
+       Firebase mints when you enable the Google auth provider). -->
+  <meta name="google-signin-client_id"
+        content="263905072020-70072lha7t7gd2hjpqd0rid10ha7ipbr.apps.googleusercontent.com">
+
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
