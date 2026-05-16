@@ -30,6 +30,12 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
   final _shortTitleCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _priceCtrl = TextEditingController();
+  // Optional wholesale tier. Treated as a paired pair — both filled or
+  // both blank. Half-configured states are rejected by `_submit` so the
+  // detail screen never has to handle a wholesale price without an MOQ
+  // or vice versa.
+  final _wholesalePriceCtrl = TextEditingController();
+  final _moqCtrl = TextEditingController();
   final _keywordsCtrl = TextEditingController();
   String? _selectedCategory;
   bool _saving = false;
@@ -67,6 +73,13 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       _descCtrl.text = product.description;
       _selectedCategory = AppCategories.normalize(product.category);
       _priceCtrl.text = product.priceLkr.toString();
+      // Wholesale tier round-trip: only hydrate when the stored values
+      // are non-zero, so the form fields stay blank (not "0") for
+      // single-tier products.
+      _wholesalePriceCtrl.text =
+          product.wholesalePriceLkr > 0 ? product.wholesalePriceLkr.toString() : '';
+      _moqCtrl.text =
+          product.minOrderQuantity > 0 ? product.minOrderQuantity.toString() : '';
       _keywordsCtrl.text = product.keywords;
       _existingUrls
         ..clear()
@@ -85,6 +98,8 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     _shortTitleCtrl.dispose();
     _descCtrl.dispose();
     _priceCtrl.dispose();
+    _wholesalePriceCtrl.dispose();
+    _moqCtrl.dispose();
     _keywordsCtrl.dispose();
     super.dispose();
   }
@@ -220,6 +235,36 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
           'Please confirm the listing responsibility to continue.');
       return;
     }
+
+    // Wholesale tier — accept both fields filled (in which case both
+    // must parse to valid positive values) OR both blank. Reject any
+    // half-configured state up front so we never push a product where
+    // one of the two fields is set without the other.
+    final whRaw = _wholesalePriceCtrl.text.trim();
+    final moqRaw = _moqCtrl.text.trim();
+    double wholesalePrice = 0;
+    int moq = 0;
+    if (whRaw.isNotEmpty || moqRaw.isNotEmpty) {
+      if (whRaw.isEmpty || moqRaw.isEmpty) {
+        context.showErrorSnackBar(
+            'Wholesale needs both the price per unit and the min order quantity. '
+            'Clear both to remove the wholesale tier.');
+        return;
+      }
+      final whParsed = double.tryParse(whRaw);
+      final moqParsed = int.tryParse(moqRaw);
+      if (whParsed == null || whParsed <= 0) {
+        context.showErrorSnackBar('Enter a valid wholesale price.');
+        return;
+      }
+      if (moqParsed == null || moqParsed <= 1) {
+        context.showErrorSnackBar('MOQ must be 2 or more units.');
+        return;
+      }
+      wholesalePrice = whParsed;
+      moq = moqParsed;
+    }
+
     setState(() => _saving = true);
     try {
       // Resolve business without blocking on a possibly-stale FutureProvider.
@@ -261,6 +306,8 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                 description: _descCtrl.text.trim(),
                 category: _selectedCategory!,
                 priceLkr: double.parse(_priceCtrl.text.trim()),
+                wholesalePriceLkr: wholesalePrice,
+                minOrderQuantity: moq,
                 keywords: _keywordsCtrl.text.trim(),
                 image1Url: img1,
                 image2Url: img2,
@@ -290,6 +337,8 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
               description: _descCtrl.text.trim(),
               category: _selectedCategory!,
               priceLkr: double.parse(_priceCtrl.text.trim()),
+              wholesalePriceLkr: wholesalePrice,
+              minOrderQuantity: moq,
               keywords: _keywordsCtrl.text.trim(),
               image1Url: img1,
               image2Url: img2,
@@ -473,12 +522,44 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
             const SizedBox(height: 16),
             _buildField(
               controller: _priceCtrl,
-              label: 'Price (LKR)',
+              label: 'Retail Price (LKR)',
               icon: Icons.attach_money_rounded,
               prefixText: 'LKR ',
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               validator: Validators.price,
+            ),
+            const SizedBox(height: 16),
+            // Optional wholesale tier — both fields blank = no wholesale
+            // offered. `_submit` enforces the both-or-neither rule.
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6, left: 4),
+              child: Text(
+                'Wholesale tier (optional)',
+                style: GoogleFonts.dmSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.text3,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+            _buildField(
+              controller: _wholesalePriceCtrl,
+              label: 'Wholesale Price per Unit (LKR)',
+              icon: Icons.local_offer_outlined,
+              prefixText: 'LKR ',
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              hint: 'Leave blank if no wholesale tier',
+            ),
+            const SizedBox(height: 16),
+            _buildField(
+              controller: _moqCtrl,
+              label: 'Minimum Order Quantity',
+              icon: Icons.inventory_2_outlined,
+              hint: 'e.g. 10',
+              keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 16),
             _buildField(

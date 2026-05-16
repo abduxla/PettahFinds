@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -8,6 +9,7 @@ import '../../../core/extensions/context_extensions.dart';
 import '../../../models/business.dart';
 import '../../../models/favorite.dart';
 import '../../../models/product.dart';
+import '../../../models/product_review.dart';
 import '../../../models/report.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
@@ -239,23 +241,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
                         const SizedBox(height: 16),
 
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: AppColors.tealLight,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            'LKR ${product.priceLkr.toStringAsFixed(0)}',
-                            style: GoogleFonts.nunito(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.teal,
-                              letterSpacing: -0.4,
-                            ),
-                          ),
-                        ),
+                        _PricingBlock(product: product),
 
                         if (product.category.isNotEmpty) ...[
                           const SizedBox(height: 12),
@@ -365,8 +351,17 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 ),
               ),
 
+              // Per-product reviews. Mirrors the business detail Reviews
+              // section but pulls from `productReviews`.
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+                  child: _ProductReviewsSection(product: product),
+                ),
+              ),
+
               // Bottom safe padding so the floating nav doesn't cover content.
-              const SliverToBoxAdapter(child: SizedBox(height: 120)),
+              const SliverToBoxAdapter(child: SizedBox(height: 140)),
             ],
           ),
         );
@@ -808,6 +803,422 @@ class _ReportProductSheetState extends ConsumerState<_ReportProductSheet> {
                   : const Text('Submit report'),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// =========================================================================
+// PRICING — single retail price OR retail + wholesale tier breakdown
+// =========================================================================
+/// Renders the price area beneath the product title. Falls back to a
+/// single LKR chip (the legacy look) when the product has no wholesale
+/// tier, and expands into a two-row block ("Retail" / "Wholesale (MOQ N)")
+/// when both wholesale fields are set on the product doc.
+class _PricingBlock extends StatelessWidget {
+  final Product product;
+  const _PricingBlock({required this.product});
+
+  String _money(double v) => 'LKR ${v.toStringAsFixed(0)}';
+
+  @override
+  Widget build(BuildContext context) {
+    if (!product.hasWholesaleTier) {
+      return Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.tealLight,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          _money(product.priceLkr),
+          style: GoogleFonts.nunito(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: AppColors.teal,
+            letterSpacing: -0.4,
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.tealLight,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _PriceRow(
+            label: 'Retail',
+            sub: 'per unit',
+            amount: _money(product.priceLkr),
+            emphasized: false,
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 10),
+            child: Divider(
+              height: 1,
+              color: AppColors.border,
+            ),
+          ),
+          _PriceRow(
+            label: 'Wholesale',
+            sub: 'MOQ ${product.minOrderQuantity}+ units',
+            amount: _money(product.wholesalePriceLkr),
+            emphasized: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PriceRow extends StatelessWidget {
+  final String label;
+  final String sub;
+  final String amount;
+  final bool emphasized;
+  const _PriceRow({
+    required this.label,
+    required this.sub,
+    required this.amount,
+    required this.emphasized,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: GoogleFonts.dmSans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.text1,
+                  letterSpacing: -0.1,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                sub,
+                style: GoogleFonts.dmSans(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.text3,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Text(
+          amount,
+          style: GoogleFonts.nunito(
+            fontSize: emphasized ? 20 : 18,
+            fontWeight: FontWeight.w800,
+            color: AppColors.teal,
+            letterSpacing: -0.3,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// =========================================================================
+// PRODUCT REVIEWS — mirrors the business reviews block on businesses
+// =========================================================================
+class _ProductReviewsSection extends ConsumerStatefulWidget {
+  final Product product;
+  const _ProductReviewsSection({required this.product});
+
+  @override
+  ConsumerState<_ProductReviewsSection> createState() =>
+      _ProductReviewsSectionState();
+}
+
+class _ProductReviewsSectionState
+    extends ConsumerState<_ProductReviewsSection> {
+  final _formKey = GlobalKey<FormState>();
+  final _commentCtrl = TextEditingController();
+  double _rating = 5.0;
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _commentCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit(String uid) async {
+    if (_submitting) return;
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _submitting = true);
+    try {
+      await ref.read(productReviewRepositoryProvider).add(
+            ProductReview(
+              id: '',
+              productId: widget.product.id,
+              businessId: widget.product.businessId,
+              userId: uid,
+              rating: _rating,
+              comment: _commentCtrl.text.trim(),
+              createdAt: DateTime.now(),
+            ),
+          );
+      if (!mounted) return;
+      _commentCtrl.clear();
+      // Refresh the product so the new aggregate rating shows up.
+      ref.invalidate(_productDetailProvider(widget.product.id));
+      context.showSuccessSnackBar('Review submitted!');
+    } catch (e) {
+      if (mounted) context.showErrorSnackBar(e);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final appUser = ref.watch(appUserProvider).valueOrNull;
+    final reviewsAsync =
+        ref.watch(productReviewsProvider(widget.product.id));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Reviews',
+              style: GoogleFonts.nunito(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.4,
+                color: AppColors.text1,
+              ),
+            ),
+            const Spacer(),
+            if (widget.product.ratingCount > 0)
+              Row(
+                children: [
+                  const Icon(Icons.star_rounded,
+                      color: Colors.amber, size: 18),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${widget.product.ratingAvg.toStringAsFixed(1)} '
+                    '(${widget.product.ratingCount})',
+                    style: GoogleFonts.dmSans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.text2,
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Write a review — customers only. Business owners can't review
+        // their own products and admins don't need to.
+        if (appUser != null && appUser.isUser)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withAlpha(6),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Write a review',
+                    style: GoogleFonts.nunito(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.text1,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  RatingBar.builder(
+                    initialRating: _rating,
+                    minRating: 1,
+                    itemSize: 28,
+                    unratedColor: const Color(0xFFE8E8E8),
+                    itemBuilder: (_, _) => const Icon(
+                        Icons.star_rounded,
+                        color: Colors.amber),
+                    onRatingUpdate: (v) => _rating = v,
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: _commentCtrl,
+                    decoration: const InputDecoration(
+                      hintText: 'Share your experience with this product...',
+                    ),
+                    maxLines: 3,
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Enter a comment'
+                        : null,
+                  ),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton(
+                      onPressed:
+                          _submitting ? null : () => _submit(appUser.uid),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(120, 44),
+                      ),
+                      child: _submitting
+                          ? const SizedBox(
+                              height: 18,
+                              width: 18,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Text('Submit'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+        const SizedBox(height: 12),
+
+        // Reviews list (newest 100 via the live stream).
+        reviewsAsync.when(
+          data: (reviews) {
+            if (reviews.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Column(
+                  children: [
+                    Icon(Icons.rate_review_outlined,
+                        size: 32, color: theme.colorScheme.outline),
+                    const SizedBox(height: 6),
+                    Text(
+                      'No reviews yet',
+                      style: GoogleFonts.dmSans(
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.outline,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Be the first to leave one.',
+                      style: GoogleFonts.dmSans(
+                        fontSize: 12,
+                        color: theme.colorScheme.outline,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+            return Column(
+              children: [
+                for (final r in reviews)
+                  _ProductReviewTile(review: r),
+              ],
+            );
+          },
+          loading: () =>
+              const ShimmerBox(height: 80, radius: 14),
+          error: (e, _) => AppErrorWidget(message: e.toString()),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProductReviewTile extends StatelessWidget {
+  final ProductReview review;
+  const _ProductReviewTile({required this.review});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(4),
+            blurRadius: 6,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const CircleAvatar(
+                radius: 16,
+                backgroundColor: AppColors.tealLight,
+                child: Icon(Icons.person_rounded,
+                    size: 18, color: AppColors.teal),
+              ),
+              const SizedBox(width: 10),
+              RatingBarIndicator(
+                rating: review.rating,
+                itemSize: 14,
+                itemBuilder: (_, _) => const Icon(
+                  Icons.star_rounded,
+                  color: Colors.amber,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                review.rating.toStringAsFixed(1),
+                style: GoogleFonts.dmSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.amber[800],
+                ),
+              ),
+            ],
+          ),
+          if (review.comment.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              review.comment,
+              style: GoogleFonts.dmSans(
+                fontSize: 13,
+                height: 1.5,
+                color: AppColors.text2,
+              ),
+            ),
+          ],
         ],
       ),
     );
