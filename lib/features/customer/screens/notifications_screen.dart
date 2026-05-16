@@ -9,12 +9,18 @@ import '../../../models/app_notification.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/sign_in_required.dart';
 
-/// Back handler — uses an explicit destination. Notifications lives in
-/// nested shells, so `pop()` can bounce into the wrong tab; the screen
-/// receives a `backPath` from its caller (`/home` for customer, `/business`
-/// for merchant).
+/// Back handler — pop to whatever pushed us, fall back to the caller-
+/// supplied [backPath] only when there's no stack to pop (deep link,
+/// tab-switch landing). The `backPath` arg ('/home' for customer,
+/// '/business' for merchant) is the role-aware safety net; the common
+/// case where Notifications is pushed from a screen now returns to that
+/// exact screen via pop() — no more bouncing into the wrong tab.
 void _handleBack(BuildContext context, String backPath) {
-  context.go(backPath);
+  if (context.canPop()) {
+    context.pop();
+  } else {
+    context.go(backPath);
+  }
 }
 
 /// Top-level provider so subscriptions are stable across rebuilds.

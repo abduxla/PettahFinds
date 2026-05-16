@@ -42,7 +42,11 @@ class BusinessSettingsScreen extends ConsumerWidget {
               _MenuItem(
                 icon: Icons.forum_outlined,
                 label: 'Messages',
-                onTap: () => context.go('/chat'),
+                // push() instead of go() so /business-settings stays on
+                // the stack — back arrow + iOS swipe-back on Messages
+                // return to the settings screen instead of dumping the
+                // user back at /business via the canPop fallback.
+                onTap: () => context.push('/chat'),
               ),
             ],
           ),

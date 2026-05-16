@@ -49,7 +49,11 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/sign-in'),
+          // Pop to whatever pushed us (typically Sign In). Fall back to
+          // Sign In only when there's no stack to pop — handles deep-link
+          // entries to this screen.
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/sign-in'),
         ),
       ),
       body: SafeArea(

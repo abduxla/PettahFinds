@@ -72,7 +72,11 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/sign-in'),
+          // Pop to the screen that pushed us (typically Sign In). Fall
+          // back to Sign In only when there's no stack — handles deep
+          // links straight to /sign-up.
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/sign-in'),
         ),
       ),
       body: SafeArea(

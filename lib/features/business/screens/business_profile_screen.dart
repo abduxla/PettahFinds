@@ -37,7 +37,12 @@ class BusinessProfileScreen extends ConsumerWidget {
                     backgroundColor: Colors.black26,
                     child: IconButton(
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () => context.go('/business'),
+                      // Pop to whatever pushed us. Fall back to the
+                      // business dashboard only when there's no stack to
+                      // pop (e.g. deep-link landing on this profile).
+                      onPressed: () => context.canPop()
+                          ? context.pop()
+                          : context.go('/business'),
                     ),
                   ),
                 ),

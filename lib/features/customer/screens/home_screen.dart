@@ -312,7 +312,10 @@ class _TealHeader extends ConsumerWidget {
                         ScaffoldMessenger.of(context).clearSnackBars();
                         showSignInRequiredSheet(context);
                       } else {
-                        context.go('/chat');
+                        // push() instead of go() so /home stays on the
+                        // stack — back button + iOS edge-swipe both
+                        // return to the home screen.
+                        context.push('/chat');
                       }
                     },
                   ),
@@ -324,7 +327,10 @@ class _TealHeader extends ConsumerWidget {
                         ScaffoldMessenger.of(context).clearSnackBars();
                         showSignInRequiredSheet(context);
                       } else {
-                        context.go('/profile/notifications');
+                        // Cross-branch nav (home -> profile sub-route).
+                        // push() keeps /home as the underlying entry so
+                        // pop()/swipe-back land back on home.
+                        context.push('/profile/notifications');
                       }
                     },
                   ),

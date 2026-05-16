@@ -218,7 +218,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     children: [
                       _FloatingIconButton(
                         icon: Icons.arrow_back_rounded,
-                        onTap: () => context.go('/home'),
+                        // Pop to whatever pushed us. Fall back to Home
+                        // only when the map is the only entry on the
+                        // stack (e.g. deep link to /map).
+                        onTap: () => context.canPop()
+                            ? context.pop()
+                            : context.go('/home'),
                       ),
                       const SizedBox(width: 10),
                       Expanded(

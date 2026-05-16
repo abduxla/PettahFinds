@@ -77,7 +77,11 @@ class ProfileScreen extends ConsumerWidget {
             ),
             leading: IconButton(
               icon: const Icon(Icons.arrow_back_rounded, size: 22),
-              onPressed: () => context.go('/home'),
+              // Pop to whatever pushed us. Fall back to Home only when
+              // /profile was reached via tab-switch or deep link (no
+              // stack to pop).
+              onPressed: () =>
+                  context.canPop() ? context.pop() : context.go('/home'),
             ),
           ),
 
@@ -117,7 +121,10 @@ class ProfileScreen extends ConsumerWidget {
                       _MenuItem(
                         icon: Icons.forum_outlined,
                         label: 'Messages',
-                        onTap: () => context.go('/chat'),
+                        // push() so /profile stays on the stack and the
+                        // arrow / swipe-back on the Messages screen lands
+                        // back here.
+                        onTap: () => context.push('/chat'),
                         // Live unread count next to the row. Pulls from
                         // the same Firestore snapshot the chat list does,
                         // so this stays in sync with the home-header badge.
@@ -131,12 +138,16 @@ class ProfileScreen extends ConsumerWidget {
                       _MenuItem(
                         icon: Icons.bookmark_outline_rounded,
                         label: 'My Saved Items',
+                        // Tab switch — keep go() so the bottom nav
+                        // updates to the Saved tab.
                         onTap: () => context.go('/favorites'),
                       ),
                       _MenuItem(
                         icon: Icons.store_outlined,
                         label: 'Business Directory',
-                        onTap: () => context.go('/home/businesses'),
+                        // Cross-branch drill-down. push() keeps /profile
+                        // underneath so swipe-back returns here.
+                        onTap: () => context.push('/home/businesses'),
                       ),
                     ],
                   ),

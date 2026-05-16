@@ -102,7 +102,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               child: Row(
                 children: [
                   GestureDetector(
-                    onTap: () => context.go('/home'),
+                    // Pop back to whatever pushed us. Fall back to Home
+                    // only when the search tab was reached via tab-switch
+                    // (no stack to pop).
+                    onTap: () => context.canPop()
+                        ? context.pop()
+                        : context.go('/home'),
                     child: Container(
                       width: 46,
                       height: 46,
