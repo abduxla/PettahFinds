@@ -134,12 +134,34 @@ service cloud.firestore {
       allow create: if ownsBusiness(request.resource.data.businessId)
                     && request.resource.data.businessId is string;
 
-      // Update / soft-delete (isActive = false) by business owner or admin.
-      // businessId must not change to move a product under another business.
+      // Update paths:
+      //   1. Admin — unrestricted.
+      //   2. Business owner — may edit any non-rating field. businessId is
+      //      pinned so a product can't be reassigned to another business.
+      //   3. Any signed-in user — only when the diff is exactly the rating
+      //      fields, AND the new average is in the valid 1..5 range, AND
+      //      the count is incremented by exactly 1. Mirrors the same
+      //      bounded-bump path the businesses collection uses for its
+      //      ratingAvg/ratingCount aggregator (see ProductReviewRepository
+      //      ._bumpProductRating). Without these bounds anyone could pin a
+      //      competitor's product at 0.0 / 0 reviews. The proper long-term
+      //      fix is a Cloud Function so clients don't touch these fields.
       allow update: if isAdmin()
                     || (
                       ownsBusiness(resource.data.businessId)
                       && request.resource.data.businessId == resource.data.businessId
+                    )
+                    || (
+                      isSignedIn()
+                      && request.resource.data.diff(resource.data)
+                           .affectedKeys()
+                           .hasOnly(['ratingAvg', 'ratingCount'])
+                      && request.resource.data.ratingAvg is number
+                      && request.resource.data.ratingCount is int
+                      && request.resource.data.ratingAvg >= 1.0
+                      && request.resource.data.ratingAvg <= 5.0
+                      && request.resource.data.ratingCount > resource.data.ratingCount
+                      && request.resource.data.ratingCount <= resource.data.ratingCount + 1
                     );
 
       // Hard delete is admin-only; normal delete flow is soft-delete via update.
@@ -182,6 +204,31 @@ service cloud.firestore {
 
       // No edits from clients. Moderation = admin; author can re-review by
       // submitting a new review (or via admin tooling).
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ---------- Product Reviews ----------
+    // Per-product reviews. Sibling collection to /reviews (business
+    // reviews). Same shape minus the businessId existence check — here
+    // the existence check pins to the parent product instead.
+    match /productReviews/{reviewId} {
+      allow read: if true;
+
+      allow create: if isSignedIn()
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.productId is string
+                    && request.resource.data.businessId is string
+                    && request.resource.data.rating is number
+                    && request.resource.data.rating >= 1
+                    && request.resource.data.rating <= 5
+                    && (
+                      !('comment' in request.resource.data.keys())
+                      || (request.resource.data.comment is string
+                          && request.resource.data.comment.size() <= 2000)
+                    )
+                    && exists(/databases/$(database)/documents/products/$(request.resource.data.productId));
+
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }

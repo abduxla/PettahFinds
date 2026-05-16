@@ -6,6 +6,7 @@ import '../../repositories/business_repository.dart';
 import '../../repositories/product_repository.dart';
 import '../../repositories/category_repository.dart';
 import '../../repositories/review_repository.dart';
+import '../../repositories/product_review_repository.dart';
 import '../../repositories/favorite_repository.dart';
 import '../../repositories/report_repository.dart';
 import '../../repositories/notification_repository.dart';
@@ -16,6 +17,7 @@ import '../../models/business.dart';
 import '../../models/chat_message.dart';
 import '../../models/conversation.dart';
 import '../../models/product.dart';
+import '../../models/product_review.dart';
 import '../../models/report.dart';
 
 // --- Repositories ---
@@ -24,6 +26,8 @@ final businessRepositoryProvider = Provider((ref) => BusinessRepository());
 final productRepositoryProvider = Provider((ref) => ProductRepository());
 final categoryRepositoryProvider = Provider((ref) => CategoryRepository());
 final reviewRepositoryProvider = Provider((ref) => ReviewRepository());
+final productReviewRepositoryProvider =
+    Provider((ref) => ProductReviewRepository());
 final favoriteRepositoryProvider = Provider((ref) => FavoriteRepository());
 final reportRepositoryProvider = Provider((ref) => ReportRepository());
 final notificationRepositoryProvider =
@@ -84,6 +88,17 @@ final totalUnreadCountProvider = StreamProvider.autoDispose<int>((ref) {
 /// so we keep a single Firestore subscription instead of duplicating.
 final allActiveProductsProvider = StreamProvider<List<Product>>((ref) {
   return ref.watch(productRepositoryProvider).streamAll();
+});
+
+/// Live newest-100 reviews for a single product. Mirrors
+/// `reviewsByBusinessProvider` (business reviews) but pulls from the
+/// `productReviews` collection — see [ProductReviewRepository].
+final productReviewsProvider = StreamProvider.autoDispose
+    .family<List<ProductReview>, String>((ref, productId) {
+  if (productId.isEmpty) return Stream.value(const []);
+  return ref
+      .watch(productReviewRepositoryProvider)
+      .streamByProduct(productId);
 });
 
 /// All products (active + inactive) for a specific business. Used by the
