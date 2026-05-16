@@ -713,7 +713,11 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
               child: _buildLoadMoreButton(theme, reviewsAsync.valueOrNull),
             ),
 
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
+            // Final breathing room sized to clear the floating customer
+            // bottom nav (72 px height + 12 px bottom margin + the SafeArea
+            // inset). Without this the last review card gets clipped by
+            // the nav bar because CustomerShell uses extendBody: true.
+            const SliverToBoxAdapter(child: SizedBox(height: 140)),
           ],
         ),
       ),
