@@ -19,6 +19,12 @@ class Business {
   final double? longitude;
   final DateTime createdAt;
 
+  /// UID of the admin who manually onboarded this business, if any.
+  /// Null for businesses created by their owners through normal signup.
+  /// Audit field — surfaces in moderation / payments reconciliation so a
+  /// human-onboarded record never gets confused with a self-signup.
+  final String? createdByAdminUid;
+
   const Business({
     required this.id,
     required this.businessName,
@@ -37,6 +43,7 @@ class Business {
     this.latitude,
     this.longitude,
     required this.createdAt,
+    this.createdByAdminUid,
   });
 
   bool get hasCoordinates => latitude != null && longitude != null;
@@ -62,6 +69,7 @@ class Business {
       longitude: (data['longitude'] as num?)?.toDouble(),
       createdAt:
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdByAdminUid: data['createdByAdminUid'] as String?,
     );
   }
 
@@ -82,6 +90,7 @@ class Business {
         if (latitude != null) 'latitude': latitude,
         if (longitude != null) 'longitude': longitude,
         'createdAt': Timestamp.fromDate(createdAt),
+        if (createdByAdminUid != null) 'createdByAdminUid': createdByAdminUid,
       };
 
   Business copyWith({

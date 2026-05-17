@@ -11,11 +11,25 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
-    // Relies on Firebase Auth custom claims. Set via Admin SDK / a trusted
-    // backend: admin.auth().setCustomUserClaims(uid, { admin: true }).
-    // Until a user has this claim set, no client-side admin privilege exists.
+    // Two valid admin signals, either grants admin:
+    //   1) Custom claim `admin: true` set via Admin SDK / a trusted
+    //      backend: admin.auth().setCustomUserClaims(uid, { admin: true }).
+    //      Preferred — no extra Firestore read per rule eval.
+    //   2) Firestore /users/{uid} doc with role == 'admin'. Pragmatic
+    //      fallback so admins can be promoted via the Firebase console
+    //      without standing up a backend just to flip claims. Costs one
+    //      extra get() per admin-gated request — acceptable while the
+    //      admin set is small.
+    // Either bootstraps the in-app admin shell + grants the privileged
+    // writes below.
     function isAdmin() {
-      return isSignedIn() && request.auth.token.admin == true;
+      return isSignedIn() && (
+        request.auth.token.admin == true
+        || (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        )
+      );
     }
 
     // True if the given businessId doc exists and is owned by the caller.
@@ -76,14 +90,23 @@ service cloud.firestore {
       // Public directory — anyone can read business listings.
       allow read: if true;
 
-      // Create: caller must stamp themselves as ownerUid and cannot set
-      // privileged fields to anything other than defaults.
-      allow create: if isSignedIn()
-                    && request.resource.data.ownerUid == request.auth.uid
-                    && request.resource.data.isVerified == false
-                    && request.resource.data.membershipTier == 'free'
-                    && request.resource.data.ratingAvg == 0
-                    && request.resource.data.ratingCount == 0;
+      // Create paths:
+      //   1. Admin — may create a business for anyone. Used by the
+      //      manual onboarding flow in the admin shell; ownerUid is
+      //      typically the merchant's UID (looked up by email), and
+      //      `createdByAdminUid` is stamped for audit. Verification
+      //      may be pre-toggled here too.
+      //   2. Self-signup — caller must stamp themselves as ownerUid and
+      //      cannot set privileged fields to anything other than defaults.
+      allow create: if isAdmin()
+                    || (
+                      isSignedIn()
+                      && request.resource.data.ownerUid == request.auth.uid
+                      && request.resource.data.isVerified == false
+                      && request.resource.data.membershipTier == 'free'
+                      && request.resource.data.ratingAvg == 0
+                      && request.resource.data.ratingCount == 0
+                    );
 
       // Update paths:
       //   1. Admin — unrestricted.

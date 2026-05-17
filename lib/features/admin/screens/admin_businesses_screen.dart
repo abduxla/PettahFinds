@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../widgets/loading_widget.dart';
@@ -16,6 +17,15 @@ class AdminBusinessesScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('All Businesses')),
+      floatingActionButton: FloatingActionButton.extended(
+        // Routed through /admin (parent) so the onboard screen lives in
+        // the dashboard branch — back/swipe returns to the dashboard, not
+        // this tab. Intentional: onboarding mid-list-browse should reset
+        // to the overview after success.
+        onPressed: () => context.go('/admin/onboard'),
+        icon: const Icon(Icons.add_business),
+        label: const Text('Onboard'),
+      ),
       body: businessesAsync.when(
         data: (businesses) => businesses.isEmpty
             ? const EmptyStateWidget(

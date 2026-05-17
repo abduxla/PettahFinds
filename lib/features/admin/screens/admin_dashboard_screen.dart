@@ -30,6 +30,45 @@ class AdminDashboardScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // Quick action card — manual onboarding is the highest-leverage
+          // admin task right now (until payments has its own webhook), so
+          // it earns the top slot above the metrics.
+          Card(
+            color: theme.colorScheme.primaryContainer,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => context.go('/admin/onboard'),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Icon(Icons.add_business,
+                        size: 32, color: theme.colorScheme.primary),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Onboard a new business',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Manually create a listing on behalf of a '
+                            'merchant. Keeps payment records clean.',
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right,
+                        color: theme.colorScheme.primary),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
           Text('Overview',
               style: theme.textTheme.titleLarge
                   ?.copyWith(fontWeight: FontWeight.bold)),

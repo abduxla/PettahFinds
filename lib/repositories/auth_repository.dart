@@ -229,4 +229,45 @@ class AuthRepository {
         .snapshots()
         .map((doc) => doc.exists ? AppUser.fromFirestore(doc) : null);
   }
+
+  /// Look up a user by their email address. Returns null if no AppUser
+  /// document exists. Email match is case-insensitive (we normalize on
+  /// signup, but legacy docs may carry mixed case — we search both ways
+  /// and take whichever hits).
+  ///
+  /// Used by the admin onboarding flow to bind a manually-created
+  /// business to an existing customer account.
+  Future<AppUser?> findByEmail(String email) async {
+    final normalized = email.trim().toLowerCase();
+    final col = _firestore.collection(AppConstants.usersCollection);
+
+    var snap = await col.where('email', isEqualTo: normalized).limit(1).get();
+    if (snap.docs.isNotEmpty) return AppUser.fromFirestore(snap.docs.first);
+
+    // Fallback for legacy docs that stored email in its as-typed casing.
+    snap = await col.where('email', isEqualTo: email.trim()).limit(1).get();
+    if (snap.docs.isNotEmpty) return AppUser.fromFirestore(snap.docs.first);
+
+    return null;
+  }
+
+  /// Admin-only: promote a user to business role and bind them to a
+  /// business doc. Bypasses [_selfMutableFields] because the admin is
+  /// editing another user's record, not their own. The Firestore
+  /// `isAdmin()` rule enforces this at the server — a non-admin caller
+  /// will be rejected with permission-denied even if they invoke this.
+  ///
+  /// Sets `onboardingCompleted: true` because admin onboarding is the
+  /// completion event — the user shouldn't be funneled into the setup
+  /// wizard on next sign-in.
+  Future<void> adminAssignBusinessToUser({
+    required String uid,
+    required String businessId,
+  }) async {
+    await _firestore.collection(AppConstants.usersCollection).doc(uid).update({
+      'role': 'business',
+      'businessId': businessId,
+      'onboardingCompleted': true,
+    });
+  }
 }

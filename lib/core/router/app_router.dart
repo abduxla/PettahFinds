@@ -37,6 +37,7 @@ import '../../features/admin/screens/admin_dashboard_screen.dart';
 import '../../features/admin/screens/admin_businesses_screen.dart';
 import '../../features/admin/screens/admin_products_screen.dart';
 import '../../features/admin/screens/admin_reports_screen.dart';
+import '../../features/admin/screens/admin_onboard_business_screen.dart';
 import '../../features/legal/legal_document_screen.dart';
 import '../../features/legal/legal_documents.dart';
 import '../../features/chat/screens/chat_list_screen.dart';
@@ -374,6 +375,16 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/admin',
                 builder: (_, __) => const AdminDashboardScreen(),
+                routes: [
+                  // Manual business onboarding. Sub-route of /admin so
+                  // pop()/swipe-back returns to the dashboard. Hidden
+                  // entry point — reached via the FAB on the Businesses
+                  // tab or the dashboard's "Onboard new" card.
+                  GoRoute(
+                    path: 'onboard',
+                    builder: (_, __) => const AdminOnboardBusinessScreen(),
+                  ),
+                ],
               ),
             ],
           ),
