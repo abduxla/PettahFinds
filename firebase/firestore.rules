@@ -87,8 +87,25 @@ service cloud.firestore {
 
     // ---------- Businesses ----------
     match /businesses/{businessId} {
-      // Public directory — anyone can read business listings.
-      allow read: if true;
+      // Three read paths:
+      //   1. Verified listings — public (the customer directory).
+      //   2. Admin — sees everything, including the review queue.
+      //   3. Owner — sees their own listing even while unverified, so
+      //      the merchant dashboard renders during the review wait.
+      //
+      // Note for list queries: Firestore evaluates this rule per-doc on
+      // every result. A list query MUST narrow to docs the rule allows,
+      // otherwise the query fails permission-denied. Customer screens
+      // therefore use repository methods that filter on
+      // `isVerified == true`; admin screens use the explicit admin
+      // methods (`streamAllIncludingPending`, `streamPending`) which
+      // pass via the isAdmin() branch.
+      allow read: if resource.data.isVerified == true
+                  || isAdmin()
+                  || (
+                    isSignedIn()
+                    && resource.data.ownerUid == request.auth.uid
+                  );
 
       // Create paths:
       //   1. Admin — may create a business for anyone. Used by the

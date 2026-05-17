@@ -246,6 +246,37 @@ class _WelcomeSection extends StatelessWidget {
               ],
             ],
           ),
+          // Unverified listings are hidden from customers until an admin
+          // approves them. Surface that state so the merchant doesn't
+          // wonder why their business isn't appearing in customer search.
+          if (!business.isVerified) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              decoration: BoxDecoration(
+                color: Colors.orange.withAlpha(28),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.orange.withAlpha(80)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.hourglass_top_rounded,
+                      size: 18, color: Colors.orange),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Your listing is under review. Customers won\'t see it until an admin approves your business.',
+                      style: GoogleFonts.dmSans(
+                        fontSize: 12.5,
+                        color: AppColors.text2,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           Row(
             children: [

@@ -10,7 +10,11 @@ class AdminDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final businessesAsync = ref.watch(allBusinessesProvider);
+    // Admin counts pull from the unfiltered admin stream so they
+    // include pending + verified together (otherwise the totals would
+    // exclude the very rows that need attention).
+    final businessesAsync = ref.watch(allBusinessesAdminProvider);
+    final pendingAsync = ref.watch(pendingBusinessesProvider);
     final productsAsync = ref.watch(allActiveProductsProvider);
     final reportsAsync = ref.watch(allReportsProvider);
 
@@ -30,6 +34,45 @@ class AdminDashboardScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // Pending-review callout. Only renders when something's
+          // actually waiting; otherwise the dashboard stays clean.
+          pendingAsync.maybeWhen(
+            data: (pending) => pending.isEmpty
+                ? const SizedBox.shrink()
+                : Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Card(
+                      color: theme.colorScheme.errorContainer,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () => context.go('/admin/businesses'),
+                        child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Row(
+                            children: [
+                              Icon(Icons.pending_actions,
+                                  color: theme.colorScheme.onErrorContainer,
+                                  size: 26),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  '${pending.length} business${pending.length == 1 ? '' : 'es'} awaiting review',
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: theme.colorScheme.onErrorContainer,
+                                  ),
+                                ),
+                              ),
+                              Icon(Icons.chevron_right,
+                                  color: theme.colorScheme.onErrorContainer),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+            orElse: () => const SizedBox.shrink(),
+          ),
           // Quick action card — manual onboarding is the highest-leverage
           // admin task right now (until payments has its own webhook), so
           // it earns the top slot above the metrics.

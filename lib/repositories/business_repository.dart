@@ -55,8 +55,39 @@ class BusinessRepository {
   /// [ProductRepository._streamLimit] — protects cost; pageable later.
   static const _streamLimit = 100;
 
+  /// Customer-facing list — verified only. Unverified listings are
+  /// hidden from public surfaces until an admin approves them in the
+  /// admin shell. Owners still see their own unverified business via
+  /// [getById] (the Firestore rule permits owner reads on their own
+  /// doc).
+  ///
+  /// To list unverified docs too (admin moderation queue), use
+  /// [streamAllIncludingPending].
   Stream<List<Business>> streamAll() {
     return _ref
+        .where('isVerified', isEqualTo: true)
+        .orderBy('createdAt', descending: true)
+        .limit(_streamLimit)
+        .snapshots()
+        .map((snap) => snap.docs.map(Business.fromFirestore).toList());
+  }
+
+  /// Admin-only stream of every business doc, verified or not. The
+  /// Firestore rule requires `isAdmin()` for non-verified reads, so
+  /// calling this from a non-admin client will return permission-denied.
+  Stream<List<Business>> streamAllIncludingPending() {
+    return _ref
+        .orderBy('createdAt', descending: true)
+        .limit(_streamLimit)
+        .snapshots()
+        .map((snap) => snap.docs.map(Business.fromFirestore).toList());
+  }
+
+  /// Admin-only stream of unverified businesses awaiting review.
+  /// Powers the Pending tab in the admin Businesses screen.
+  Stream<List<Business>> streamPending() {
+    return _ref
+        .where('isVerified', isEqualTo: false)
         .orderBy('createdAt', descending: true)
         .limit(_streamLimit)
         .snapshots()
@@ -66,6 +97,7 @@ class BusinessRepository {
   Stream<List<Business>> streamByCategory(String category) {
     return _ref
         .where('category', isEqualTo: category)
+        .where('isVerified', isEqualTo: true)
         .orderBy('createdAt', descending: true)
         .limit(_streamLimit)
         .snapshots()
@@ -91,7 +123,10 @@ class BusinessRepository {
 
   Future<List<Business>> search(String query) async {
     final lower = query.toLowerCase();
+    // Customer-facing — verified only. Server-side filter keeps the
+    // scan budget honest (we still cap at _searchScanLimit).
     final snap = await _ref
+        .where('isVerified', isEqualTo: true)
         .orderBy('createdAt', descending: true)
         .limit(_searchScanLimit)
         .get();

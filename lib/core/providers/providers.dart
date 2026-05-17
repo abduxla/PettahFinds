@@ -118,12 +118,34 @@ final businessActiveProductsProvider =
   return ref.watch(productRepositoryProvider).streamByBusiness(businessId);
 });
 
-/// Top-level streams for the admin dashboard + listing screens. Lifted
-/// out of `build()` so rebuilds don't construct fresh `StreamProvider`s
-/// every frame (which leaks the previous Firestore subscription).
+/// Customer-facing list of businesses — verified only. Powers home,
+/// the businesses list screen, the map. Unverified listings are hidden
+/// from the public until an admin approves them.
+///
+/// Admin moderation surfaces (admin shell tabs) must use
+/// [allBusinessesAdminProvider] or [pendingBusinessesProvider] to see
+/// the full set including pending review.
 final allBusinessesProvider = StreamProvider<List<Business>>((ref) {
   return ref.watch(businessRepositoryProvider).streamAll();
 });
+
+/// Admin-only stream of every business, verified or not. The Firestore
+/// rule rejects non-admin readers when an unverified doc is in the
+/// result set, so this provider will surface a permission-denied error
+/// if accidentally watched from a non-admin context.
+final allBusinessesAdminProvider = StreamProvider<List<Business>>((ref) {
+  return ref
+      .watch(businessRepositoryProvider)
+      .streamAllIncludingPending();
+});
+
+/// Admin-only stream of businesses awaiting review (isVerified == false).
+/// Drives the Pending tab in the admin Businesses screen and the
+/// "pending review" count on the dashboard.
+final pendingBusinessesProvider = StreamProvider<List<Business>>((ref) {
+  return ref.watch(businessRepositoryProvider).streamPending();
+});
+
 final allReportsProvider = StreamProvider<List<Report>>((ref) {
   return ref.watch(reportRepositoryProvider).streamAll();
 });
