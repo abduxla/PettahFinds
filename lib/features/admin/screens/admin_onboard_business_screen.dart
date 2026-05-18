@@ -227,6 +227,14 @@ class _AdminOnboardBusinessScreenState
                         ?.copyWith(fontWeight: FontWeight.w700)),
                 const SizedBox(height: 10),
                 Row(
+                  // Center-align so the short button sits next to the
+                  // taller (labelled) text field cleanly. Earlier this
+                  // wrapped the button in a SizedBox(height: 56) with no
+                  // width — the Row passed unbounded width down, the
+                  // FilledButton's _InputPadding tried to size at
+                  // infinite width, layout failed (size: MISSING),
+                  // entire screen red-screened.
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(
                       child: TextFormField(
@@ -240,18 +248,16 @@ class _AdminOnboardBusinessScreenState
                       ),
                     ),
                     const SizedBox(width: 8),
-                    SizedBox(
-                      height: 56,
-                      child: FilledButton.tonal(
-                        onPressed: _lookingUp ? null : _lookupOwner,
-                        child: _lookingUp
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2))
-                            : const Text('Look up'),
-                      ),
+                    FilledButton.tonal(
+                      onPressed: _lookingUp ? null : _lookupOwner,
+                      child: _lookingUp
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Look up'),
                     ),
                   ],
                 ),
