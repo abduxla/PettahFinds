@@ -82,7 +82,7 @@ class AdminDashboardScreen extends ConsumerWidget {
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
               // push() — see note in admin_businesses_screen FAB.
-              onTap: () => context.push('/admin/onboard'),
+              onTap: () => context.push('/manual-onboarding'),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(

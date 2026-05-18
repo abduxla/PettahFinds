@@ -91,7 +91,7 @@ class _AdminBusinessesScreenState
         // the transition and collided their Form GlobalKey. The route
         // now lives at the top level; push keeps swipe-back returning
         // to the Businesses tab where the admin came from.
-        onPressed: () => context.push('/admin/onboard'),
+        onPressed: () => context.push('/manual-onboarding'),
         icon: const Icon(Icons.add_business),
         label: const Text('Onboard'),
       ),

@@ -72,6 +72,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
+      // Admin manual onboarding sits outside every shell. Skip the
+      // role-shell guards below or the admin would get bounced to
+      // /admin (their role home) because /manual-onboarding doesn't
+      // start with /admin. Auth is still enforced — Firestore rules
+      // reject the write if the caller isn't admin.
+      if (currentPath == '/manual-onboarding') return null;
+
       // While auth is still initializing, don't redirect — stay put
       if (isAuthLoading) return null;
 
@@ -194,14 +201,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // --- Admin manual onboarding (top-level) ---
-      // Top-level (not nested under the admin shell) so the FAB on the
-      // Businesses tab can push it WITHOUT triggering a shell branch
-      // switch that would briefly mount the Dashboard underneath and
-      // collide the Form's GlobalKey. push() from anywhere stacks it
-      // cleanly above the shell; pop() returns the user to wherever
-      // they came from.
+      // Path deliberately does NOT start with /admin — the admin shell
+      // claims /admin/* via its StatefulShellRoute, and overlapping
+      // top-level paths landed pushes on the wrong navigator (white
+      // screen). parentNavigatorKey forces the push onto the ROOT
+      // navigator so the form renders fullscreen above the shell, and
+      // pop returns the admin to whichever tab they came from.
       GoRoute(
-        path: '/admin/onboard',
+        path: '/manual-onboarding',
+        parentNavigatorKey: _rootNavigatorKey,
         builder: (_, __) => const AdminOnboardBusinessScreen(),
       ),
 
