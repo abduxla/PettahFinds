@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../models/business.dart';
 import '../../../widgets/loading_widget.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/empty_state_widget.dart';
+import 'admin_onboard_business_screen.dart';
 
 /// Admin moderation surface for businesses.
 ///
@@ -84,14 +84,11 @@ class _AdminBusinessesScreenState
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        // push() so /admin/onboard stacks ON TOP of the current shell
-        // tab. Using go() here triggered a shell branch switch (the
-        // route used to be a sub-route of /admin in branch 0) that
-        // mounted both the Dashboard and the Onboard screen during
-        // the transition and collided their Form GlobalKey. The route
-        // now lives at the top level; push keeps swipe-back returning
-        // to the Businesses tab where the admin came from.
-        onPressed: () => context.push('/manual-onboarding'),
+        // Bypasses go_router entirely — Navigator.push onto the root
+        // navigator. Earlier attempts via go_router (sub-route + go,
+        // top-level + push, renamed path + push) each hit a different
+        // shell-interaction bug. Raw Navigator is the reliable path.
+        onPressed: () => AdminOnboardBusinessScreen.open(context),
         icon: const Icon(Icons.add_business),
         label: const Text('Onboard'),
       ),

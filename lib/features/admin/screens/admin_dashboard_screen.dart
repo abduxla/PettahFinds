@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/providers/providers.dart';
 import '../../../widgets/loading_widget.dart';
+import 'admin_onboard_business_screen.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
@@ -81,8 +82,9 @@ class AdminDashboardScreen extends ConsumerWidget {
             color: theme.colorScheme.primaryContainer,
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
-              // push() — see note in admin_businesses_screen FAB.
-              onTap: () => context.push('/manual-onboarding'),
+              // Navigator.push on the root navigator — see note in
+              // admin_businesses_screen FAB.
+              onTap: () => AdminOnboardBusinessScreen.open(context),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(

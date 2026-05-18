@@ -37,7 +37,6 @@ import '../../features/admin/screens/admin_dashboard_screen.dart';
 import '../../features/admin/screens/admin_businesses_screen.dart';
 import '../../features/admin/screens/admin_products_screen.dart';
 import '../../features/admin/screens/admin_reports_screen.dart';
-import '../../features/admin/screens/admin_onboard_business_screen.dart';
 import '../../features/legal/legal_document_screen.dart';
 import '../../features/legal/legal_documents.dart';
 import '../../features/chat/screens/chat_list_screen.dart';
@@ -71,13 +70,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (currentPath == '/chat' || currentPath.startsWith('/chat/')) {
         return null;
       }
-
-      // Admin manual onboarding sits outside every shell. Skip the
-      // role-shell guards below or the admin would get bounced to
-      // /admin (their role home) because /manual-onboarding doesn't
-      // start with /admin. Auth is still enforced — Firestore rules
-      // reject the write if the caller isn't admin.
-      if (currentPath == '/manual-onboarding') return null;
 
       // While auth is still initializing, don't redirect — stay put
       if (isAuthLoading) return null;
@@ -198,19 +190,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           title: LegalDocuments.prohibitedListingsTitle,
           body: LegalDocuments.prohibitedListingsBody,
         ),
-      ),
-
-      // --- Admin manual onboarding (top-level) ---
-      // Path deliberately does NOT start with /admin — the admin shell
-      // claims /admin/* via its StatefulShellRoute, and overlapping
-      // top-level paths landed pushes on the wrong navigator (white
-      // screen). parentNavigatorKey forces the push onto the ROOT
-      // navigator so the form renders fullscreen above the shell, and
-      // pop returns the admin to whichever tab they came from.
-      GoRoute(
-        path: '/manual-onboarding',
-        parentNavigatorKey: _rootNavigatorKey,
-        builder: (_, __) => const AdminOnboardBusinessScreen(),
       ),
 
       // --- Chat (top-level so it can be opened from any shell) ---
