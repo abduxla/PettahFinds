@@ -31,49 +31,50 @@ class AdminDashboardScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // Pending-review callout. Only renders when something's
-          // actually waiting; otherwise the dashboard stays clean.
-          pendingAsync.maybeWhen(
-            data: (pending) => pending.isEmpty
-                ? const SizedBox.shrink()
-                : Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Card(
-                      color: theme.colorScheme.errorContainer,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: () => context.go('/admin/businesses'),
-                        child: Padding(
-                          padding: const EdgeInsets.all(14),
-                          child: Row(
-                            children: [
-                              Icon(Icons.pending_actions,
-                                  color: theme.colorScheme.onErrorContainer,
-                                  size: 26),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  '${pending.length} business${pending.length == 1 ? '' : 'es'} awaiting review',
-                                  style: theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    color: theme.colorScheme.onErrorContainer,
-                                  ),
-                                ),
+      body: Builder(builder: (context) {
+        // Pre-compute the pending count so the children list can use a
+        // collection-if. Returning different widget types from
+        // pendingAsync.maybeWhen at the same ListView slot was confusing
+        // Flutter's element diff and triggering `_elements.contains` —
+        // a fully-omitted-vs-fully-present slot avoids the swap entirely.
+        final pendingCount = pendingAsync.valueOrNull?.length ?? 0;
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            if (pendingCount > 0)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Card(
+                  color: theme.colorScheme.errorContainer,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => context.go('/admin/businesses'),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        children: [
+                          Icon(Icons.pending_actions,
+                              color: theme.colorScheme.onErrorContainer,
+                              size: 26),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              '$pendingCount business${pendingCount == 1 ? '' : 'es'} awaiting review',
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: theme.colorScheme.onErrorContainer,
                               ),
-                              Icon(Icons.chevron_right,
-                                  color: theme.colorScheme.onErrorContainer),
-                            ],
+                            ),
                           ),
-                        ),
+                          Icon(Icons.chevron_right,
+                              color: theme.colorScheme.onErrorContainer),
+                        ],
                       ),
                     ),
                   ),
-            orElse: () => const SizedBox.shrink(),
-          ),
-          // Quick action card — manual onboarding is the highest-leverage
+                ),
+              ),
+            // Quick action card — manual onboarding is the highest-leverage
           // admin task right now (until payments has its own webhook), so
           // it earns the top slot above the metrics.
           Card(
@@ -215,7 +216,8 @@ class AdminDashboardScreen extends ConsumerWidget {
             error: (e, _) => Text('Error: $e'),
           ),
         ],
-      ),
+        );
+      }),
     );
   }
 }
