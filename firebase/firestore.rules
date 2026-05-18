@@ -82,7 +82,10 @@ service cloud.firestore {
                       )
                     );
 
-      allow delete: if isAdmin();
+      // Self-delete (GDPR right-to-be-forgotten) and admin delete.
+      // Owner-side deletion is the last step of the cascade in
+      // AccountDeletionService.deleteSelf.
+      allow delete: if isAdmin() || isOwner(uid);
     }
 
     // ---------- Businesses ----------
@@ -157,7 +160,11 @@ service cloud.firestore {
                       && request.resource.data.ratingCount <= resource.data.ratingCount + 1
                     );
 
-      allow delete: if isAdmin();
+      // Owner of the business may delete their own listing (drives the
+      // self-delete cascade). Admins can delete any.
+      allow delete: if isAdmin()
+                    || (isSignedIn()
+                        && resource.data.ownerUid == request.auth.uid);
     }
 
     // ---------- Categories ----------
@@ -204,8 +211,10 @@ service cloud.firestore {
                       && request.resource.data.ratingCount <= resource.data.ratingCount + 1
                     );
 
-      // Hard delete is admin-only; normal delete flow is soft-delete via update.
-      allow delete: if isAdmin();
+      // Hard delete: admin OR the owning business (drives self-delete
+      // cascade when the merchant wipes their account). The normal
+      // "delete a product" flow remains soft-delete via update.
+      allow delete: if isAdmin() || ownsBusiness(resource.data.businessId);
     }
 
     // ---------- Offers ----------
@@ -245,7 +254,12 @@ service cloud.firestore {
       // No edits from clients. Moderation = admin; author can re-review by
       // submitting a new review (or via admin tooling).
       allow update: if isAdmin();
-      allow delete: if isAdmin();
+      // Delete: admin, the review's author (self-delete cascade), OR
+      // the owner of the reviewed business (business-side cascade when
+      // a merchant wipes their own account).
+      allow delete: if isAdmin()
+                    || (isSignedIn() && resource.data.userId == request.auth.uid)
+                    || ownsBusiness(resource.data.businessId);
     }
 
     // ---------- Product Reviews ----------
@@ -270,7 +284,19 @@ service cloud.firestore {
                     && exists(/databases/$(database)/documents/products/$(request.resource.data.productId));
 
       allow update: if isAdmin();
-      allow delete: if isAdmin();
+      // Same three-path delete as /reviews: admin, review author, or
+      // the owner of the business that owns the reviewed product.
+      // The product-owner check has to fetch the product to read its
+      // businessId because productReviews docs only carry productId
+      // directly.
+      allow delete: if isAdmin()
+                    || (isSignedIn() && resource.data.userId == request.auth.uid)
+                    || (
+                      isSignedIn()
+                      && exists(/databases/$(database)/documents/products/$(resource.data.productId))
+                      && ownsBusiness(
+                          get(/databases/$(database)/documents/products/$(resource.data.productId)).data.businessId)
+                    );
     }
 
     // ---------- Favorites ----------
@@ -319,7 +345,9 @@ service cloud.firestore {
                     );
 
       allow update: if isAdmin();
-      allow delete: if isAdmin();
+      // Reporter may delete their own report (drives self-delete cascade).
+      allow delete: if isAdmin()
+                    || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
 
     // ---------- Conversations (in-app chat) ----------
@@ -367,8 +395,12 @@ service cloud.firestore {
                     && request.resource.data.productId == resource.data.productId
                     && request.resource.data.businessId == resource.data.businessId;
 
-      // Deletes happen via admin tooling only.
-      allow delete: if isAdmin();
+      // Deletes: admin OR any participant (drives self-delete cascade
+      // — when one side of a conversation wipes their account, the
+      // whole thread goes with them so no orphaned context lingers).
+      allow delete: if isAdmin()
+                    || (isSignedIn()
+                        && request.auth.uid in resource.data.participantIds);
 
       match /messages/{messageId} {
         function parentParticipants() {
@@ -385,7 +417,13 @@ service cloud.firestore {
                       && request.resource.data.text.size() <= 1000;
 
         // Messages are immutable from the client.
-        allow update, delete: if false;
+        allow update: if false;
+        // Delete: admin OR any participant of the parent conversation
+        // (self-delete cascade wipes the messages subcollection before
+        // removing the conversation doc).
+        allow delete: if isAdmin()
+                      || (isSignedIn()
+                          && request.auth.uid in parentParticipants());
       }
     }
 
@@ -418,7 +456,10 @@ service cloud.firestore {
                          .affectedKeys()
                          .hasOnly(['read', 'readAt']);
 
-      allow delete: if isAdmin();
+      // Recipient may delete their own notifications (drives self-delete
+      // cascade). Admin can delete any.
+      allow delete: if isAdmin()
+                    || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
   }
 }

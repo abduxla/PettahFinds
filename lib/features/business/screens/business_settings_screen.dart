@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../widgets/delete_account_dialog.dart';
 
 class BusinessSettingsScreen extends ConsumerWidget {
   const BusinessSettingsScreen({super.key});
@@ -112,6 +113,27 @@ class BusinessSettingsScreen extends ConsumerWidget {
               foregroundColor: AppColors.red,
               side: BorderSide(
                   color: AppColors.red.withAlpha(60)),
+              minimumSize: const Size.fromHeight(52),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+          const SizedBox(height: 14),
+          // ---- Danger zone: permanent delete ----
+          // Merchant variant. The dialog warns about losing the business
+          // listing and all products in addition to the standard
+          // account-data cascade. Requires typing DELETE to arm.
+          FilledButton.icon(
+            onPressed: () => showDeleteAccountFlow(
+              context,
+              ref,
+              isBusinessOwner: true,
+            ),
+            icon: const Icon(Icons.delete_forever_rounded, size: 18),
+            label: const Text('Delete my account'),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.red,
+              foregroundColor: AppColors.white,
               minimumSize: const Size.fromHeight(52),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14)),

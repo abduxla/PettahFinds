@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/providers/providers.dart';
+import '../../../widgets/delete_account_dialog.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -104,6 +105,30 @@ class SettingsScreen extends ConsumerWidget {
                 foregroundColor: theme.colorScheme.error,
                 side: BorderSide(
                     color: theme.colorScheme.error.withAlpha(60)),
+                minimumSize: const Size.fromHeight(52),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          // ---- Danger zone: permanent delete ----
+          // Visually separated from Sign Out with stronger destructive
+          // styling so it's hard to tap by mistake. The dialog
+          // additionally requires typing DELETE before the action arms.
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: FilledButton.icon(
+              onPressed: () => showDeleteAccountFlow(
+                context,
+                ref,
+                isBusinessOwner: false,
+              ),
+              icon: const Icon(Icons.delete_forever_rounded, size: 18),
+              label: const Text('Delete my account'),
+              style: FilledButton.styleFrom(
+                backgroundColor: theme.colorScheme.error,
+                foregroundColor: theme.colorScheme.onError,
                 minimumSize: const Size.fromHeight(52),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14)),

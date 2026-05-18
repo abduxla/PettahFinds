@@ -161,29 +161,134 @@ class _BusinessRow extends ConsumerWidget {
           '${b.category} • ${b.location}\nOwner: ${b.ownerUid}',
           maxLines: 2,
         ),
-        trailing: Switch(
-          value: b.isVerified,
-          onChanged: (val) async {
-            try {
-              await ref
-                  .read(businessRepositoryProvider)
-                  .toggleVerification(b.id, val);
-              if (context.mounted) {
-                context.showSnackBar(
-                  val
-                      ? '${b.businessName} approved — now visible to customers'
-                      : '${b.businessName} unverified — hidden from customers',
-                );
-              }
-            } catch (e) {
-              if (context.mounted) {
-                context.showSnackBar(e.toString(), isError: true);
-              }
-            }
-          },
+        // Two trailing actions: verify toggle + destructive delete.
+        // Mainaxis-min so the row never exceeds the ListTile slot.
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Switch(
+              value: b.isVerified,
+              onChanged: (val) async {
+                try {
+                  await ref
+                      .read(businessRepositoryProvider)
+                      .toggleVerification(b.id, val);
+                  if (context.mounted) {
+                    context.showSnackBar(
+                      val
+                          ? '${b.businessName} approved — now visible to customers'
+                          : '${b.businessName} unverified — hidden from customers',
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    context.showSnackBar(e.toString(), isError: true);
+                  }
+                }
+              },
+            ),
+            IconButton(
+              tooltip: 'Delete this account',
+              icon: Icon(Icons.delete_forever_rounded,
+                  color: theme.colorScheme.error),
+              onPressed: () => _confirmAdminDelete(context, ref, b),
+            ),
+          ],
         ),
         isThreeLine: true,
       ),
     );
+  }
+
+  /// Admin-side hard delete of a business + its owner's user record.
+  /// Two confirmation gates:
+  ///   1. AlertDialog with type-DELETE input (same as self-delete).
+  ///   2. Implicit: the rule still requires isAdmin() server-side, so
+  ///      even if this UI was bypassed the writes would fail unless the
+  ///      caller has role == 'admin'.
+  ///
+  /// NOTE: the merchant's Firebase Auth identity is NOT removed (Admin
+  /// SDK required). After this runs the merchant becomes a ghost — they
+  /// can attempt to sign in but the app boots them on the first /users
+  /// doc read.
+  Future<void> _confirmAdminDelete(
+      BuildContext context, WidgetRef ref, Business b) async {
+    final ctrl = TextEditingController();
+    var armed = false;
+    final go = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setSt) {
+          ctrl.addListener(() {
+            final now = ctrl.text.trim().toUpperCase() == 'DELETE';
+            if (now != armed) setSt(() => armed = now);
+          });
+          return AlertDialog(
+            title: Row(
+              children: [
+                Icon(Icons.warning_amber_rounded,
+                    color: theme.colorScheme.error),
+                const SizedBox(width: 8),
+                const Text('Delete this account?'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                    'You\'re about to permanently delete the business "${b.businessName}" '
+                    'and all of its products, reviews, conversations, and '
+                    'the owning user\'s account data.\n\n'
+                    'Note: the merchant\'s Firebase Auth identity will '
+                    'remain a zombie (Admin SDK is required to remove '
+                    'it). They\'ll be booted on next sign-in.'),
+                const SizedBox(height: 12),
+                const Text('Type DELETE to confirm:'),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: ctrl,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'DELETE',
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel')),
+              FilledButton(
+                onPressed:
+                    armed ? () => Navigator.pop(ctx, true) : null,
+                style: FilledButton.styleFrom(
+                  backgroundColor: theme.colorScheme.error,
+                  foregroundColor: theme.colorScheme.onError,
+                ),
+                child: const Text('Delete forever'),
+              ),
+            ],
+          );
+        });
+      },
+    );
+    if (go != true) return;
+    if (!context.mounted) return;
+
+    try {
+      await ref
+          .read(accountDeletionServiceProvider)
+          .adminDelete(b.ownerUid);
+      if (context.mounted) {
+        context.showSuccessSnackBar(
+            '${b.businessName} and its owner account were deleted.');
+      }
+    } catch (e) {
+      if (context.mounted) context.showErrorSnackBar(e);
+    }
   }
 }

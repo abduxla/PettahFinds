@@ -10,6 +10,7 @@ import '../../repositories/product_review_repository.dart';
 import '../../repositories/favorite_repository.dart';
 import '../../repositories/report_repository.dart';
 import '../../repositories/notification_repository.dart';
+import '../../services/account_deletion_service.dart';
 import '../../services/chat_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/recently_viewed_service.dart';
@@ -38,6 +39,8 @@ final storageServiceProvider = Provider((ref) => StorageService());
 final recentlyViewedServiceProvider =
     Provider((ref) => RecentlyViewedService());
 final chatServiceProvider = Provider((ref) => ChatService());
+final accountDeletionServiceProvider =
+    Provider((ref) => AccountDeletionService());
 
 // --- Chat streams ---
 final conversationStreamProvider = StreamProvider.autoDispose
