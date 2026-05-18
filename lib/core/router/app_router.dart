@@ -193,6 +193,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
+      // --- Admin manual onboarding (top-level) ---
+      // Top-level (not nested under the admin shell) so the FAB on the
+      // Businesses tab can push it WITHOUT triggering a shell branch
+      // switch that would briefly mount the Dashboard underneath and
+      // collide the Form's GlobalKey. push() from anywhere stacks it
+      // cleanly above the shell; pop() returns the user to wherever
+      // they came from.
+      GoRoute(
+        path: '/admin/onboard',
+        builder: (_, __) => const AdminOnboardBusinessScreen(),
+      ),
+
       // --- Chat (top-level so it can be opened from any shell) ---
       GoRoute(path: '/chat', builder: (_, __) => const ChatListScreen()),
       GoRoute(
@@ -375,16 +387,6 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/admin',
                 builder: (_, __) => const AdminDashboardScreen(),
-                routes: [
-                  // Manual business onboarding. Sub-route of /admin so
-                  // pop()/swipe-back returns to the dashboard. Hidden
-                  // entry point — reached via the FAB on the Businesses
-                  // tab or the dashboard's "Onboard new" card.
-                  GoRoute(
-                    path: 'onboard',
-                    builder: (_, __) => const AdminOnboardBusinessScreen(),
-                  ),
-                ],
               ),
             ],
           ),

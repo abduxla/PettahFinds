@@ -81,7 +81,8 @@ class AdminDashboardScreen extends ConsumerWidget {
             color: theme.colorScheme.primaryContainer,
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
-              onTap: () => context.go('/admin/onboard'),
+              // push() — see note in admin_businesses_screen FAB.
+              onTap: () => context.push('/admin/onboard'),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(

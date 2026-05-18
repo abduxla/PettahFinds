@@ -84,11 +84,14 @@ class _AdminBusinessesScreenState
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        // Routed through /admin (parent) so the onboard screen lives in
-        // the dashboard branch — back/swipe returns to the dashboard, not
-        // this tab. Intentional: onboarding mid-list-browse should reset
-        // to the overview after success.
-        onPressed: () => context.go('/admin/onboard'),
+        // push() so /admin/onboard stacks ON TOP of the current shell
+        // tab. Using go() here triggered a shell branch switch (the
+        // route used to be a sub-route of /admin in branch 0) that
+        // mounted both the Dashboard and the Onboard screen during
+        // the transition and collided their Form GlobalKey. The route
+        // now lives at the top level; push keeps swipe-back returning
+        // to the Businesses tab where the admin came from.
+        onPressed: () => context.push('/admin/onboard'),
         icon: const Icon(Icons.add_business),
         label: const Text('Onboard'),
       ),

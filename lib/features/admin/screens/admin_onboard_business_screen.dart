@@ -178,6 +178,9 @@ class _AdminOnboardBusinessScreenState
         title: const Text('Onboard Business'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
+          // Always reachable via push() from admin entry points, so
+          // canPop() should be true. Fallback to /admin only if some
+          // future caller go()s here and replaces the stack.
           onPressed: () =>
               context.canPop() ? context.pop() : context.go('/admin'),
         ),
