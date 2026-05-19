@@ -103,20 +103,23 @@ abstract class AppTheme {
       textTheme: textTheme,
       fontFamily: GoogleFonts.dmSans().fontFamily,
 
-      // iOS-style edge-swipe-back on every platform. Material's default
-      // builder has no swipe gesture on Android — replacing it with the
-      // Cupertino builder gives the whole app the "drag from the left
-      // edge to pop" affordance users expect, in addition to the existing
-      // AppBar back buttons. Stacked routes inside the customer /
-      // business / admin shells all get it for free.
+      // Snappy iOS-style page transitions on every platform.
+      // [_PremiumSlideTransitionsBuilder] front-loads the route's
+      // animation with Curves.fastEaseInToSlowEaseOut before handing
+      // off to the standard Cupertino implementation, so the slide
+      // reaches ~80% complete in the first 60% of the duration. Net
+      // effect: feels markedly snappier WITHOUT shortening the route
+      // duration (which would break the edge-swipe-back gesture). The
+      // gesture detector is preserved because we delegate the actual
+      // build to CupertinoPageTransitionsBuilder.
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
-          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
-          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
-          TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
-          TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
-          TargetPlatform.fuchsia: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.android: _PremiumSlideTransitionsBuilder(),
+          TargetPlatform.iOS: _PremiumSlideTransitionsBuilder(),
+          TargetPlatform.macOS: _PremiumSlideTransitionsBuilder(),
+          TargetPlatform.linux: _PremiumSlideTransitionsBuilder(),
+          TargetPlatform.windows: _PremiumSlideTransitionsBuilder(),
+          TargetPlatform.fuchsia: _PremiumSlideTransitionsBuilder(),
         },
       ),
 
@@ -382,6 +385,49 @@ abstract class AppTheme {
         unselectedLabelStyle: GoogleFonts.dmSans(
             fontSize: 13, fontWeight: FontWeight.w500),
       ),
+    );
+  }
+}
+
+/// Custom PageTransitionsBuilder used app-wide. Front-loads the route's
+/// animation with a snappier curve, then delegates the actual paint to
+/// [CupertinoPageTransitionsBuilder] so the iOS-style horizontal slide,
+/// parallax-behind effect, AND the edge-swipe-back gesture detector
+/// are all preserved.
+///
+/// Net effect: the slide reaches roughly 80% complete in the first 60%
+/// of the route's transition duration, so the user perceives "the
+/// screen is already there" before the formal animation finishes. No
+/// jank — the underlying Cupertino implementation interprets the
+/// pre-curved animation exactly as if the route were running faster.
+///
+/// Swap back to `CupertinoPageTransitionsBuilder()` directly if you
+/// want the stock iOS timing.
+class _PremiumSlideTransitionsBuilder extends PageTransitionsBuilder {
+  const _PremiumSlideTransitionsBuilder();
+
+  // Curve picked from Flutter's curated set — quick acceleration on
+  // the way in, gentle settle on the tail. Matches the feel iOS users
+  // expect when pushing a sub-screen on a recent iPhone.
+  static const _curve = Curves.fastEaseInToSlowEaseOut;
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final reTimed = CurvedAnimation(parent: animation, curve: _curve);
+    final reTimedSecondary =
+        CurvedAnimation(parent: secondaryAnimation, curve: _curve);
+    return const CupertinoPageTransitionsBuilder().buildTransitions<T>(
+      route,
+      context,
+      reTimed,
+      reTimedSecondary,
+      child,
     );
   }
 }

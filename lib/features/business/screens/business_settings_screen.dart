@@ -24,7 +24,11 @@ class BusinessSettingsScreen extends ConsumerWidget {
             )),
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        // 160 px bottom clears the BusinessShell's bottom nav (~56) +
+        // a margin so both Sign Out AND Delete-my-account are fully
+        // scrollable into view. Previously 32 — Sign Out sat against
+        // the nav and Delete was hidden underneath.
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 160),
         children: [
           // ---- BUSINESS ----
           _SectionCard(
