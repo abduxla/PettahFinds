@@ -117,13 +117,16 @@ service cloud.firestore {
       //      `createdByAdminUid` is stamped for audit. Verification
       //      may be pre-toggled here too.
       //   2. Self-signup — caller must stamp themselves as ownerUid and
-      //      cannot set privileged fields to anything other than defaults.
+      //      cannot set privileged fields to anything other than
+      //      defaults. The membershipTier field was dropped from the
+      //      check because the client doesn't write it (and the field
+      //      isn't used anywhere) — keeping it in the rule caused every
+      //      self-signup to fail with permission-denied.
       allow create: if isAdmin()
                     || (
                       isSignedIn()
                       && request.resource.data.ownerUid == request.auth.uid
                       && request.resource.data.isVerified == false
-                      && request.resource.data.membershipTier == 'free'
                       && request.resource.data.ratingAvg == 0
                       && request.resource.data.ratingCount == 0
                     );

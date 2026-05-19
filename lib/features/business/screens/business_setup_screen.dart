@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../core/constants/categories.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
@@ -26,7 +27,9 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
   final _phoneCtrl = TextEditingController();
   final _whatsappCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
-  final _categoryCtrl = TextEditingController();
+  // Dropdown-backed. Null = nothing picked yet (forces the merchant to
+  // choose explicitly instead of accepting a default).
+  String? _category;
   bool _loading = false;
   bool _acceptedUserTerms = false;
   bool _acceptedListingAgreement = false;
@@ -45,13 +48,16 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
     _phoneCtrl.dispose();
     _whatsappCtrl.dispose();
     _emailCtrl.dispose();
-    _categoryCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     if (_loading) return;
     if (!_formKey.currentState!.validate()) return;
+    if (_category == null || _category!.isEmpty) {
+      context.showErrorSnackBar('Please pick a category.');
+      return;
+    }
     if (!_allLegalAccepted) {
       context.showErrorSnackBar(
           'Please accept all required legal documents to continue.');
@@ -75,7 +81,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
               phone: _phoneCtrl.text.trim(),
               whatsappNumber: _whatsappCtrl.text.trim(),
               email: _emailCtrl.text.trim(),
-              category: _categoryCtrl.text.trim(),
+              category: _category!,
               createdAt: DateTime.now(),
             ),
           );
@@ -171,13 +177,27 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                 validator: (v) => Validators.required(v, 'Business name'),
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _categoryCtrl,
+              // Dropdown — values come from AppCategories.all which is
+              // the single source of truth used across product
+              // create/edit, search filters, and home grouping.
+              // Free-text was rejected because the same business could
+              // be miscategorized N different ways ("food", "Food",
+              // "food & drink") and never aggregate cleanly under the
+              // home category sections.
+              DropdownButtonFormField<String>(
+                initialValue: _category,
+                isExpanded: true,
                 decoration: const InputDecoration(
-                    labelText: 'Category',
-                    prefixIcon: Icon(Icons.category),
-                    hintText: 'e.g. Restaurant, Retail, Services'),
-                validator: (v) => Validators.required(v, 'Category'),
+                  labelText: 'Category',
+                  prefixIcon: Icon(Icons.category),
+                ),
+                items: AppCategories.all
+                    .map((c) =>
+                        DropdownMenuItem<String>(value: c, child: Text(c)))
+                    .toList(),
+                onChanged: (v) => setState(() => _category = v),
+                validator: (v) =>
+                    (v == null || v.isEmpty) ? 'Pick a category' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
