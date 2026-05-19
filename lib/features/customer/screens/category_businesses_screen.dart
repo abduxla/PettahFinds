@@ -18,8 +18,10 @@ class CategoryBusinessesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Customer-visible — drops products from unverified businesses so
+    // the "View Seller" tap never breaks.
     final productsAsync =
-        ref.watch(productsByCategoryProvider(categoryName));
+        ref.watch(customerVisibleProductsByCategoryProvider(categoryName));
 
     return Scaffold(
       backgroundColor: AppColors.bgSection,

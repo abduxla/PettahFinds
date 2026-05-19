@@ -87,10 +87,47 @@ final totalUnreadCountProvider = StreamProvider.autoDispose<int>((ref) {
   });
 });
 
-/// Shared stream of all active products. Used by home and products list
-/// so we keep a single Firestore subscription instead of duplicating.
+/// Shared stream of all active products. Used by ADMIN surfaces +
+/// downstream verified-filter providers — admins see the raw list
+/// including products belonging to unverified businesses. Customer
+/// surfaces should consume [customerVisibleProductsProvider] so they
+/// only ever see products whose business is verified.
 final allActiveProductsProvider = StreamProvider<List<Product>>((ref) {
   return ref.watch(productRepositoryProvider).streamAll();
+});
+
+/// Customer-facing stream of products — filtered to those whose
+/// business is verified. Powers the home grid, products list,
+/// recommended sections, anywhere a customer browses.
+///
+/// Why client-side join: products don't denormalize `businessVerified`,
+/// so we cross-reference against [allBusinessesProvider] (which is
+/// already verified-only) and emit the intersection. Both upstreams
+/// are already in memory for other screens, so this is a cheap
+/// in-memory filter, not extra Firestore reads.
+///
+/// While either upstream is still loading, the loading state is passed
+/// through so consumers show their existing shimmer/error UI unchanged.
+final customerVisibleProductsProvider =
+    Provider<AsyncValue<List<Product>>>((ref) {
+  final products = ref.watch(allActiveProductsProvider);
+  final businesses = ref.watch(allBusinessesProvider);
+  if (products.isLoading || businesses.isLoading) {
+    return const AsyncValue.loading();
+  }
+  if (products.hasError) {
+    return AsyncValue.error(
+        products.error!, products.stackTrace ?? StackTrace.current);
+  }
+  if (businesses.hasError) {
+    return AsyncValue.error(
+        businesses.error!, businesses.stackTrace ?? StackTrace.current);
+  }
+  final verifiedIds =
+      businesses.requireValue.map((b) => b.id).toSet();
+  return AsyncValue.data(products.requireValue
+      .where((p) => verifiedIds.contains(p.businessId))
+      .toList());
 });
 
 /// Live newest-100 reviews for a single product. Mirrors
@@ -162,12 +199,38 @@ final businessesByCategoryProvider = StreamProvider.autoDispose
   return ref.watch(businessRepositoryProvider).streamByCategory(category);
 });
 
-/// Products filtered by category. Customer-facing — category taps from
-/// the home grid land here.
+/// Products filtered by category. Raw stream — surfaces both verified
+/// and unverified businesses' products. Customer screens should consume
+/// [customerVisibleProductsByCategoryProvider] instead.
 final productsByCategoryProvider = StreamProvider.autoDispose
     .family<List<Product>, String>((ref, category) {
   if (category.isEmpty) return Stream.value(const []);
   return ref.watch(productRepositoryProvider).streamByCategory(category);
+});
+
+/// Customer-facing version of [productsByCategoryProvider] — same
+/// verified-business join as [customerVisibleProductsProvider].
+final customerVisibleProductsByCategoryProvider = Provider.autoDispose
+    .family<AsyncValue<List<Product>>, String>((ref, category) {
+  if (category.isEmpty) return const AsyncValue.data(<Product>[]);
+  final products = ref.watch(productsByCategoryProvider(category));
+  final businesses = ref.watch(allBusinessesProvider);
+  if (products.isLoading || businesses.isLoading) {
+    return const AsyncValue.loading();
+  }
+  if (products.hasError) {
+    return AsyncValue.error(
+        products.error!, products.stackTrace ?? StackTrace.current);
+  }
+  if (businesses.hasError) {
+    return AsyncValue.error(
+        businesses.error!, businesses.stackTrace ?? StackTrace.current);
+  }
+  final verifiedIds =
+      businesses.requireValue.map((b) => b.id).toSet();
+  return AsyncValue.data(products.requireValue
+      .where((p) => verifiedIds.contains(p.businessId))
+      .toList());
 });
 
 /// Resolves recently-viewed product IDs into full Product objects.

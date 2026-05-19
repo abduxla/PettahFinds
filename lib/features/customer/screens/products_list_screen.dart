@@ -14,7 +14,10 @@ class ProductsListScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final productsAsync = ref.watch(allActiveProductsProvider);
+    // Customer-visible — verified-business products only. Unverified
+    // sellers' products are hidden until an admin approves so a tap on
+    // "View Seller" never hits permission-denied.
+    final productsAsync = ref.watch(customerVisibleProductsProvider);
 
     return Scaffold(
       appBar: AppBar(

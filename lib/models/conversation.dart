@@ -12,6 +12,11 @@ class Conversation {
   final String businessName;
   final String sellerId;
   final String customerId;
+  /// Display name of the customer at thread-open time. Denormalized so
+  /// the seller's inbox can show "Alice" without an extra users lookup.
+  /// Legacy threads created before this field existed read back as '';
+  /// the UI falls back to a generic placeholder in that case.
+  final String customerName;
   final List<String> participantIds;
   final String lastMessage;
   final DateTime? lastMessageAt;
@@ -30,6 +35,7 @@ class Conversation {
     required this.businessName,
     required this.sellerId,
     required this.customerId,
+    this.customerName = '',
     required this.participantIds,
     this.lastMessage = '',
     this.lastMessageAt,
@@ -54,6 +60,7 @@ class Conversation {
       businessName: data['businessName'] ?? '',
       sellerId: data['sellerId'] ?? '',
       customerId: data['customerId'] ?? '',
+      customerName: data['customerName'] ?? '',
       participantIds:
           (data['participantIds'] as List?)?.cast<String>() ?? const [],
       lastMessage: data['lastMessage'] ?? '',
@@ -77,6 +84,7 @@ class Conversation {
         'businessName': businessName,
         'sellerId': sellerId,
         'customerId': customerId,
+        'customerName': customerName,
         'participantIds': participantIds,
         'lastMessage': lastMessage,
         'lastMessageAt': lastMessageAt == null

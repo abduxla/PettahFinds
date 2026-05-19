@@ -83,12 +83,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         backgroundColor: AppColors.bgSection,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.canPop() ? context.pop() : context.go('/home'),
+          // Always return to the inbox (/chat). User mental model on a
+          // messaging app is "back = my list of chats", not "back = the
+          // last screen I was on". Even if the stack has /home or a
+          // product detail below us, this jumps to the chat list.
+          onPressed: () => context.go('/chat'),
         ),
         title: convAsync.when(
-          data: (c) => c == null
-              ? Text('Chat', style: _titleStyle())
-              : Text(c.businessName, style: _titleStyle()),
+          // Title = the OTHER party. Customer sees business name; seller
+          // sees the customer's name. Falls back to a generic placeholder
+          // for legacy threads created before customerName was
+          // denormalized onto the conversation doc.
+          data: (c) {
+            if (c == null) return Text('Chat', style: _titleStyle());
+            final viewerIsSeller =
+                appUser != null && appUser.uid == c.sellerId;
+            final label = viewerIsSeller
+                ? (c.customerName.isNotEmpty ? c.customerName : 'Customer')
+                : (c.businessName.isNotEmpty ? c.businessName : 'Business');
+            return Text(label, style: _titleStyle());
+          },
           loading: () => Text('Chat', style: _titleStyle()),
           error: (_, _) => Text('Chat', style: _titleStyle()),
         ),

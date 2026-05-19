@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/providers.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../models/business.dart';
 import '../../../models/product.dart';
 import '../../../models/review.dart';
@@ -722,13 +724,64 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
         ),
       ),
       loading: () => const Scaffold(body: DetailSkeleton()),
-      error: (e, _) => Scaffold(
-        body: AppErrorWidget(
-          message: e.toString(),
-          onRetry: () =>
-              ref.invalidate(_businessByIdProvider(widget.businessId)),
-        ),
-      ),
+      // Surface permission-denied (unverified business read) as a
+      // friendly filler rather than a generic "something went wrong"
+      // page. Any other Firestore error keeps the original error widget.
+      error: (e, _) {
+        final msg = e.toString().toLowerCase();
+        final looksLikeUnverified = msg.contains('permission-denied') ||
+            msg.contains('insufficient permissions');
+        return Scaffold(
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => context.canPop()
+                  ? context.pop()
+                  : context.go('/home'),
+            ),
+          ),
+          body: looksLikeUnverified
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(28),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.lock_clock_rounded,
+                            size: 56, color: AppColors.text3),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Awaiting verification',
+                          style: GoogleFonts.nunito(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.text1,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'This business hasn\'t been approved yet. '
+                          'It will appear once an admin verifies it.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.dmSans(
+                            fontSize: 13,
+                            color: AppColors.text3,
+                            height: 1.45,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : AppErrorWidget(
+                  message: e.toString(),
+                  onRetry: () => ref
+                      .invalidate(_businessByIdProvider(widget.businessId)),
+                ),
+        );
+      },
     );
   }
 

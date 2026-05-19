@@ -25,6 +25,7 @@ class ChatService {
     required Product product,
     required Business business,
     required String customerId,
+    required String customerName,
   }) async {
     final id = Conversation.idFor(
       productId: product.id,
@@ -45,6 +46,7 @@ class ChatService {
       businessName: business.businessName,
       sellerId: business.ownerUid,
       customerId: customerId,
+      customerName: customerName,
       participantIds: [business.ownerUid, customerId],
       createdAt: now,
       updatedAt: now,

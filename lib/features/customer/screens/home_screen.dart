@@ -84,7 +84,9 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final productsAsync = ref.watch(allActiveProductsProvider);
+    // Customer-visible — products from verified businesses only.
+    // Unverified sellers' products are hidden until an admin approves.
+    final productsAsync = ref.watch(customerVisibleProductsProvider);
     final recentAsync = ref.watch(recentlyViewedProductsProvider);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(

@@ -318,13 +318,40 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           ),
                           loading: () =>
                               const ShimmerBox(height: 80, radius: 12),
-                          error: (_, _) => OutlinedButton.icon(
-                            onPressed: product.businessId.isEmpty
-                                ? null
-                                : () => context.go(
-                                    '/home/business/${product.businessId}'),
-                            icon: const Icon(Icons.store),
-                            label: const Text('View Business'),
+                          // Friendly filler. Reaching this branch usually
+                          // means the business is awaiting admin review
+                          // (verified=false → Firestore rule denies a
+                          // public read). Listing the product itself is
+                          // already filtered out on customer screens, so
+                          // this only triggers on direct deep-links or
+                          // mid-rebuild races.
+                          error: (_, _) => Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppColors.bgSection,
+                              borderRadius: BorderRadius.circular(12),
+                              border:
+                                  Border.all(color: AppColors.border),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.lock_clock_rounded,
+                                    color: AppColors.text3, size: 22),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'Seller is awaiting verification. '
+                                    'This page will unlock once the '
+                                    'business is approved.',
+                                    style: GoogleFonts.dmSans(
+                                      fontSize: 12.5,
+                                      color: AppColors.text2,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
 
@@ -540,6 +567,9 @@ class _ChatSellerButtonState extends ConsumerState<_ChatSellerButton> {
             product: product,
             business: widget.business,
             customerId: appUser.uid,
+            // Denormalized on the conversation doc so the seller's inbox
+            // can show "Alice" instead of the product title.
+            customerName: appUser.displayName,
           );
       if (!context.mounted) return;
       context.go('/chat/${conv.id}');

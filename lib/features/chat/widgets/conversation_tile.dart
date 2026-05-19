@@ -16,6 +16,17 @@ class ConversationTile extends StatelessWidget {
     required this.onTap,
   });
 
+  /// Returns the primary label for the tile — the OTHER party in the
+  /// conversation. Seller-side viewer sees the customer's name (with a
+  /// generic fallback for legacy threads that don't carry it); customer
+  /// viewer sees the business name.
+  String _primaryLabel(Conversation c, bool viewerIsSeller) {
+    if (viewerIsSeller) {
+      return c.customerName.isNotEmpty ? c.customerName : 'Customer';
+    }
+    return c.businessName.isNotEmpty ? c.businessName : 'Business';
+  }
+
   String _stamp(DateTime? d) {
     if (d == null) return '';
     final now = DateTime.now();
@@ -59,10 +70,13 @@ class ConversationTile extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
+                        // Primary label = the OTHER party. Seller sees
+                        // the customer's name, customer sees the
+                        // business name. Falls back to "Customer" on
+                        // legacy threads created before customerName was
+                        // denormalized.
                         child: Text(
-                          conversation.productTitle.isNotEmpty
-                              ? conversation.productTitle
-                              : 'Product',
+                          _primaryLabel(conversation, viewerIsSeller),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.nunito(
@@ -84,6 +98,22 @@ class ConversationTile extends StatelessWidget {
                       ),
                     ],
                   ),
+                  // Product context line — small, gray, so the user
+                  // still knows which product the thread is about
+                  // without it dominating the row.
+                  if (conversation.productTitle.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      'About: ${conversation.productTitle}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.dmSans(
+                        fontSize: 11.5,
+                        color: AppColors.text3,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 2),
                   Row(
                     children: [

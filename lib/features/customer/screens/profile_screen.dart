@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../widgets/delete_account_dialog.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/sign_in_required.dart';
 
@@ -236,6 +237,34 @@ class ProfileScreen extends ConsumerWidget {
                         foregroundColor: AppColors.red,
                         side: BorderSide(
                             color: AppColors.red.withAlpha(60)),
+                        minimumSize: const Size.fromHeight(52),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // ---- Delete account ----
+                  // Customer-facing self-delete entry point. Was only
+                  // reachable via /profile/settings previously — but the
+                  // Profile screen never linked there, so customers
+                  // couldn't see it. Live next to Sign Out now.
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () => showDeleteAccountFlow(
+                        context,
+                        ref,
+                        isBusinessOwner: false,
+                      ),
+                      icon: const Icon(Icons.delete_forever_rounded,
+                          size: 18),
+                      label: const Text('Delete my account'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.red,
+                        foregroundColor: AppColors.white,
                         minimumSize: const Size.fromHeight(52),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14)),

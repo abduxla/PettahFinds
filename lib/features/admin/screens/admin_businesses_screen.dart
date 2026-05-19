@@ -106,7 +106,11 @@ class _AdminBusinessesScreenState
               )
             : ListView.builder(
                 itemCount: businesses.length,
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+                // 180 px bottom: clears the bottom nav bar (~56) +
+                // FloatingActionButton.extended (~56) + safe-area so the
+                // last row's trash icon is reachable instead of trapped
+                // under the FAB.
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 180),
                 itemBuilder: (_, i) =>
                     _BusinessRow(business: businesses[i], theme: theme),
               ),
