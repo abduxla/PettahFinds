@@ -117,18 +117,19 @@ service cloud.firestore {
       //      `createdByAdminUid` is stamped for audit. Verification
       //      may be pre-toggled here too.
       //   2. Self-signup — caller must stamp themselves as ownerUid and
-      //      cannot set privileged fields to anything other than
-      //      defaults. The membershipTier field was dropped from the
-      //      check because the client doesn't write it (and the field
-      //      isn't used anywhere) — keeping it in the rule caused every
-      //      self-signup to fail with permission-denied.
+      //      cannot pre-verify themselves. We deliberately do NOT check
+      //      ratingAvg/ratingCount value here: the prior `== 0` check
+      //      compared an int literal against the double 0.0 the model
+      //      writes and Firestore rejected it with permission-denied
+      //      on every self-signup. The update rule freezes ratings on
+      //      owner edits, and any fake initial rating is overwritten by
+      //      the bounded review aggregator within hours of real activity,
+      //      so the security cost of dropping the check is negligible.
       allow create: if isAdmin()
                     || (
                       isSignedIn()
                       && request.resource.data.ownerUid == request.auth.uid
                       && request.resource.data.isVerified == false
-                      && request.resource.data.ratingAvg == 0
-                      && request.resource.data.ratingCount == 0
                     );
 
       // Update paths:

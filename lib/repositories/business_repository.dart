@@ -13,6 +13,13 @@ class BusinessRepository {
 
   Future<Business> create(Business business) async {
     final doc = _ref.doc();
+    // Earlier this method enumerated only a subset of fields and
+    // silently dropped whatsappNumber, isVerified, createdByAdminUid,
+    // lat/long, and ratings. That broke admin auto-verify onboarding
+    // (isVerified was always reset to false) and the self-signup form
+    // (WhatsApp number filled in by the merchant never persisted).
+    // Now we preserve every field the caller passed, only forcing the
+    // server-side id + createdAt.
     final newBusiness = Business(
       id: doc.id,
       businessName: business.businessName,
@@ -21,10 +28,17 @@ class BusinessRepository {
       description: business.description,
       phone: business.phone,
       email: business.email,
+      whatsappNumber: business.whatsappNumber,
       category: business.category,
       logoUrl: business.logoUrl,
       bannerUrl: business.bannerUrl,
+      isVerified: business.isVerified,
+      ratingAvg: business.ratingAvg,
+      ratingCount: business.ratingCount,
+      latitude: business.latitude,
+      longitude: business.longitude,
       createdAt: DateTime.now(),
+      createdByAdminUid: business.createdByAdminUid,
     );
     await doc.set(newBusiness.toMap());
     return newBusiness;
