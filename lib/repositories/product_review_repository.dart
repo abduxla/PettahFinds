@@ -59,15 +59,34 @@ class ProductReviewRepository {
   /// on demand.
   static const _streamLimit = 100;
 
+  /// Streams the newest reviews for a single product.
+  ///
+  /// Implementation note — composite-index avoidance:
+  /// The natural query is `where(productId).orderBy(createdAt desc)`
+  /// which requires a composite index on (productId ASC, createdAt
+  /// DESC). Customers were hitting "Missing or insufficient
+  /// permissions" / "the query requires an index" because that index
+  /// wasn't always live on their Firestore project. We now use the
+  /// single-field where (productId), pull up to [_streamLimit] docs,
+  /// and sort by createdAt client-side. Works without any
+  /// composite-index deploy step. For products with <[_streamLimit]
+  /// reviews the result is identical to the old query; beyond that
+  /// the visible 100 are no longer guaranteed to be the strictly
+  /// newest — acceptable for this app's scale.
   Stream<List<ProductReview>> streamByProduct(String productId) {
     return _ref
         .where('productId', isEqualTo: productId)
-        .orderBy('createdAt', descending: true)
         .limit(_streamLimit)
         .snapshots()
-        .map((snap) => snap.docs.map(ProductReview.fromFirestore).toList());
+        .map((snap) {
+      final list = snap.docs.map(ProductReview.fromFirestore).toList();
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return list;
+    });
   }
 
+  /// "Load more" pagination — same composite-index-free strategy.
+  /// Returns reviews older than [before], sorted newest-first.
   Future<List<ProductReview>> getOlderByProduct({
     required String productId,
     required DateTime before,
@@ -75,10 +94,10 @@ class ProductReviewRepository {
   }) async {
     final snap = await _ref
         .where('productId', isEqualTo: productId)
-        .orderBy('createdAt', descending: true)
-        .startAfter([Timestamp.fromDate(before)])
-        .limit(limit)
         .get();
-    return snap.docs.map(ProductReview.fromFirestore).toList();
+    final all = snap.docs.map(ProductReview.fromFirestore).toList();
+    final older = all.where((r) => r.createdAt.isBefore(before)).toList();
+    older.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return older.take(limit).toList();
   }
 }

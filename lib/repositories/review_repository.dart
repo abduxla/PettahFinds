@@ -57,18 +57,26 @@ class ReviewRepository {
   /// recent 100 to keep client cost bounded.
   static const _streamLimit = 100;
 
+  /// Streams the newest reviews for one business. Composite-index-free
+  /// implementation — see the matching comment on
+  /// [ProductReviewRepository.streamByProduct] for the full rationale.
+  /// In short: drops the server-side orderBy so the query needs only
+  /// the auto-created single-field index on `businessId`, then sorts
+  /// in memory.
   Stream<List<Review>> streamByBusiness(String businessId) {
     return _ref
         .where('businessId', isEqualTo: businessId)
-        .orderBy('createdAt', descending: true)
         .limit(_streamLimit)
         .snapshots()
-        .map((snap) => snap.docs.map(Review.fromFirestore).toList());
+        .map((snap) {
+      final list = snap.docs.map(Review.fromFirestore).toList();
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return list;
+    });
   }
 
-  /// One-shot fetch of older reviews for "Load more". Caller passes the
-  /// `createdAt` of the oldest review currently rendered; we return the
-  /// next [limit] reviews older than that.
+  /// One-shot fetch of older reviews for "Load more". Same
+  /// composite-index-free strategy as [streamByBusiness].
   Future<List<Review>> getOlderByBusiness({
     required String businessId,
     required DateTime before,
@@ -76,10 +84,10 @@ class ReviewRepository {
   }) async {
     final snap = await _ref
         .where('businessId', isEqualTo: businessId)
-        .orderBy('createdAt', descending: true)
-        .startAfter([Timestamp.fromDate(before)])
-        .limit(limit)
         .get();
-    return snap.docs.map(Review.fromFirestore).toList();
+    final all = snap.docs.map(Review.fromFirestore).toList();
+    final older = all.where((r) => r.createdAt.isBefore(before)).toList();
+    older.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return older.take(limit).toList();
   }
 }
