@@ -14,6 +14,14 @@ class ProductRepository {
   Future<Product> create(Product product) async {
     final doc = _ref.doc();
     final now = DateTime.now();
+    // Earlier this enumerated only a subset of fields and silently
+    // dropped wholesalePriceLkr + minOrderQuantity (and isActive/ratings,
+    // though those defaults are correct for a fresh product). Net effect
+    // for merchants: filling the wholesale tier in the add-product form
+    // had no visible result — the wholesale row never appeared on the
+    // detail screen because the doc was written with 0/0. Now every
+    // field the caller passed is preserved; only id + timestamps are
+    // server-stamped.
     final newProduct = Product(
       id: doc.id,
       businessId: product.businessId,
@@ -26,7 +34,12 @@ class ProductRepository {
       image3Url: product.image3Url,
       image4Url: product.image4Url,
       priceLkr: product.priceLkr,
+      wholesalePriceLkr: product.wholesalePriceLkr,
+      minOrderQuantity: product.minOrderQuantity,
       keywords: product.keywords,
+      isActive: product.isActive,
+      ratingAvg: product.ratingAvg,
+      ratingCount: product.ratingCount,
       createdAt: now,
       updatedAt: now,
     );

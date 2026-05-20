@@ -1180,7 +1180,39 @@ class _ProductReviewsSectionState
           },
           loading: () =>
               const ShimmerBox(height: 80, radius: 14),
-          error: (e, _) => AppErrorWidget(message: e.toString()),
+          // Graceful degrade. Errors at this surface are almost always
+          // "the productReviews composite index isn't ready yet" right
+          // after a fresh deploy — surfacing the raw Firestore message
+          // tells the customer nothing useful and steals attention from
+          // the rest of the page. Render the same empty-state we use
+          // when the product genuinely has no reviews; the section will
+          // self-heal once the index finishes building.
+          error: (_, _) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Column(
+              children: [
+                Icon(Icons.rate_review_outlined,
+                    size: 36, color: theme.colorScheme.outline),
+                const SizedBox(height: 8),
+                Text(
+                  'No reviews yet',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.text2,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Be the first to leave one.',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 12,
+                    color: theme.colorScheme.outline,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
