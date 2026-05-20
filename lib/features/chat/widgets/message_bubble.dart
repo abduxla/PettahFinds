@@ -4,28 +4,33 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/chat_message.dart';
 
-/// Per spec: seller messages render right, customer messages render left
-/// regardless of viewer — fixed alignment for a consistent thread look.
+/// Standard chat alignment: messages I sent render on the right (teal
+/// solid), messages from the other party render on the left (teal
+/// light). Earlier this was hardcoded seller-right / customer-left
+/// regardless of viewer — both sides saw the same alignment, which
+/// confused everyone because their own messages appeared on the left
+/// in their own inbox. [viewerUid] flips the bubble per-viewer so each
+/// person sees the conventional "my side / their side" split.
 class MessageBubble extends StatelessWidget {
   final ChatMessage message;
-  final String sellerId;
+  final String viewerUid;
   const MessageBubble({
     super.key,
     required this.message,
-    required this.sellerId,
+    required this.viewerUid,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isSeller = message.senderId == sellerId;
-    final bg = isSeller ? AppColors.teal : AppColors.tealLight;
-    final fg = isSeller ? Colors.white : AppColors.text1;
-    final align = isSeller ? Alignment.centerRight : Alignment.centerLeft;
+    final isMine = message.senderId == viewerUid;
+    final bg = isMine ? AppColors.teal : AppColors.tealLight;
+    final fg = isMine ? Colors.white : AppColors.text1;
+    final align = isMine ? Alignment.centerRight : Alignment.centerLeft;
     final radius = BorderRadius.only(
       topLeft: const Radius.circular(16),
       topRight: const Radius.circular(16),
-      bottomLeft: Radius.circular(isSeller ? 16 : 4),
-      bottomRight: Radius.circular(isSeller ? 4 : 16),
+      bottomLeft: Radius.circular(isMine ? 16 : 4),
+      bottomRight: Radius.circular(isMine ? 4 : 16),
     );
 
     return Align(
@@ -57,7 +62,7 @@ class MessageBubble extends StatelessWidget {
                 DateFormat.jm().format(message.createdAt),
                 style: GoogleFonts.dmSans(
                   fontSize: 10,
-                  color: isSeller
+                  color: isMine
                       ? Colors.white.withValues(alpha: 0.75)
                       : AppColors.text3,
                 ),

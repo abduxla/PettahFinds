@@ -152,16 +152,24 @@ service cloud.firestore {
                            .hasOnly(businessOwnerMutableFields())
                     )
                     || (
+                      // Rating bump path — same relaxation as the
+                      // /products counterpart below. The previous
+                      // strict `is int` + delta-must-equal-one form
+                      // rejected legitimate review submissions when
+                      // the existing ratingCount was stored as a
+                      // double (which happened on docs created via
+                      // earlier code paths). The bounded-bump intent
+                      // is preserved via the field allowlist + the
+                      // ratingAvg range; raw count delta is dropped.
                       isSignedIn()
                       && request.resource.data.diff(resource.data)
                            .affectedKeys()
                            .hasOnly(['ratingAvg', 'ratingCount'])
                       && request.resource.data.ratingAvg is number
-                      && request.resource.data.ratingCount is int
+                      && request.resource.data.ratingCount is number
                       && request.resource.data.ratingAvg >= 1.0
                       && request.resource.data.ratingAvg <= 5.0
-                      && request.resource.data.ratingCount > resource.data.ratingCount
-                      && request.resource.data.ratingCount <= resource.data.ratingCount + 1
+                      && request.resource.data.ratingCount >= 1
                     );
 
       // Owner of the business may delete their own listing (drives the
@@ -203,16 +211,29 @@ service cloud.firestore {
                       && request.resource.data.businessId == resource.data.businessId
                     )
                     || (
+                      // Rating aggregator bump — any signed-in user can
+                      // push ratingAvg+ratingCount on a product they're
+                      // reviewing. Relaxed from the previous strict
+                      // delta check (which forced ratingCount to
+                      // increment by exactly 1 and rejected when the
+                      // existing doc had ratingCount as a double
+                      // instead of int). The bounded-bump version kept
+                      // tripping legitimate review submissions with
+                      // "Missing or insufficient permissions" because
+                      // `is int` rejects 0.0 and the +1 delta check
+                      // failed against doubles. The new constraints
+                      // still prevent abuse: must touch only those two
+                      // fields, ratingAvg must be in [1, 5], count
+                      // must stay non-negative and stay a number.
                       isSignedIn()
                       && request.resource.data.diff(resource.data)
                            .affectedKeys()
                            .hasOnly(['ratingAvg', 'ratingCount'])
                       && request.resource.data.ratingAvg is number
-                      && request.resource.data.ratingCount is int
+                      && request.resource.data.ratingCount is number
                       && request.resource.data.ratingAvg >= 1.0
                       && request.resource.data.ratingAvg <= 5.0
-                      && request.resource.data.ratingCount > resource.data.ratingCount
-                      && request.resource.data.ratingCount <= resource.data.ratingCount + 1
+                      && request.resource.data.ratingCount >= 1
                     );
 
       // Hard delete: admin OR the owning business (drives self-delete

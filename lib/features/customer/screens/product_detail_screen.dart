@@ -1141,7 +1141,13 @@ class _ProductReviewsSectionState
         reviewsAsync.when(
           data: (reviews) {
             if (reviews.isEmpty) {
+              // width:double.infinity forces the Container to span the
+              // full reviews section width so the inner Column's
+              // default center crossAxisAlignment actually centers
+              // horizontally inside it (parent Column is start-aligned
+              // and would otherwise collapse this to intrinsic width).
               return Container(
+                width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surface,
@@ -1187,30 +1193,39 @@ class _ProductReviewsSectionState
           // the rest of the page. Render the same empty-state we use
           // when the product genuinely has no reviews; the section will
           // self-heal once the index finishes building.
-          error: (_, _) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Column(
-              children: [
-                Icon(Icons.rate_review_outlined,
-                    size: 36, color: theme.colorScheme.outline),
-                const SizedBox(height: 8),
-                Text(
-                  'No reviews yet',
-                  style: GoogleFonts.dmSans(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.text2,
+          //
+          // SizedBox(width: double.infinity) + Center forces horizontal
+          // centering inside the parent Column whose cross-axis is
+          // pinned to start. Without it the inner Column collapsed to
+          // its intrinsic width and stuck to the left edge.
+          error: (_, _) => SizedBox(
+            width: double.infinity,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.rate_review_outlined,
+                      size: 36, color: theme.colorScheme.outline),
+                  const SizedBox(height: 8),
+                  Text(
+                    'No reviews yet',
+                    style: GoogleFonts.dmSans(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.text2,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Be the first to leave one.',
-                  style: GoogleFonts.dmSans(
-                    fontSize: 12,
-                    color: theme.colorScheme.outline,
+                  const SizedBox(height: 2),
+                  Text(
+                    'Be the first to leave one.',
+                    style: GoogleFonts.dmSans(
+                      fontSize: 12,
+                      color: theme.colorScheme.outline,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

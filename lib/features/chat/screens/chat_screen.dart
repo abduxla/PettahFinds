@@ -213,7 +213,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             itemCount: msgs.length,
                             itemBuilder: (_, i) => MessageBubble(
                               message: msgs[i],
-                              sellerId: conv.sellerId,
+                              // Pass the viewer's own uid so the bubble
+                              // can render "mine = right, theirs = left"
+                              // per standard chat UX. Falls back to an
+                              // empty string when appUser hasn't loaded
+                              // yet (defensive — every message bubble is
+                              // inside a guarded branch).
+                              viewerUid: appUser?.uid ?? '',
                             ),
                           ),
                     loading: () => const Padding(
