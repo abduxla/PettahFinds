@@ -389,27 +389,44 @@ abstract class AppTheme {
   }
 }
 
-/// Custom PageTransitionsBuilder used app-wide. Front-loads the route's
-/// animation with a snappier curve, then delegates the actual paint to
-/// [CupertinoPageTransitionsBuilder] so the iOS-style horizontal slide,
-/// parallax-behind effect, AND the edge-swipe-back gesture detector
-/// are all preserved.
+/// Custom PageTransitionsBuilder tuned for Apple-iOS premium motion.
 ///
-/// Net effect: the slide reaches roughly 80% complete in the first 60%
-/// of the route's transition duration, so the user perceives "the
-/// screen is already there" before the formal animation finishes. No
-/// jank — the underlying Cupertino implementation interprets the
-/// pre-curved animation exactly as if the route were running faster.
+/// PHILOSOPHY
+/// Apple's UIKit push transitions are symmetric ease-in-out (NOT
+/// front-loaded), ~350ms long, with a soft parallax behind the
+/// incoming page. The feeling is "settling into place" — confident,
+/// restrained, never snappy. A prior revision used
+/// Curves.fastEaseInToSlowEaseOut which is front-loaded; that read as
+/// Android-snappy and broke the premium feel.
 ///
-/// Swap back to `CupertinoPageTransitionsBuilder()` directly if you
-/// want the stock iOS timing.
+/// IMPLEMENTATION
+/// Two layers, composed:
+///   1. Apple's actual UIKit cubic curve, Cubic(0.42, 0, 0.58, 1) —
+///      a symmetric ease-in-out. No abrupt starts, no overshoot,
+///      decelerates smoothly into the final position.
+///   2. A subtle fade overlay (0.94 → 1.0) ridden on the same curve.
+///      Soft cinematic emphasis without distracting from the primary
+///      slide. The opacity range is intentionally narrow — anything
+///      stronger reads as "Material zoom-fade", which is the
+///      aesthetic this builder is specifically avoiding.
+///
+/// We delegate the actual horizontal slide + parallax-behind paint to
+/// [CupertinoPageTransitionsBuilder] so the edge-swipe-back gesture
+/// detector that UIKit users expect stays wired up.
 class _PremiumSlideTransitionsBuilder extends PageTransitionsBuilder {
   const _PremiumSlideTransitionsBuilder();
 
-  // Curve picked from Flutter's curated set — quick acceleration on
-  // the way in, gentle settle on the tail. Matches the feel iOS users
-  // expect when pushing a sub-screen on a recent iPhone.
-  static const _curve = Curves.fastEaseInToSlowEaseOut;
+  /// UIKit's standard push-transition curve. Apple's HIG describes it
+  /// as "ease in/out smooth"; the cubic-bezier control points are the
+  /// equivalent of `cubic-bezier(0.42, 0, 0.58, 1)` from the CSS spec.
+  /// Symmetric — the in-tail and out-tail mirror each other, which
+  /// gives the "settling" feeling of native iOS push.
+  static const _appleCurve = Cubic(0.42, 0.0, 0.58, 1.0);
+
+  /// Fade start — opacity the incoming page begins at. 0.94 was tuned
+  /// by eye: visible enough to register as a soft cinematic crossfade,
+  /// quiet enough that it doesn't compete with the horizontal slide.
+  static const _fadeFrom = 0.94;
 
   @override
   Widget buildTransitions<T>(
@@ -419,15 +436,28 @@ class _PremiumSlideTransitionsBuilder extends PageTransitionsBuilder {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    final reTimed = CurvedAnimation(parent: animation, curve: _curve);
-    final reTimedSecondary =
-        CurvedAnimation(parent: secondaryAnimation, curve: _curve);
-    return const CupertinoPageTransitionsBuilder().buildTransitions<T>(
+    final curved =
+        CurvedAnimation(parent: animation, curve: _appleCurve);
+    final curvedSecondary =
+        CurvedAnimation(parent: secondaryAnimation, curve: _appleCurve);
+
+    // Slide + parallax come from Cupertino so the swipe-back gesture
+    // detector stays attached to the route.
+    final slide = const CupertinoPageTransitionsBuilder().buildTransitions<T>(
       route,
       context,
-      reTimed,
-      reTimedSecondary,
+      curved,
+      curvedSecondary,
       child,
+    );
+
+    // Subtle fade overlay riding the same Apple curve. Restraint is
+    // the point — narrow opacity range keeps the motion luxe, not
+    // theatrical.
+    return FadeTransition(
+      opacity:
+          Tween<double>(begin: _fadeFrom, end: 1.0).animate(curved),
+      child: slide,
     );
   }
 }
