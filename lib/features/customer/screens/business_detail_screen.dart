@@ -456,7 +456,9 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
               ),
             ),
 
-            // Products list
+            // Products grid — 3 columns per spec (Temu-style). Switched
+            // from the old single-column SliverList row-tiles. Each
+            // cell is a small image-on-top card with name + price.
             productsAsync.when(
               data: (products) => products.isEmpty
                   ? const SliverToBoxAdapter(
@@ -466,85 +468,21 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
                         subtitle: 'This business hasn\'t added products yet.',
                       ),
                     )
-                  : SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (_, i) {
-                          final p = products[i];
-                          return Padding(
-                            padding:
-                                const EdgeInsets.fromLTRB(20, 0, 20, 10),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.surface,
-                                borderRadius: BorderRadius.circular(14),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withAlpha(6),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: InkWell(
-                                onTap: () =>
-                                    context.go('/home/product/${p.id}'),
-                                borderRadius: BorderRadius.circular(14),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(10),
-                                  child: Row(
-                                    children: [
-                                      ClipRRect(
-                                        borderRadius:
-                                            BorderRadius.circular(10),
-                                        child: CachedImage(
-                                          imageUrl: p.image1Url,
-                                          width: 64,
-                                          height: 64,
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                          placeholderIcon:
-                                              Icons.shopping_bag_outlined,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(p.title,
-                                                style: const TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                                maxLines: 1,
-                                                overflow:
-                                                    TextOverflow.ellipsis),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              'LKR ${p.priceLkr.toStringAsFixed(0)}',
-                                              style: TextStyle(
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.w800,
-                                                color: theme
-                                                    .colorScheme.primary,
-                                                letterSpacing: -0.3,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Icon(Icons.chevron_right_rounded,
-                                          color: theme.colorScheme.outline,
-                                          size: 22),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                        childCount: products.length,
+                  : SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                      sliver: SliverGrid(
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 8,
+                          childAspectRatio: 0.72,
+                        ),
+                        delegate: SliverChildBuilderDelegate(
+                          (_, i) =>
+                              _BusinessProductGridCell(product: products[i]),
+                          childCount: products.length,
+                        ),
                       ),
                     ),
               loading: () => const SliverToBoxAdapter(
@@ -602,23 +540,53 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
                             color: theme.colorScheme.surface,
                             borderRadius: BorderRadius.circular(14),
                           ),
+                          // Two empty states depending on auth: signed-out
+                          // visitors get a "sign in to review" prompt; signed-in
+                          // users get the standard "be the first" copy.
                           child: Column(
                             children: [
-                              Icon(Icons.rate_review_outlined,
+                              const Icon(Icons.rate_review_outlined,
                                   size: 36,
-                                  color: theme.colorScheme.outline),
-                              const SizedBox(height: 8),
-                              Text('No reviews yet',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    color: theme.colorScheme.outline,
-                                  )),
-                              const SizedBox(height: 4),
-                              Text('Be the first to leave a review!',
-                                  style: TextStyle(
+                                  color: Color(0xFF9E9E9E)),
+                              const SizedBox(height: 10),
+                              Text(
+                                appUser != null
+                                    ? 'No reviews yet'
+                                    : 'Sign in to leave a review',
+                                style: GoogleFonts.dmSans(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF9E9E9E),
+                                ),
+                              ),
+                              if (appUser != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Be the first to leave a review!',
+                                  style: GoogleFonts.dmSans(
                                     fontSize: 12,
-                                    color: theme.colorScheme.outline,
-                                  )),
+                                    color: const Color(0xFF9E9E9E),
+                                  ),
+                                ),
+                              ] else ...[
+                                const SizedBox(height: 4),
+                                TextButton(
+                                  onPressed: () => context.push('/sign-in'),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppColors.teal,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 6),
+                                  ),
+                                  child: Text(
+                                    'Sign In',
+                                    style: GoogleFonts.dmSans(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.teal,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -922,6 +890,84 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
                             strokeWidth: 2, color: Colors.white),
                       )
                     : const Text('Submit'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Tight Temu-style cell used in the business-detail product grid.
+/// Image fills ~65% of the card; name + price stack below. Tap goes
+/// straight to product detail.
+class _BusinessProductGridCell extends StatelessWidget {
+  final Product product;
+  const _BusinessProductGridCell({required this.product});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: () => context.go('/home/product/${product.id}'),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 4,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 65,
+              child: SizedBox(
+                width: double.infinity,
+                child: CachedImage(
+                  imageUrl: product.image1Url,
+                  placeholderIcon: Icons.shopping_bag_outlined,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 35,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      product.shortTitle.isNotEmpty
+                          ? product.shortTitle
+                          : product.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.dmSans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.text1,
+                      ),
+                    ),
+                    Text(
+                      'LKR ${product.priceLkr.toStringAsFixed(0)}',
+                      style: GoogleFonts.nunito(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.teal,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

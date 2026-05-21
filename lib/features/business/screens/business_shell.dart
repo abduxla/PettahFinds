@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../widgets/unread_badge.dart';
 
 class BusinessShell extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
@@ -22,7 +25,7 @@ class BusinessShell extends StatelessWidget {
   }
 }
 
-class _BusinessBottomNav extends StatelessWidget {
+class _BusinessBottomNav extends ConsumerWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
 
@@ -32,7 +35,11 @@ class _BusinessBottomNav extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Live unread total across every conversation this merchant is in.
+    // Drives the badge on the Messages tab; 0 hides the badge entirely.
+    final unread =
+        ref.watch(totalUnreadCountProvider).valueOrNull ?? 0;
     return SafeArea(
       top: false,
       child: Container(
@@ -71,6 +78,7 @@ class _BusinessBottomNav extends StatelessWidget {
               activeIcon: Icons.forum_rounded,
               label: 'Messages',
               selected: currentIndex == 2,
+              badgeCount: unread,
               onTap: () => onTap(2),
             ),
             _NavItem(
@@ -93,6 +101,8 @@ class _NavItem extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  /// Optional unread-count badge overlay. 0 (default) hides the badge.
+  final int badgeCount;
 
   const _NavItem({
     required this.icon,
@@ -100,6 +110,7 @@ class _NavItem extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.badgeCount = 0,
   });
 
   @override
@@ -119,10 +130,13 @@ class _NavItem extends StatelessWidget {
                 color: selected ? AppColors.tealLight : Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
-                selected ? activeIcon : icon,
-                color: color,
-                size: 22,
+              child: UnreadBadge(
+                count: badgeCount,
+                child: Icon(
+                  selected ? activeIcon : icon,
+                  color: color,
+                  size: 22,
+                ),
               ),
             ),
             const SizedBox(height: 3),

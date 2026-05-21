@@ -9,7 +9,6 @@ import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/business.dart';
 import '../../../utils/validators.dart';
-import '../../../utils/whatsapp.dart';
 
 class BusinessSetupScreen extends ConsumerStatefulWidget {
   const BusinessSetupScreen({super.key});
@@ -232,16 +231,22 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
               TextFormField(
                 controller: _whatsappCtrl,
                 decoration: const InputDecoration(
-                    labelText: 'WhatsApp Number (optional)',
-                    hintText: '+94 77 123 4567',
+                    labelText: 'WhatsApp Number *',
+                    hintText: '+94 XX XXX XXXX',
                     prefixIcon: Icon(Icons.chat_bubble_outline)),
                 keyboardType: TextInputType.phone,
+                // WhatsApp is now mandatory — every business profile is
+                // expected to expose a customer chat channel. Two-step
+                // validation: required gate, then format check.
                 validator: (v) {
                   final t = (v ?? '').trim();
-                  if (t.isEmpty) return null;
-                  return cleanWhatsAppNumber(t) == null
-                      ? 'Enter a valid number (e.g. +94 77 123 4567)'
-                      : null;
+                  if (t.isEmpty) {
+                    return 'WhatsApp number is required';
+                  }
+                  if (!RegExp(r'^\+?[0-9]{7,15}$').hasMatch(t)) {
+                    return 'Enter a valid phone number';
+                  }
+                  return null;
                 },
               ),
               const SizedBox(height: 16),

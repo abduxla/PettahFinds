@@ -218,6 +218,21 @@ final allReportsProvider = StreamProvider<List<Report>>((ref) {
   return ref.watch(reportRepositoryProvider).streamAll();
 });
 
+/// User-selectable sort modes for the search results screen. Held in a
+/// StateProvider so the filter bottom sheet's selection persists across
+/// rebuilds and pops back as the active mode when the sheet re-opens.
+/// `null` = no explicit sort, use the order the repository returned
+/// (most-recent-first by createdAt under the hood).
+enum SearchSortOption {
+  bestReviewed,
+  priceAsc,
+  priceDesc,
+  mostFeatured,
+}
+
+final searchSortProvider =
+    StateProvider<SearchSortOption?>((ref) => null);
+
 /// Businesses filtered by category. Family keyed on category name so each
 /// distinct filter shares one Firestore subscription instead of creating
 /// a fresh provider per `build()`.

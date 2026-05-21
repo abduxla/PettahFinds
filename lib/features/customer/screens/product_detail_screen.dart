@@ -1137,41 +1137,14 @@ class _ProductReviewsSectionState
         reviewsAsync.when(
           data: (reviews) {
             if (reviews.isEmpty) {
-              // width:double.infinity forces the Container to span the
-              // full reviews section width so the inner Column's
-              // default center crossAxisAlignment actually centers
-              // horizontally inside it (parent Column is start-aligned
-              // and would otherwise collapse this to intrinsic width).
-              return Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surface,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Column(
-                  children: [
-                    Icon(Icons.rate_review_outlined,
-                        size: 32, color: theme.colorScheme.outline),
-                    const SizedBox(height: 6),
-                    Text(
-                      'No reviews yet',
-                      style: GoogleFonts.dmSans(
-                        fontWeight: FontWeight.w600,
-                        color: theme.colorScheme.outline,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Be the first to leave one.',
-                      style: GoogleFonts.dmSans(
-                        fontSize: 12,
-                        color: theme.colorScheme.outline,
-                      ),
-                    ),
-                  ],
-                ),
-              );
+              // Two empty states depending on auth:
+              //   - signed-out: prompt the visitor to sign in so they
+              //     can leave a review. Hides the "No reviews yet"
+              //     phrasing because that reads as a missing review
+              //     not a missing action.
+              //   - signed-in: standard "No reviews yet · Be the
+              //     first" copy with the form already rendered above.
+              return _ReviewsEmptyState(isSignedIn: appUser != null);
             }
             return Column(
               children: [
@@ -1194,36 +1167,7 @@ class _ProductReviewsSectionState
           // centering inside the parent Column whose cross-axis is
           // pinned to start. Without it the inner Column collapsed to
           // its intrinsic width and stuck to the left edge.
-          error: (_, _) => SizedBox(
-            width: double.infinity,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.rate_review_outlined,
-                      size: 36, color: theme.colorScheme.outline),
-                  const SizedBox(height: 8),
-                  Text(
-                    'No reviews yet',
-                    style: GoogleFonts.dmSans(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.text2,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Be the first to leave one.',
-                    style: GoogleFonts.dmSans(
-                      fontSize: 12,
-                      color: theme.colorScheme.outline,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          error: (_, _) => _ReviewsEmptyState(isSignedIn: appUser != null),
         ),
       ],
     );
@@ -1293,6 +1237,76 @@ class _ProductReviewTile extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Empty-state widget for review surfaces.
+///
+/// - Signed-out visitor: nudges them to sign in (only signed-in users
+///   can leave a review per the Firestore rules anyway).
+/// - Signed-in user: standard "be the first" copy.
+///
+/// Shared between product and business review sections so both
+/// surfaces speak in one voice.
+class _ReviewsEmptyState extends StatelessWidget {
+  final bool isSignedIn;
+  const _ReviewsEmptyState({required this.isSignedIn});
+
+  static const _muted = Color(0xFF9E9E9E);
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Column(
+          children: [
+            const Icon(Icons.rate_review_outlined,
+                size: 36, color: _muted),
+            const SizedBox(height: 10),
+            Text(
+              isSignedIn
+                  ? 'No reviews yet'
+                  : 'Sign in to leave a review',
+              style: GoogleFonts.dmSans(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: _muted,
+              ),
+            ),
+            if (isSignedIn) ...[
+              const SizedBox(height: 2),
+              Text(
+                'Be the first to leave one.',
+                style: GoogleFonts.dmSans(
+                  fontSize: 12,
+                  color: _muted,
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 4),
+              TextButton(
+                onPressed: () => context.push('/sign-in'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.teal,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 6),
+                ),
+                child: Text(
+                  'Sign In',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.teal,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
