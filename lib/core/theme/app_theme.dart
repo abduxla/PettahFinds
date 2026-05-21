@@ -443,7 +443,7 @@ class _PremiumSlideTransitionsBuilder extends PageTransitionsBuilder {
 
     // Slide + parallax come from Cupertino so the swipe-back gesture
     // detector stays attached to the route.
-    final slide = const CupertinoPageTransitionsBuilder().buildTransitions<T>(
+    final slide = CupertinoPageTransitionsBuilder().buildTransitions<T>(
       route,
       context,
       curved,
