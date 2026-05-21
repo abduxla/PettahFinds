@@ -1,5 +1,5 @@
 # Uncomment this line to define a global platform for your project
-platform :ios, '13.0'
+platform :ios, '15.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -40,5 +40,12 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+    # Force every pod to respect the app's minimum deployment target.
+    # Without this, pods that ship with a lower min-target (e.g. 13.0)
+    # override the platform line above and cause cloud_firestore /
+    # firebase_messaging to refuse to build.
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+    end
   end
 end
