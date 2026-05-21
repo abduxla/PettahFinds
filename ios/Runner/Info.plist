@@ -64,5 +64,37 @@
 			</array>
 		</dict>
 	</array>
+	<!--
+		Privacy purpose strings.
+
+		Location: the map screen calls Geolocator.getCurrentPosition()
+		to center the map on the user and to compute "shops near you"
+		distances. We only request foreground access, but the geolocator
+		iOS plugin's binary still references the Always-and-WhenInUse
+		API surface, which is what Apple's automated review flags
+		(ITMS-90683). All three location keys carry the same honest
+		string so the runtime prompt + App Review reviewer both see a
+		clear, accurate reason.
+
+		Photo library + camera + microphone: image_picker is used in
+		the business product form to attach product photos (gallery
+		pick or fresh camera capture). Microphone is included because
+		image_picker on iOS will request it the first time a video
+		picker is opened, even if the app currently only picks stills —
+		safer to declare now than ship a build that crashes on first
+		video attempt later.
+	-->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Petafinds uses your location to show nearby Pettah shops on the map and to surface businesses close to you.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Petafinds uses your location to show nearby Pettah shops on the map and to surface businesses close to you.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Petafinds uses your location to show nearby Pettah shops on the map and to surface businesses close to you.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Petafinds needs access to your photo library so you can attach photos to your business profile and product listings.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Petafinds uses the camera so you can take new photos of your products to attach to listings.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Petafinds requests microphone access only when you attach a video to a listing.</string>
 </dict>
 </plist>
