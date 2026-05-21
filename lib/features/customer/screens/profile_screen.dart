@@ -206,10 +206,14 @@ class ProfileScreen extends ConsumerWidget {
 
                   const SizedBox(height: 24),
 
-                  // ---- Sign Out ----
+                  // ---- Sign Out (primary action) ----
+                  // Promoted to the prominent filled-teal button per the
+                  // visual hierarchy spec: signing out is the common,
+                  // non-destructive action. Delete moves below as a
+                  // quiet text link to discourage accidental taps.
                   SizedBox(
                     width: double.infinity,
-                    child: OutlinedButton.icon(
+                    child: FilledButton.icon(
                       onPressed: () async {
                         final confirm = await showDialog<bool>(
                           context: context,
@@ -233,41 +237,39 @@ class ProfileScreen extends ConsumerWidget {
                       },
                       icon: const Icon(Icons.logout_rounded, size: 18),
                       label: const Text('Sign Out'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.red,
-                        side: BorderSide(
-                            color: AppColors.red.withAlpha(60)),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.teal,
+                        foregroundColor: AppColors.white,
                         minimumSize: const Size.fromHeight(52),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14)),
+                            borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
                   ),
 
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
 
-                  // ---- Delete account ----
-                  // Customer-facing self-delete entry point. Was only
-                  // reachable via /profile/settings previously — but the
-                  // Profile screen never linked there, so customers
-                  // couldn't see it. Live next to Sign Out now.
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: () => showDeleteAccountFlow(
-                        context,
-                        ref,
-                        isBusinessOwner: false,
-                      ),
-                      icon: const Icon(Icons.delete_forever_rounded,
-                          size: 18),
-                      label: const Text('Delete my account'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.red,
-                        foregroundColor: AppColors.white,
-                        minimumSize: const Size.fromHeight(52),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14)),
+                  // ---- Delete account (subdued text link) ----
+                  // Same destructive flow (showDeleteAccountFlow → type
+                  // DELETE → re-auth → cascade wipe). Only the visual
+                  // weight changes — no fill, no border, small grey
+                  // label so it doesn't compete with Sign Out.
+                  TextButton(
+                    onPressed: () => showDeleteAccountFlow(
+                      context,
+                      ref,
+                      isBusinessOwner: false,
+                    ),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size.fromHeight(40),
+                      foregroundColor: const Color(0xFF9E9E9E),
+                    ),
+                    child: Text(
+                      'Delete account',
+                      style: GoogleFonts.dmSans(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF9E9E9E),
                       ),
                     ),
                   ),

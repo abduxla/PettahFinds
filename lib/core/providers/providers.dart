@@ -158,6 +158,34 @@ final businessActiveProductsProvider =
   return ref.watch(productRepositoryProvider).streamByBusiness(businessId);
 });
 
+/// Single-business lookup, autoDispose so unused subscriptions don't
+/// linger. Family keyed on business id. Used by every customer surface
+/// that renders product cards (home, search, saved, products list) to
+/// fetch the parent business for street-pin / counterparty display.
+final businessByIdProvider =
+    FutureProvider.autoDispose.family<Business?, String>((ref, id) async {
+  if (id.isEmpty) return null;
+  try {
+    return await ref.watch(businessRepositoryProvider).getById(id);
+  } catch (_) {
+    return null;
+  }
+});
+
+/// Streamed set of productIds favorited by a given user. Used by the
+/// heart button on every product card to render true saved state and
+/// drive the toggle.
+final userFavoriteProductIdsProvider =
+    StreamProvider.autoDispose.family<Set<String>, String>((ref, uid) {
+  return ref
+      .watch(favoriteRepositoryProvider)
+      .streamByUser(uid)
+      .map((list) => list
+          .where((f) => f.targetType == 'product')
+          .map((f) => f.targetId)
+          .toSet());
+});
+
 /// Customer-facing list of businesses — verified only. Powers home,
 /// the businesses list screen, the map. Unverified listings are hidden
 /// from the public until an admin approves them.

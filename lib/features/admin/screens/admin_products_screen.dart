@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/providers.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/loading_widget.dart';
 import '../../../widgets/error_widget.dart';
@@ -43,7 +44,7 @@ class AdminProductsScreen extends ConsumerWidget {
                             style: const TextStyle(fontSize: 11)),
                         backgroundColor: p.isActive
                             ? Colors.green.withAlpha(30)
-                            : Colors.red.withAlpha(30),
+                            : AppColors.red.withAlpha(30),
                       ),
                       isThreeLine: true,
                     ),

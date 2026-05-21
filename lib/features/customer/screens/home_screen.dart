@@ -1144,9 +1144,6 @@ class _ProductCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final style = _styleFor(product.category);
-    final bizAsync =
-        ref.watch(_homeBusinessByIdProvider(product.businessId));
-    final isVerified = bizAsync.valueOrNull?.isVerified ?? false;
 
     return _TapScale(
       onTap: () => context.go('/home/product/${product.id}'),
@@ -1189,29 +1186,7 @@ class _ProductCard extends ConsumerWidget {
                                 style: const TextStyle(fontSize: 44)),
                           ),
                   ),
-                  if (isVerified)
-                    Positioned(
-                      top: 7,
-                      right: 7,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.tealLight,
-                          border: Border.all(
-                              color: AppColors.teal.withValues(alpha: 0.2)),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          '✓ Verified',
-                          style: GoogleFonts.dmSans(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 8.5,
-                            color: AppColors.teal,
-                          ),
-                        ),
-                      ),
-                    ),
+                  // VERIFIED BADGE — shown only on business own profile per spec.
                   Positioned(
                     bottom: 7,
                     right: 7,

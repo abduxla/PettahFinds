@@ -16,6 +16,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../widgets/sign_in_required.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../utils/whatsapp.dart';
+import '../../../widgets/whatsapp_icon.dart';
 
 // Stable family providers — defined top-level so `ref.invalidate` targets
 // the same instance the UI is watching and rebuilds don't re-subscribe.
@@ -199,12 +200,7 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis),
                                     ),
-                                    if (business.isVerified) ...[
-                                      const SizedBox(width: 6),
-                                      Icon(Icons.verified,
-                                          size: 20,
-                                          color: theme.colorScheme.primary),
-                                    ],
+                                    // VERIFIED BADGE — shown only on business own profile per spec.
                                   ],
                                 ),
                                 const SizedBox(height: 4),
@@ -378,8 +374,7 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
                                 color: const Color(0xFFDCFCE7),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Icon(Icons.chat_bubble_rounded,
-                                  size: 18, color: Color(0xFF25D366)),
+                              child: const WhatsAppIcon(size: 20),
                             ),
                             title: Text(business.whatsappNumber,
                                 style: const TextStyle(

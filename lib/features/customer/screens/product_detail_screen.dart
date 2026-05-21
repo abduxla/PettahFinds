@@ -473,11 +473,7 @@ class _SellerCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (business.isVerified) ...[
-                        const SizedBox(width: 4),
-                        const Icon(Icons.verified,
-                            size: 15, color: AppColors.teal),
-                      ],
+                      // VERIFIED BADGE — shown only on business own profile per spec.
                     ],
                   ),
                   const SizedBox(height: 2),

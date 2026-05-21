@@ -5,8 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
 import '../../../models/product.dart';
-import '../../../widgets/cached_image.dart';
 import '../../../widgets/empty_state_widget.dart';
+import '../../../widgets/product_card.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -217,7 +217,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                               ),
                               itemCount: _products.length,
                               itemBuilder: (_, i) =>
-                                  _ProductResultCard(product: _products[i]),
+                                  ProductCard(product: _products[i]),
                             ),
             ),
           ],
@@ -227,80 +227,5 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 }
 
-class _ProductResultCard extends StatelessWidget {
-  final Product product;
-  const _ProductResultCard({required this.product});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return GestureDetector(
-      onTap: () => context.go('/home/product/${product.id}'),
-      child: Container(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(10),
-              blurRadius: 14,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              flex: 3,
-              child: CachedImage(
-                imageUrl: product.image1Url,
-                width: double.infinity,
-                placeholderIcon: Icons.shopping_bag_outlined,
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(product.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          height: 1.3,
-                        )),
-                    const Spacer(),
-                    Text(
-                      'LKR ${product.priceLkr.toStringAsFixed(0)}',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: theme.colorScheme.primary,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(product.category,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: theme.colorScheme.outline,
-                          fontWeight: FontWeight.w500,
-                        )),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+// _ProductResultCard removed — replaced by the canonical ProductCard
+// widget per the home-spec unification.

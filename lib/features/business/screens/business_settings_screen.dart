@@ -88,59 +88,66 @@ class BusinessSettingsScreen extends ConsumerWidget {
 
           const SizedBox(height: 24),
 
-          // ---- Sign Out ----
-          OutlinedButton.icon(
-            onPressed: () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Sign Out'),
-                  content:
-                      const Text('Are you sure you want to sign out?'),
-                  actions: [
-                    TextButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('Cancel')),
-                    FilledButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('Sign Out')),
-                  ],
-                ),
-              );
-              if (confirm != true) return;
-              await ref.read(authRepositoryProvider).signOut();
-              if (context.mounted) context.go('/sign-in');
-            },
-            icon: const Icon(Icons.logout_rounded, size: 18),
-            label: const Text('Sign Out'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.red,
-              side: BorderSide(
-                  color: AppColors.red.withAlpha(60)),
-              minimumSize: const Size.fromHeight(52),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
+          // ---- Sign Out (primary action) ----
+          // Promoted to filled-teal per the visual hierarchy spec —
+          // signing out is the common, non-destructive action.
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Sign Out'),
+                    content:
+                        const Text('Are you sure you want to sign out?'),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('Cancel')),
+                      FilledButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('Sign Out')),
+                    ],
+                  ),
+                );
+                if (confirm != true) return;
+                await ref.read(authRepositoryProvider).signOut();
+                if (context.mounted) context.go('/sign-in');
+              },
+              icon: const Icon(Icons.logout_rounded, size: 18),
+              label: const Text('Sign Out'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.teal,
+                foregroundColor: AppColors.white,
+                minimumSize: const Size.fromHeight(52),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
             ),
           ),
-          const SizedBox(height: 14),
-          // ---- Danger zone: permanent delete ----
-          // Merchant variant. The dialog warns about losing the business
-          // listing and all products in addition to the standard
-          // account-data cascade. Requires typing DELETE to arm.
-          FilledButton.icon(
+          const SizedBox(height: 8),
+          // ---- Delete account (subdued text link) ----
+          // Same destructive flow (re-auth → cascade wipe). Only the
+          // visual weight changes: no fill, no border, small grey label
+          // so it doesn't compete with the Sign Out button.
+          TextButton(
             onPressed: () => showDeleteAccountFlow(
               context,
               ref,
               isBusinessOwner: true,
             ),
-            icon: const Icon(Icons.delete_forever_rounded, size: 18),
-            label: const Text('Delete my account'),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.red,
-              foregroundColor: AppColors.white,
-              minimumSize: const Size.fromHeight(52),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
+            style: TextButton.styleFrom(
+              minimumSize: const Size.fromHeight(40),
+              foregroundColor: const Color(0xFF9E9E9E),
+            ),
+            child: Text(
+              'Delete account',
+              style: GoogleFonts.dmSans(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF9E9E9E),
+              ),
             ),
           ),
         ],

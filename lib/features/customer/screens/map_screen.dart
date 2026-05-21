@@ -809,9 +809,7 @@ class _BusinessPreviewCard extends StatelessWidget {
                               letterSpacing: -0.3,
                             )),
                       ),
-                      if (business.isVerified)
-                        const Icon(Icons.verified,
-                            size: 18, color: AppTheme.accent),
+                      // VERIFIED BADGE — shown only on business own profile per spec.
                     ],
                   ),
                   const SizedBox(height: 4),
