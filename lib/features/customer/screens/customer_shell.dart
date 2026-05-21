@@ -15,7 +15,22 @@ class CustomerShell extends StatelessWidget {
     return Scaffold(
       extendBody: true,
       backgroundColor: AppColors.bgSection,
-      body: navigationShell,
+      // Tab-switch animation: fade only, no slide. AnimatedSwitcher
+      // keyed by the active branch index gives the cross-fade; the
+      // underlying StatefulNavigationShell still uses IndexedStack
+      // internally so state across the four branches is preserved.
+      // 200ms easeInOut per the motion spec.
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 200),
+        switchInCurve: Curves.easeInOut,
+        switchOutCurve: Curves.easeInOut,
+        transitionBuilder: (child, animation) =>
+            FadeTransition(opacity: animation, child: child),
+        child: KeyedSubtree(
+          key: ValueKey(navigationShell.currentIndex),
+          child: navigationShell,
+        ),
+      ),
       bottomNavigationBar: _PremiumBottomNav(
         currentIndex: navigationShell.currentIndex,
         onTap: (i) {

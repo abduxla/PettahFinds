@@ -389,44 +389,39 @@ abstract class AppTheme {
   }
 }
 
-/// Custom PageTransitionsBuilder tuned for Apple-iOS premium motion.
+/// Custom PageTransitionsBuilder — Temu-style premium feel.
 ///
 /// PHILOSOPHY
-/// Apple's UIKit push transitions are symmetric ease-in-out (NOT
-/// front-loaded), ~350ms long, with a soft parallax behind the
-/// incoming page. The feeling is "settling into place" — confident,
-/// restrained, never snappy. A prior revision used
-/// Curves.fastEaseInToSlowEaseOut which is front-loaded; that read as
-/// Android-snappy and broke the premium feel.
+/// Snappy but never bouncy. The incoming page slides in from the
+/// right AND scales up subtly (0.96 → 1.0) for a "stepping forward"
+/// sensation. The outgoing page (when a new route pushes on top)
+/// recedes slightly via scale-down + fade so the screen the user is
+/// leaving feels like it's settling into the background.
 ///
-/// IMPLEMENTATION
-/// Two layers, composed:
-///   1. Apple's actual UIKit cubic curve, Cubic(0.42, 0, 0.58, 1) —
-///      a symmetric ease-in-out. No abrupt starts, no overshoot,
-///      decelerates smoothly into the final position.
-///   2. A subtle fade overlay (0.94 → 1.0) ridden on the same curve.
-///      Soft cinematic emphasis without distracting from the primary
-///      slide. The opacity range is intentionally narrow — anything
-///      stronger reads as "Material zoom-fade", which is the
-///      aesthetic this builder is specifically avoiding.
+/// LAYERING
+/// Three composed transitions:
+///   1. Slide (handled by CupertinoPageTransitionsBuilder so the
+///      edge-swipe-back gesture detector stays attached).
+///   2. Scale-up on enter — 0.96 → 1.0, easeOutCubic.
+///   3. Scale-down + fade on the outgoing page when something new
+///      pushes on top — 1.0 → 0.97 scale, 1.0 → 0.88 fade,
+///      easeInCubic.
 ///
-/// We delegate the actual horizontal slide + parallax-behind paint to
-/// [CupertinoPageTransitionsBuilder] so the edge-swipe-back gesture
-/// detector that UIKit users expect stays wired up.
+/// REVERSE / POP
+/// CurvedAnimation's `reverseCurve` is set explicitly so push and pop
+/// both feel right. On pop the entering page (the one underneath
+/// coming back to the front) un-scales from 0.97 → 1.0 and un-fades
+/// from 0.88 → 1.0 via easeOutCubic. The departing page (the one
+/// being popped off) un-scales from 1.0 → 0.96 and slides out to the
+/// right via the inverse Cupertino slide.
+///
+/// DURATION
+/// Inherited from each route's `transitionDuration`. MaterialPage
+/// (the default Page<T> go_router uses) is 300ms — already inside
+/// the Temu 280–320ms window the spec asks for. No global override
+/// needed.
 class _PremiumSlideTransitionsBuilder extends PageTransitionsBuilder {
   const _PremiumSlideTransitionsBuilder();
-
-  /// UIKit's standard push-transition curve. Apple's HIG describes it
-  /// as "ease in/out smooth"; the cubic-bezier control points are the
-  /// equivalent of `cubic-bezier(0.42, 0, 0.58, 1)` from the CSS spec.
-  /// Symmetric — the in-tail and out-tail mirror each other, which
-  /// gives the "settling" feeling of native iOS push.
-  static const _appleCurve = Cubic(0.42, 0.0, 0.58, 1.0);
-
-  /// Fade start — opacity the incoming page begins at. 0.94 was tuned
-  /// by eye: visible enough to register as a soft cinematic crossfade,
-  /// quiet enough that it doesn't compete with the horizontal slide.
-  static const _fadeFrom = 0.94;
 
   @override
   Widget buildTransitions<T>(
@@ -436,28 +431,44 @@ class _PremiumSlideTransitionsBuilder extends PageTransitionsBuilder {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    final curved =
-        CurvedAnimation(parent: animation, curve: _appleCurve);
-    final curvedSecondary =
-        CurvedAnimation(parent: secondaryAnimation, curve: _appleCurve);
-
-    // Slide + parallax come from Cupertino so the swipe-back gesture
-    // detector stays attached to the route.
-    final slide = const CupertinoPageTransitionsBuilder().buildTransitions<T>(
-      route,
-      context,
-      curved,
-      curvedSecondary,
-      child,
+    // Incoming-page curve. easeOutCubic on the forward direction is
+    // "starts fast, settles" — the snappy-but-not-bouncy feeling.
+    // reverseCurve flips to easeInCubic so the pop animation has the
+    // same "expensive" pacing in reverse (slow start, fast finish on
+    // exit).
+    final enter = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
     );
 
-    // Subtle fade overlay riding the same Apple curve. Restraint is
-    // the point — narrow opacity range keeps the motion luxe, not
-    // theatrical.
-    return FadeTransition(
-      opacity:
-          Tween<double>(begin: _fadeFrom, end: 1.0).animate(curved),
-      child: slide,
+    // Outgoing-page curve. easeInCubic on the forward direction means
+    // the receding page accelerates as it leaves — gives the "stepping
+    // back" feeling without lingering.
+    final exit = CurvedAnimation(
+      parent: secondaryAnimation,
+      curve: Curves.easeInCubic,
+      reverseCurve: Curves.easeOutCubic,
+    );
+
+    // Compose: outermost wrap is the exit scale+fade on the outgoing
+    // page, then the enter scale, then the Cupertino slide. The
+    // gesture detector lives inside the Cupertino layer.
+    return ScaleTransition(
+      scale: Tween<double>(begin: 1.0, end: 0.97).animate(exit),
+      child: FadeTransition(
+        opacity: Tween<double>(begin: 1.0, end: 0.88).animate(exit),
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.96, end: 1.0).animate(enter),
+          child: const CupertinoPageTransitionsBuilder().buildTransitions<T>(
+            route,
+            context,
+            animation,
+            secondaryAnimation,
+            child,
+          ),
+        ),
+      ),
     );
   }
 }

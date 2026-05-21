@@ -193,12 +193,27 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // --- Chat (top-level so it can be opened from any shell) ---
-      GoRoute(path: '/chat', builder: (_, __) => const ChatListScreen()),
+      //
+      // Nested parent/child structure so go_router treats /chat/:id as
+      // a sub-route of /chat. Two payoffs:
+      //   1) go('/chat/:id') builds the stack as [/chat, /chat/:id] —
+      //      pop from the thread naturally returns to the inbox with
+      //      the correct right-to-left "pop" slide direction.
+      //   2) The back button on ChatScreen can just call pop() (with a
+      //      go('/chat') fallback for deep-linked entry), which the
+      //      Navigator animates in reverse — no more wrong-direction
+      //      slide on back gestures.
       GoRoute(
-        path: '/chat/:conversationId',
-        builder: (_, state) => ChatScreen(
-          conversationId: state.pathParameters['conversationId']!,
-        ),
+        path: '/chat',
+        builder: (_, __) => const ChatListScreen(),
+        routes: [
+          GoRoute(
+            path: ':conversationId',
+            builder: (_, state) => ChatScreen(
+              conversationId: state.pathParameters['conversationId']!,
+            ),
+          ),
+        ],
       ),
 
       // --- Customer Shell ---

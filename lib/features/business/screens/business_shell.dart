@@ -15,7 +15,19 @@ class BusinessShell extends StatelessWidget {
     return Scaffold(
       extendBody: true,
       backgroundColor: AppColors.bgSection,
-      body: navigationShell,
+      // Fade-only tab-switch animation, mirrors CustomerShell.
+      // 200ms easeInOut per the motion spec; no slide on goBranch.
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 200),
+        switchInCurve: Curves.easeInOut,
+        switchOutCurve: Curves.easeInOut,
+        transitionBuilder: (child, animation) =>
+            FadeTransition(opacity: animation, child: child),
+        child: KeyedSubtree(
+          key: ValueKey(navigationShell.currentIndex),
+          child: navigationShell,
+        ),
+      ),
       bottomNavigationBar: _BusinessBottomNav(
         currentIndex: navigationShell.currentIndex,
         onTap: (i) => navigationShell.goBranch(i,

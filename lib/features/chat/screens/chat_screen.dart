@@ -83,11 +83,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         backgroundColor: AppColors.bgSection,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
-          // Always return to the inbox (/chat). User mental model on a
-          // messaging app is "back = my list of chats", not "back = the
-          // last screen I was on". Even if the stack has /home or a
-          // product detail below us, this jumps to the chat list.
-          onPressed: () => context.go('/chat'),
+          // Pop when possible — with /chat/:id nested under /chat in
+          // the router, the inbox sits directly below the thread on the
+          // Navigator stack so pop() animates as a proper right-going
+          // pop transition AND lands on the inbox. Fallback to
+          // go('/chat') only when there's nothing to pop (deep-link
+          // straight to a thread).
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/chat'),
         ),
         title: convAsync.when(
           // Title = the OTHER party. Customer sees business name; seller
