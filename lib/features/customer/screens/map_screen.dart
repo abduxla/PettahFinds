@@ -26,6 +26,7 @@ import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../main.dart' show hasMapboxToken;
 import '../../../models/business.dart';
+import '../../../utils/maps_launcher.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
@@ -823,32 +824,49 @@ class _BusinessPreviewCard extends StatelessWidget {
                         color: AppTheme.textMuted,
                         fontWeight: FontWeight.w500,
                       )),
+                  if (business.ratingCount > 0) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF4D6),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.star_rounded,
+                              color: Color(0xFFE0A500), size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            business.ratingAvg.toStringAsFixed(1),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFFB8860B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 14),
                   Row(
                     children: [
-                      if (business.ratingCount > 0) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF4D6),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.star_rounded,
-                                  color: Color(0xFFE0A500), size: 14),
-                              const SizedBox(width: 4),
-                              Text(
-                                business.ratingAvg.toStringAsFixed(1),
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFFB8860B),
-                                ),
-                              ),
-                            ],
+                      if (business.hasCoordinates) ...[
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size.fromHeight(44),
+                            ),
+                            onPressed: () => openDirections(
+                              context,
+                              business.latitude!,
+                              business.longitude!,
+                            ),
+                            icon: const Icon(Icons.directions_rounded, size: 18),
+                            label: const Text('Directions'),
                           ),
                         ),
                         const SizedBox(width: 10),

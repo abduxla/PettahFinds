@@ -10,6 +10,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../models/business.dart';
 import '../../../utils/validators.dart';
 import '../../../utils/whatsapp.dart';
+import 'location_picker_screen.dart';
 
 class BusinessSetupScreen extends ConsumerStatefulWidget {
   const BusinessSetupScreen({super.key});
@@ -30,6 +31,8 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
   // Dropdown-backed. Null = nothing picked yet (forces the merchant to
   // choose explicitly instead of accepting a default).
   String? _category;
+  double? _pickedLat;
+  double? _pickedLng;
   bool _loading = false;
   bool _acceptedUserTerms = false;
   bool _acceptedListingAgreement = false;
@@ -82,6 +85,8 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
               whatsappNumber: _whatsappCtrl.text.trim(),
               email: _emailCtrl.text.trim(),
               category: _category!,
+              latitude: _pickedLat,
+              longitude: _pickedLng,
               createdAt: DateTime.now(),
             ),
           );
@@ -206,6 +211,33 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                     labelText: 'Location',
                     prefixIcon: Icon(Icons.location_on)),
                 validator: (v) => Validators.required(v, 'Location'),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final result = await LocationPickerScreen.show(
+                    context,
+                    lat: _pickedLat,
+                    lng: _pickedLng,
+                  );
+                  if (result != null) {
+                    setState(() {
+                      _pickedLat = result.$1;
+                      _pickedLng = result.$2;
+                    });
+                  }
+                },
+                icon: Icon(
+                  _pickedLat != null
+                      ? Icons.location_on_rounded
+                      : Icons.add_location_alt_outlined,
+                  size: 18,
+                ),
+                label: Text(
+                  _pickedLat != null
+                      ? 'Map pin set (${_pickedLat!.toStringAsFixed(4)}, ${_pickedLng!.toStringAsFixed(4)})'
+                      : 'Pin location on map (optional)',
+                ),
               ),
               const SizedBox(height: 16),
               TextFormField(

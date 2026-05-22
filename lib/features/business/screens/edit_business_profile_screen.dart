@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../core/constants/categories.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
@@ -10,6 +11,7 @@ import '../../../utils/validators.dart';
 import '../../../utils/whatsapp.dart';
 import '../../../widgets/loading_widget.dart';
 import '../../../widgets/error_widget.dart';
+import 'location_picker_screen.dart';
 
 class EditBusinessProfileScreen extends ConsumerStatefulWidget {
   const EditBusinessProfileScreen({super.key});
@@ -28,7 +30,9 @@ class _EditBusinessProfileScreenState
   final _phoneCtrl = TextEditingController();
   final _whatsappCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
-  final _categoryCtrl = TextEditingController();
+  String? _category;
+  double? _pickedLat;
+  double? _pickedLng;
   bool _loading = false;
   bool _initialized = false;
 
@@ -47,7 +51,9 @@ class _EditBusinessProfileScreenState
         ? storedWa
         : '';
     _emailCtrl.text = business.email;
-    _categoryCtrl.text = business.category;
+    _category = business.category;
+    _pickedLat = business.latitude;
+    _pickedLng = business.longitude;
     _initialized = true;
   }
 
@@ -59,7 +65,6 @@ class _EditBusinessProfileScreenState
     _phoneCtrl.dispose();
     _whatsappCtrl.dispose();
     _emailCtrl.dispose();
-    _categoryCtrl.dispose();
     super.dispose();
   }
 
@@ -76,7 +81,9 @@ class _EditBusinessProfileScreenState
               phone: _phoneCtrl.text.trim(),
               whatsappNumber: _whatsappCtrl.text.trim(),
               email: _emailCtrl.text.trim(),
-              category: _categoryCtrl.text.trim(),
+              category: _category ?? business.category,
+              latitude: _pickedLat,
+              longitude: _pickedLng,
             ),
           );
       // Refresh the cached business so the dashboard reflects changes
@@ -178,11 +185,20 @@ class _EditBusinessProfileScreenState
                         Validators.required(v, 'Business name'),
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _categoryCtrl,
-                    decoration:
-                        const InputDecoration(labelText: 'Category'),
-                    validator: (v) => Validators.required(v, 'Category'),
+                  DropdownButtonFormField<String>(
+                    initialValue: _category,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Category',
+                      prefixIcon: Icon(Icons.category),
+                    ),
+                    items: AppCategories.all
+                        .map((c) => DropdownMenuItem<String>(
+                            value: c, child: Text(c)))
+                        .toList(),
+                    onChanged: (v) => setState(() => _category = v),
+                    validator: (v) =>
+                        (v == null || v.isEmpty) ? 'Pick a category' : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -190,6 +206,33 @@ class _EditBusinessProfileScreenState
                     decoration:
                         const InputDecoration(labelText: 'Location'),
                     validator: (v) => Validators.required(v, 'Location'),
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final result = await LocationPickerScreen.show(
+                        context,
+                        lat: _pickedLat,
+                        lng: _pickedLng,
+                      );
+                      if (result != null) {
+                        setState(() {
+                          _pickedLat = result.$1;
+                          _pickedLng = result.$2;
+                        });
+                      }
+                    },
+                    icon: Icon(
+                      _pickedLat != null
+                          ? Icons.location_on_rounded
+                          : Icons.add_location_alt_outlined,
+                      size: 18,
+                    ),
+                    label: Text(
+                      _pickedLat != null
+                          ? 'Map pin set (${_pickedLat!.toStringAsFixed(4)}, ${_pickedLng!.toStringAsFixed(4)})'
+                          : 'Pin location on map (optional)',
+                    ),
                   ),
                   const SizedBox(height: 16),
                   TextFormField(

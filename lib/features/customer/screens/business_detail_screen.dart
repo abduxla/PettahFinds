@@ -15,6 +15,7 @@ import '../../../widgets/empty_state_widget.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../widgets/sign_in_required.dart';
 import '../../../core/extensions/context_extensions.dart';
+import '../../../utils/maps_launcher.dart';
 import '../../../utils/whatsapp.dart';
 
 // Stable family providers — defined top-level so `ref.invalidate` targets
@@ -446,6 +447,73 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
                   ),
                 ),
               ),
+
+            // Location / Get Directions
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(6),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: business.hasCoordinates
+                      ? Row(
+                          children: [
+                            const Icon(Icons.location_on_rounded,
+                                color: Color(0xFF16A34A), size: 20),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                business.location,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            FilledButton.icon(
+                              onPressed: () => openDirections(
+                                context,
+                                business.latitude!,
+                                business.longitude!,
+                              ),
+                              icon: const Icon(Icons.directions_rounded,
+                                  size: 18),
+                              label: const Text('Directions'),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Icon(Icons.location_off_outlined,
+                                color: theme.colorScheme.outline, size: 20),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Location not added yet',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: theme.colorScheme.outline,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+            ),
 
             // Products section header
             SliverToBoxAdapter(
