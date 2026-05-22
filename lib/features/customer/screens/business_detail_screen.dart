@@ -453,64 +453,119 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.surface,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withAlpha(6),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
+                        color: Colors.black.withAlpha(8),
+                        blurRadius: 12,
+                        offset: const Offset(0, 3),
                       ),
                     ],
                   ),
-                  child: business.hasCoordinates
-                      ? Row(
-                          children: [
-                            const Icon(Icons.location_on_rounded,
-                                color: Color(0xFF16A34A), size: 20),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                business.location,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            FilledButton.icon(
-                              onPressed: () => openDirections(
+                  clipBehavior: Clip.antiAlias,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: business.hasCoordinates
+                          ? () => openDirections(
                                 context,
                                 business.latitude!,
                                 business.longitude!,
-                              ),
-                              icon: const Icon(Icons.directions_rounded,
-                                  size: 18),
-                              label: const Text('Directions'),
-                            ),
-                          ],
-                        )
-                      : Row(
+                              )
+                          : null,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 14),
+                        child: Row(
                           children: [
-                            Icon(Icons.location_off_outlined,
-                                color: theme.colorScheme.outline, size: 20),
-                            const SizedBox(width: 12),
-                            Text(
-                              'Location not added yet',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: theme.colorScheme.outline,
-                                fontWeight: FontWeight.w500,
+                            // Icon badge
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: business.hasCoordinates
+                                    ? const Color(0xFFDCFCE7)
+                                    : const Color(0xFFF3F4F6),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                business.hasCoordinates
+                                    ? Icons.location_on_rounded
+                                    : Icons.location_off_outlined,
+                                size: 22,
+                                color: business.hasCoordinates
+                                    ? const Color(0xFF16A34A)
+                                    : theme.colorScheme.outline,
                               ),
                             ),
+                            const SizedBox(width: 14),
+                            // Title + address
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    business.hasCoordinates
+                                        ? 'Get Directions'
+                                        : 'Location',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    business.location.isNotEmpty
+                                        ? business.location
+                                        : 'Address not provided',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: theme.colorScheme.outline,
+                                      fontWeight: FontWeight.w500,
+                                      height: 1.4,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  if (!business.hasCoordinates) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'No map pin added yet',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: theme.colorScheme.outline
+                                            .withAlpha(140),
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            // Trailing arrow (tappable state only)
+                            if (business.hasCoordinates) ...[
+                              const SizedBox(width: 10),
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFDCFCE7),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.arrow_outward_rounded,
+                                  size: 16,
+                                  color: Color(0xFF16A34A),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
