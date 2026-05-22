@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
@@ -66,6 +68,32 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       if (mounted) setState(() => _loading = false);
     }
   }
+
+  /// Apple Sign-In is required by App Store policy whenever a third-
+  /// party social sign-in is offered. Only renders the button on
+  /// iOS/macOS — Android / Web fall back to email + Google.
+  Future<void> _signInWithApple() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      final appUser =
+          await ref.read(authRepositoryProvider).signInWithApple();
+      if (!mounted) return;
+      _routeAfterSignIn(appUser);
+    } catch (e) {
+      if (mounted) context.showErrorSnackBar(e);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// True only on iOS/macOS where Apple's native sheet is available.
+  /// Android + web hit a 401 from Apple's web flow without extra
+  /// Services-ID + redirect-URL setup, which we haven't done.
+  bool get _appleAvailable =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS);
 
   void _routeAfterSignIn(AppUser appUser) {
     if (appUser.isAdmin) {
@@ -230,6 +258,23 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       ),
                     ),
                   ),
+                  // Apple sign-in — required by App Store Review
+                  // Guidelines whenever a third-party social sign-in
+                  // is offered. Only shown on iOS/macOS; Android +
+                  // web fall back to email + Google. The
+                  // SignInWithAppleButton enforces Apple's official
+                  // styling (black pill) so the build passes App
+                  // Review.
+                  if (_appleAvailable) ...[
+                    const SizedBox(height: 10),
+                    SignInWithAppleButton(
+                      onPressed:
+                          _loading ? () {} : _signInWithApple,
+                      style: SignInWithAppleButtonStyle.black,
+                      borderRadius: BorderRadius.circular(12),
+                      height: 48,
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,

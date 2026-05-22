@@ -41,9 +41,14 @@ service cloud.firestore {
     }
 
     // Fields a user is allowed to change on their own profile.
+    // fcmToken + fcmUpdatedAt are added so the device can persist
+    // its push token via NotificationService without privileged
+    // write access. Both fields are also writable on their own
+    // (token-refresh path — see the second update branch below).
     function userSelfMutableFields() {
       return ['displayName', 'phoneNumber', 'photoUrl',
-              'onboardingCompleted', 'businessId'];
+              'onboardingCompleted', 'businessId',
+              'fcmToken', 'fcmUpdatedAt'];
     }
 
     // Fields a business owner is allowed to edit on their own business doc

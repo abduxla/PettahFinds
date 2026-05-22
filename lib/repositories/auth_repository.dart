@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../core/constants/app_constants.dart';
 import '../models/app_user.dart';
 import 'notification_repository.dart';
@@ -145,7 +146,20 @@ class AuthRepository {
   ///  - iOS: copy `REVERSED_CLIENT_ID` from the new GoogleService-Info.plist
   ///    into ios/Runner/Info.plist as a CFBundleURLSchemes entry.
   Future<AppUser> signInWithGoogle() async {
-    final googleUser = await GoogleSignIn().signIn();
+    // Tight try/catch around the native call so iOS TestFlight builds
+    // surface the real failure to the sign-in screen as a tame
+    // Exception instead of crashing the isolate. Common causes
+    // historically: missing REVERSED_CLIENT_ID URL scheme (fixed in
+    // Info.plist), missing GIDClientID (also in Info.plist now),
+    // PlatformException for keychain / Google Play Services issues.
+    final GoogleSignInAccount? googleUser;
+    try {
+      googleUser = await GoogleSignIn().signIn();
+    } catch (e) {
+      if (kDebugMode) debugPrint('[auth] Google Sign-In native error: $e');
+      throw Exception(
+          'Google sign-in failed. Please try again or use another method.');
+    }
     if (googleUser == null) {
       // User cancelled the picker — bubble a tame error so the sign-in
       // screen can surface a snackbar instead of a stack trace.
@@ -192,6 +206,93 @@ class AuthRepository {
       );
     } catch (e) {
       debugPrint('[auth] welcome notification (google) failed: $e');
+    }
+    return appUser;
+  }
+
+  /// Sign in with Apple (iOS native).
+  ///
+  /// Flow:
+  ///  1. Trigger Apple's native sheet via [SignInWithApple].
+  ///  2. Build a Firebase OAuthCredential from the identity token +
+  ///     authorization code.
+  ///  3. Sign in to Firebase Auth.
+  ///  4. On first sign-in, seed an AppUser doc with role 'user' +
+  ///     mint the welcome notification (mirrors signUp / Google).
+  ///  5. Apple only sends givenName + familyName on the FIRST
+  ///     sign-in — cache it onto the Firebase user's displayName so
+  ///     subsequent sessions don't lose the name.
+  ///
+  /// Console setup required:
+  ///  - Firebase Console → Authentication → Sign-in method → enable
+  ///    Apple (provide the Services ID + Team ID).
+  ///  - Xcode → Runner target → Signing & Capabilities →
+  ///    + Capability → Sign in with Apple.
+  ///  - Apple Developer portal: the App ID must have the
+  ///    "Sign in with Apple" capability enabled.
+  Future<AppUser> signInWithApple() async {
+    final appleCredential = await SignInWithApple.getAppleIDCredential(
+      scopes: const [
+        AppleIDAuthorizationScopes.email,
+        AppleIDAuthorizationScopes.fullName,
+      ],
+    );
+
+    final oauthCredential = OAuthProvider('apple.com').credential(
+      idToken: appleCredential.identityToken,
+      accessToken: appleCredential.authorizationCode,
+    );
+
+    final cred = await _auth.signInWithCredential(oauthCredential);
+    final user = cred.user!;
+
+    // Cache the name on the first sign-in. Apple's privacy model only
+    // sends givenName+familyName when the user authorizes the app for
+    // the FIRST time; every subsequent sign-in returns null for those
+    // fields, so we have exactly one shot to capture them.
+    final fullName = [
+      appleCredential.givenName,
+      appleCredential.familyName,
+    ].whereType<String>().where((s) => s.isNotEmpty).join(' ').trim();
+    if (fullName.isNotEmpty &&
+        (user.displayName == null || user.displayName!.isEmpty)) {
+      try {
+        await user.updateDisplayName(fullName);
+      } catch (e) {
+        debugPrint('[auth] apple displayName update failed: $e');
+      }
+    }
+
+    final userDoc =
+        _firestore.collection(AppConstants.usersCollection).doc(user.uid);
+    final snap = await userDoc.get();
+    if (snap.exists) {
+      return AppUser.fromFirestore(snap);
+    }
+
+    // First sign-in via Apple — seed the AppUser doc. Email may be
+    // null on subsequent sign-ins if the user previously chose
+    // "Hide My Email"; we keep whatever Firebase has stored.
+    final appUser = AppUser(
+      uid: user.uid,
+      email: user.email ?? appleCredential.email ?? '',
+      displayName: fullName.isNotEmpty
+          ? fullName
+          : (user.displayName ?? 'PetaFinds user'),
+      role: 'user',
+      createdAt: DateTime.now(),
+    );
+    await userDoc.set(appUser.toMap());
+
+    try {
+      await NotificationRepository(firestore: _firestore).createForSelf(
+        userId: user.uid,
+        title: 'Welcome to PetaFinds',
+        body:
+            'Browse Pettah\'s wholesale shops, save favorites, and chat with sellers.',
+      );
+    } catch (e) {
+      debugPrint('[auth] welcome notification (apple) failed: $e');
     }
     return appUser;
   }

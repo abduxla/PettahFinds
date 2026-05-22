@@ -65,6 +65,18 @@
 		</dict>
 	</array>
 	<!--
+		GIDClientID — Google Sign-In iOS SDK reads this at bootstrap to
+		know which OAuth client to authenticate against. Without it the
+		SDK has been observed to crash on TestFlight builds with an
+		obscure keychain/config error (it works in dev because the SDK
+		can sometimes infer the client id from the URL scheme, but
+		release builds with stricter linker stripping fail). Mirror of
+		the CLIENT_ID field in GoogleService-Info.plist; must stay in
+		sync if Firebase regenerates the iOS OAuth client.
+	-->
+	<key>GIDClientID</key>
+	<string>263905072020-rhmdc4qm4f2gqe27hmcmjqaogbgk5qp5.apps.googleusercontent.com</string>
+	<!--
 		Privacy purpose strings.
 
 		Location: the map screen calls Geolocator.getCurrentPosition()

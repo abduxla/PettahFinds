@@ -42,7 +42,10 @@ import '../../features/legal/legal_documents.dart';
 import '../../features/chat/screens/chat_list_screen.dart';
 import '../../features/chat/screens/chat_screen.dart';
 
-final _rootNavigatorKey = GlobalKey<NavigatorState>();
+/// Public so non-router callers (FCM tap handler, deep links) can
+/// reach BuildContext via rootNavigatorKey.currentState/.currentContext
+/// without holding a Riverpod ref.
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 final _customerShellKey = GlobalKey<NavigatorState>(debugLabel: 'customer');
 final _businessShellKey = GlobalKey<NavigatorState>(debugLabel: 'business');
 final _adminShellKey = GlobalKey<NavigatorState>(debugLabel: 'admin');
@@ -52,7 +55,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   final appUser = ref.watch(appUserProvider);
 
   return GoRouter(
-    navigatorKey: _rootNavigatorKey,
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
     redirect: (context, state) {
       final isAuthLoading = authState.isLoading;
