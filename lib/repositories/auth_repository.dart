@@ -146,31 +146,52 @@ class AuthRepository {
   ///  - iOS: copy `REVERSED_CLIENT_ID` from the new GoogleService-Info.plist
   ///    into ios/Runner/Info.plist as a CFBundleURLSchemes entry.
   Future<AppUser> signInWithGoogle() async {
-    // Tight try/catch around the native call so iOS TestFlight builds
-    // surface the real failure to the sign-in screen as a tame
-    // Exception instead of crashing the isolate. Common causes
-    // historically: missing REVERSED_CLIENT_ID URL scheme (fixed in
-    // Info.plist), missing GIDClientID (also in Info.plist now),
-    // PlatformException for keychain / Google Play Services issues.
-    final GoogleSignInAccount? googleUser;
+    // Web and native are two completely different flows:
+    //
+    //   - Native (iOS / Android / macOS): google_sign_in plugin
+    //     drives the native account picker, hands back tokens, we
+    //     build a Firebase credential and signInWithCredential.
+    //
+    //   - Web: google_sign_in 6.x's .signIn() is deprecated and
+    //     throws ("api is not supported on this platform"). The
+    //     supported web path is Firebase Auth's signInWithPopup with
+    //     a GoogleAuthProvider — that opens Google's OAuth popup and
+    //     signs in to Firebase in one call.
+    //
+    // Both branches converge on the same /users/{uid} seeding logic
+    // below.
+    final UserCredential cred;
     try {
-      googleUser = await GoogleSignIn().signIn();
+      if (kIsWeb) {
+        cred = await _auth.signInWithPopup(GoogleAuthProvider());
+      } else {
+        final googleUser = await GoogleSignIn().signIn();
+        if (googleUser == null) {
+          throw Exception('Google sign-in cancelled.');
+        }
+        final googleAuth = await googleUser.authentication;
+        final credential = GoogleAuthProvider.credential(
+          idToken: googleAuth.idToken,
+          accessToken: googleAuth.accessToken,
+        );
+        cred = await _auth.signInWithCredential(credential);
+      }
     } catch (e) {
-      if (kDebugMode) debugPrint('[auth] Google Sign-In native error: $e');
+      if (kDebugMode) debugPrint('[auth] Google Sign-In error: $e');
+      // Surface common cases with their own copy so the user knows
+      // what to do; fall through to the generic message otherwise.
+      final s = e.toString();
+      if (s.contains('popup-closed-by-user') ||
+          s.contains('cancelled')) {
+        throw Exception('Google sign-in cancelled.');
+      }
+      if (s.contains('account-exists-with-different-credential')) {
+        throw Exception(
+            'An account already exists with this email. Sign in with the original method.');
+      }
       throw Exception(
           'Google sign-in failed. Please try again or use another method.');
     }
-    if (googleUser == null) {
-      // User cancelled the picker — bubble a tame error so the sign-in
-      // screen can surface a snackbar instead of a stack trace.
-      throw Exception('Google sign-in cancelled.');
-    }
-    final googleAuth = await googleUser.authentication;
-    final credential = GoogleAuthProvider.credential(
-      idToken: googleAuth.idToken,
-      accessToken: googleAuth.accessToken,
-    );
-    final cred = await _auth.signInWithCredential(credential);
     final user = cred.user!;
 
     final userDoc = _firestore
@@ -181,15 +202,16 @@ class AuthRepository {
       return AppUser.fromFirestore(snap);
     }
 
-    // First sign-in via Google — seed the AppUser doc. Display name and
-    // photo come from the Google profile; falls back gracefully if Google
-    // didn't provide them.
+    // First sign-in via Google — seed the AppUser doc. Display name +
+    // photo come straight from the Firebase user object (populated by
+    // both signInWithPopup on web and signInWithCredential on native),
+    // so we don't need a separate googleUser fallback anymore. Final
+    // fallback to a generic display name if Google didn't share one.
     final appUser = AppUser(
       uid: user.uid,
-      email: user.email ?? googleUser.email,
+      email: user.email ?? '',
       displayName:
-          (user.displayName ?? googleUser.displayName ?? 'PetaFinds user')
-              .trim(),
+          (user.displayName ?? 'PetaFinds user').trim(),
       role: 'user',
       photoUrl: user.photoURL ?? '',
       createdAt: DateTime.now(),
