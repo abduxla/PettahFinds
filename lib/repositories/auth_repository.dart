@@ -145,21 +145,18 @@ class AuthRepository {
   ///    google-services.json and drop it into android/app/.
   ///  - iOS: copy `REVERSED_CLIENT_ID` from the new GoogleService-Info.plist
   ///    into ios/Runner/Info.plist as a CFBundleURLSchemes entry.
-  Future<AppUser> signInWithGoogle() async {
-    // Web and native are two completely different flows:
-    //
-    //   - Native (iOS / Android / macOS): google_sign_in plugin
-    //     drives the native account picker, hands back tokens, we
-    //     build a Firebase credential and signInWithCredential.
-    //
-    //   - Web: google_sign_in 6.x's .signIn() is deprecated and
-    //     throws ("api is not supported on this platform"). The
-    //     supported web path is Firebase Auth's signInWithPopup with
-    //     a GoogleAuthProvider — that opens Google's OAuth popup and
-    //     signs in to Firebase in one call.
-    //
-    // Both branches converge on the same /users/{uid} seeding logic
-    // below.
+  /// OAuth ONLY — drives the Google sign-in sheet, exchanges tokens,
+  /// signs in to Firebase Auth, returns the Firebase [User]. Does NOT
+  /// touch /users/{uid}.
+  ///
+  /// Use this when the caller needs to decide what to do BEFORE the
+  /// app-user doc is seeded — e.g. the signup screen prompts the new
+  /// user to pick a role before writing the doc. For ordinary sign-in
+  /// use [signInWithGoogle] which composes this + [seedAppUserIfMissing]
+  /// with the default 'user' role.
+  Future<User> authenticateWithGoogle() async {
+    // Web and native are two completely different flows. See the
+    // comment on signInWithGoogle below for the why.
     final UserCredential cred;
     try {
       if (kIsWeb) {
@@ -178,8 +175,6 @@ class AuthRepository {
       }
     } catch (e) {
       if (kDebugMode) debugPrint('[auth] Google Sign-In error: $e');
-      // Surface common cases with their own copy so the user knows
-      // what to do; fall through to the generic message otherwise.
       final s = e.toString();
       if (s.contains('popup-closed-by-user') ||
           s.contains('cancelled')) {
@@ -192,44 +187,79 @@ class AuthRepository {
       throw Exception(
           'Google sign-in failed. Please try again or use another method.');
     }
-    final user = cred.user!;
+    return cred.user!;
+  }
 
+  /// Returns the existing AppUser doc, or seeds one with [role] +
+  /// metadata pulled off the Firebase user. Idempotent — calling
+  /// twice with the same uid returns the same doc the second time.
+  ///
+  /// Mints the welcome in-app notification only on the FIRST seed
+  /// (subsequent calls short-circuit because the doc already exists).
+  ///
+  /// [role] is the role to write if the doc is missing. Existing docs
+  /// keep their stored role regardless of what's passed.
+  Future<AppUser> seedAppUserIfMissing({
+    required User firebaseUser,
+    required String role,
+  }) async {
     final userDoc = _firestore
         .collection(AppConstants.usersCollection)
-        .doc(user.uid);
+        .doc(firebaseUser.uid);
     final snap = await userDoc.get();
     if (snap.exists) {
       return AppUser.fromFirestore(snap);
     }
 
-    // First sign-in via Google — seed the AppUser doc. Display name +
-    // photo come straight from the Firebase user object (populated by
-    // both signInWithPopup on web and signInWithCredential on native),
-    // so we don't need a separate googleUser fallback anymore. Final
-    // fallback to a generic display name if Google didn't share one.
+    final safeRole =
+        _allowedSignupRoles.contains(role) ? role : 'user';
+
     final appUser = AppUser(
-      uid: user.uid,
-      email: user.email ?? '',
+      uid: firebaseUser.uid,
+      email: firebaseUser.email ?? '',
       displayName:
-          (user.displayName ?? 'PetaFinds user').trim(),
-      role: 'user',
-      photoUrl: user.photoURL ?? '',
+          (firebaseUser.displayName ?? 'PetaFinds user').trim(),
+      role: safeRole,
+      photoUrl: firebaseUser.photoURL ?? '',
       createdAt: DateTime.now(),
     );
     await userDoc.set(appUser.toMap());
 
-    // Best-effort welcome notification, same pattern as email signup.
+    // Best-effort welcome notification. Same pattern as email signup.
     try {
       await NotificationRepository(firestore: _firestore).createForSelf(
-        userId: user.uid,
+        userId: firebaseUser.uid,
         title: 'Welcome to PetaFinds',
-        body:
-            'Browse Pettah\'s wholesale shops, save favorites, and chat with sellers.',
+        body: safeRole == 'business'
+            ? 'Finish setting up your business so customers can find you.'
+            : 'Browse Pettah\'s wholesale shops, save favorites, and chat with sellers on WhatsApp.',
       );
     } catch (e) {
-      debugPrint('[auth] welcome notification (google) failed: $e');
+      debugPrint('[auth] welcome notification (oauth) failed: $e');
     }
     return appUser;
+  }
+
+  Future<AppUser> signInWithGoogle() async {
+    // Web and native are two completely different flows:
+    //
+    //   - Native (iOS / Android / macOS): google_sign_in plugin
+    //     drives the native account picker, hands back tokens, we
+    //     build a Firebase credential and signInWithCredential.
+    //
+    //   - Web: google_sign_in 6.x's .signIn() is deprecated and
+    //     throws ("api is not supported on this platform"). The
+    //     supported web path is Firebase Auth's signInWithPopup with
+    //     a GoogleAuthProvider — that opens Google's OAuth popup and
+    //     signs in to Firebase in one call.
+    //
+    // Both branches converge on the same /users/{uid} seeding logic
+    // below. Returning users have their existing role; first-time
+    // sign-ins through THIS method get role='user'. (Sign-up screen
+    // uses the lower-level authenticateWithGoogle + role picker for
+    // first-timers who want to be businesses.)
+    final user = await authenticateWithGoogle();
+    return seedAppUserIfMissing(firebaseUser: user, role: 'user');
   }
 
   /// Sign in with Apple (iOS native).
@@ -252,7 +282,13 @@ class AuthRepository {
   ///    + Capability → Sign in with Apple.
   ///  - Apple Developer portal: the App ID must have the
   ///    "Sign in with Apple" capability enabled.
-  Future<AppUser> signInWithApple() async {
+  /// OAuth ONLY — drives Apple's native sheet, exchanges tokens,
+  /// signs in to Firebase Auth, and caches the first-sign-in name
+  /// onto the Firebase user's displayName. Does NOT touch
+  /// /users/{uid}. Use this when the caller wants to seed the doc
+  /// itself (e.g. signup screen with a role picker). For ordinary
+  /// sign-in use [signInWithApple].
+  Future<User> authenticateWithApple() async {
     final appleCredential = await SignInWithApple.getAppleIDCredential(
       scopes: const [
         AppleIDAuthorizationScopes.email,
@@ -268,10 +304,11 @@ class AuthRepository {
     final cred = await _auth.signInWithCredential(oauthCredential);
     final user = cred.user!;
 
-    // Cache the name on the first sign-in. Apple's privacy model only
-    // sends givenName+familyName when the user authorizes the app for
-    // the FIRST time; every subsequent sign-in returns null for those
-    // fields, so we have exactly one shot to capture them.
+    // FIRST-SIGN-IN NAME QUIRK. Apple's privacy model only sends
+    // givenName+familyName when the user authorizes the app for the
+    // first time; subsequent sign-ins return null. We have exactly
+    // one shot to capture them, so write through to the Firebase
+    // user's displayName before anything downstream reads it.
     final fullName = [
       appleCredential.givenName,
       appleCredential.familyName,
@@ -284,39 +321,16 @@ class AuthRepository {
         debugPrint('[auth] apple displayName update failed: $e');
       }
     }
+    return user;
+  }
 
-    final userDoc =
-        _firestore.collection(AppConstants.usersCollection).doc(user.uid);
-    final snap = await userDoc.get();
-    if (snap.exists) {
-      return AppUser.fromFirestore(snap);
-    }
-
-    // First sign-in via Apple — seed the AppUser doc. Email may be
-    // null on subsequent sign-ins if the user previously chose
-    // "Hide My Email"; we keep whatever Firebase has stored.
-    final appUser = AppUser(
-      uid: user.uid,
-      email: user.email ?? appleCredential.email ?? '',
-      displayName: fullName.isNotEmpty
-          ? fullName
-          : (user.displayName ?? 'PetaFinds user'),
-      role: 'user',
-      createdAt: DateTime.now(),
-    );
-    await userDoc.set(appUser.toMap());
-
-    try {
-      await NotificationRepository(firestore: _firestore).createForSelf(
-        userId: user.uid,
-        title: 'Welcome to PetaFinds',
-        body:
-            'Browse Pettah\'s wholesale shops, save favorites, and chat with sellers.',
-      );
-    } catch (e) {
-      debugPrint('[auth] welcome notification (apple) failed: $e');
-    }
-    return appUser;
+  Future<AppUser> signInWithApple() async {
+    // Returning users keep their existing role; first-timers through
+    // THIS method default to 'user'. The signup screen uses the
+    // lower-level authenticateWithApple + role picker to let new
+    // users sign up as businesses.
+    final user = await authenticateWithApple();
+    return seedAppUserIfMissing(firebaseUser: user, role: 'user');
   }
 
   Future<AppUser> getAppUser(String uid) async {

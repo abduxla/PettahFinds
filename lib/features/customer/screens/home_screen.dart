@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +9,7 @@ import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/business.dart';
 import '../../../models/product.dart';
+import '../../../utils/price_format.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/sign_in_required.dart';
@@ -50,9 +50,13 @@ class _CategoryStyle {
 
 const Map<String, _CategoryStyle> _catStyles = {
   'Electronics':        _CategoryStyle('📱', Color(0xFFEEF2FF), '1st Cross St. · Front St.'),
+  'Hardware':           _CategoryStyle('🔧', Color(0xFFEEF4F0), 'Front St. · Bankshall St.'),
   'Clothing':           _CategoryStyle('👗', Color(0xFFFFF0F7), '4th Cross St. · 1st Cross St.'),
   'Grocery':            _CategoryStyle('🛒', Color(0xFFFEF3E8), '3rd Cross St. · Sea Street'),
   'Food & Drink':       _CategoryStyle('🍽️', Color(0xFFFFF8F0), '3rd Cross St. · Front St.'),
+  // NOTE: 'Spices' lives here for legacy display but is NOT in
+  // AppCategories.all — see audit note below. Leaving as-is to avoid
+  // breaking historical product docs already filed under "Spices".
   'Spices':             _CategoryStyle('🌶️', Color(0xFFFFF0F0), '4th Cross St. · 3rd Cross St.'),
   'Jewellery':          _CategoryStyle('💎', Color(0xFFFFFBEB), 'Sea Street · Keyzer St.'),
   'Home & Living':      _CategoryStyle('🏠', Color(0xFFF0F8FF), 'Main St. · 2nd Cross St.'),
@@ -189,6 +193,7 @@ class HomeScreen extends ConsumerWidget {
   /// Preferred category order from the spec.
   static const List<String> _preferredOrder = [
     'Electronics',
+    'Hardware',
     'Clothing',
     'Grocery',
     'Spices',
@@ -942,7 +947,7 @@ class _RecentlyViewedCard extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'LKR ${_fmtPrice(product.priceLkr)}',
+                    'LKR ${formatLkr(product.priceLkr)}',
                     style: GoogleFonts.nunito(
                       fontWeight: FontWeight.w800,
                       fontSize: 13,
@@ -1061,36 +1066,38 @@ class _CategorySection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          // Dashed "See all" button
+          // Solid-border "See all" button — replaces the previous
+          // dashed dotted_border variant per spec for a cleaner,
+          // more premium feel. Teal stroke matches the in-row text.
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: GestureDetector(
               onTap: () => context.go('/home/category/$categoryName'),
-              child: DottedBorder(
-                color: AppColors.border,
-                strokeWidth: 1.5,
-                dashPattern: const [6, 4],
-                radius: const Radius.circular(12),
-                borderType: BorderType.RRect,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(11),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.arrow_forward,
-                          color: AppColors.teal, size: 14),
-                      const SizedBox(width: 6),
-                      Text(
-                        'See all $categoryName',
-                        style: GoogleFonts.dmSans(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                          color: AppColors.teal,
-                        ),
-                      ),
-                    ],
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(11),
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: AppColors.teal,
+                    width: 1.5,
                   ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.arrow_forward,
+                        color: AppColors.teal, size: 14),
+                    const SizedBox(width: 6),
+                    Text(
+                      'See all $categoryName',
+                      style: GoogleFonts.dmSans(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: AppColors.teal,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -1182,7 +1189,7 @@ class _ProductCard extends ConsumerWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'LKR ${_fmtPrice(product.priceLkr)}',
+                      'LKR ${formatLkr(product.priceLkr)}',
                       style: GoogleFonts.nunito(
                         fontWeight: FontWeight.w800,
                         fontSize: 15,
@@ -1363,12 +1370,6 @@ class _EmptyProductsState extends StatelessWidget {
   }
 }
 
-String _fmtPrice(double v) {
-  final s = v.toStringAsFixed(0);
-  final buf = StringBuffer();
-  for (int i = 0; i < s.length; i++) {
-    if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
-    buf.write(s[i]);
-  }
-  return buf.toString();
-}
+// Local _fmtPrice removed — site-wide LKR formatter is now
+// lib/utils/price_format.dart's formatLkr(). All call sites in this
+// file migrated to import + call formatLkr directly.

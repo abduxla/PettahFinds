@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../utils/price_format.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/empty_state_widget.dart';
@@ -106,7 +107,7 @@ class CategoryBusinessesScreen extends ConsumerWidget {
                                   ),
                                   const Spacer(),
                                   Text(
-                                    'LKR ${p.priceLkr.toStringAsFixed(0)}',
+                                    'LKR ${formatLkr(p.priceLkr)}',
                                     style: GoogleFonts.nunito(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w800,

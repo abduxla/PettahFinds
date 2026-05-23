@@ -56,6 +56,12 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   // business role. We never escalate role through Google sign-in.
   Future<void> _signInWithGoogle() async {
     if (_loading) return;
+    // KEYBOARD-LINGER BUG. Before this unfocus, the email/password
+    // TextFormField retained focus into the OAuth sheet round-trip;
+    // when we navigated to /home the keyboard came along with the
+    // focused field's restored state. Explicit unfocus here +
+    // post-auth (in _routeAfterSignIn) kills the bug at both ends.
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _loading = true);
     try {
       final appUser =
@@ -74,6 +80,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   /// iOS/macOS — Android / Web fall back to email + Google.
   Future<void> _signInWithApple() async {
     if (_loading) return;
+    // Same keyboard-linger guard as _signInWithGoogle above.
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _loading = true);
     try {
       final appUser =
@@ -96,17 +104,27 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
           defaultTargetPlatform == TargetPlatform.macOS);
 
   void _routeAfterSignIn(AppUser appUser) {
-    if (appUser.isAdmin) {
-      context.go('/admin');
-    } else if (appUser.isBusiness) {
-      if (appUser.businessId == null || appUser.businessId!.isEmpty) {
-        context.go('/business/setup');
+    // Belt-and-suspenders unfocus + a 50 ms micro-delay so the
+    // keyboard's dismiss animation completes BEFORE the router
+    // tear-down kicks in. Without the delay the keyboard
+    // occasionally stuck on /home after Google sign-in even though
+    // the field was no longer focused (race between the focus event
+    // and the route transition's overlay teardown).
+    FocusScope.of(context).unfocus();
+    Future<void>.delayed(const Duration(milliseconds: 50)).then((_) {
+      if (!mounted) return;
+      if (appUser.isAdmin) {
+        context.go('/admin');
+      } else if (appUser.isBusiness) {
+        if (appUser.businessId == null || appUser.businessId!.isEmpty) {
+          context.go('/business/setup');
+        } else {
+          context.go('/business');
+        }
       } else {
-        context.go('/business');
+        context.go('/home');
       }
-    } else {
-      context.go('/home');
-    }
+    });
   }
 
   @override

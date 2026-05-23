@@ -74,6 +74,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
+      // Top-level /product/:id is role-agnostic — business owners
+      // push to it with ?mode=owner to preview their own listing,
+      // customers can deep-link to it too. Skip the role-shell
+      // bounce below so business users aren't kicked to /business.
+      if (currentPath.startsWith('/product/')) return null;
+
       // While auth is still initializing, don't redirect — stay put
       if (isAuthLoading) return null;
 
@@ -192,6 +198,21 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const LegalDocumentScreen(
           title: LegalDocuments.prohibitedListingsTitle,
           body: LegalDocuments.prohibitedListingsBody,
+        ),
+      ),
+
+      // --- Product detail (top-level, role-agnostic) ---
+      // Lives outside the customer shell so business owners can view
+      // their OWN listing in read-only mode without being bounced by
+      // the business-shell redirect rule. Customer access is still
+      // available via /home/product/:id (sub-route inside the
+      // customer shell), so both paths render the same screen.
+      // Query param ?mode=owner toggles the read-only-with-Edit-CTA
+      // variant; absence renders the standard customer view.
+      GoRoute(
+        path: '/product/:productId',
+        builder: (_, state) => ProductDetailScreen(
+          productId: state.pathParameters['productId']!,
         ),
       ),
 

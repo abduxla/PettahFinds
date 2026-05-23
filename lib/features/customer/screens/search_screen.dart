@@ -252,10 +252,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                 crossAxisSpacing: 14,
                               ),
                               itemCount: visibleProducts.length,
-                              itemBuilder: (_, i) => ProductCard(
-                                product: visibleProducts[i],
-                                searchVariant: true,
-                              ),
+                              // Identical card to home — heart icon
+                              // overlay + teal location pill + comma
+                              // price. searchVariant dropped per spec
+                              // ("Confirm the card widget dimensions,
+                              // border-radius, shadow, and image
+                              // aspect ratio match home page cards
+                              // exactly").
+                              itemBuilder: (_, i) =>
+                                  ProductCard(product: visibleProducts[i]),
                             ),
             ),
           ],

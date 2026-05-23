@@ -7,6 +7,7 @@ import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/business.dart';
 import '../../../models/product.dart';
+import '../../../utils/price_format.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
@@ -637,8 +638,12 @@ class _MerchantProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      // Two-step product flow: tap opens the read-only owner view
+      // (?mode=owner) which has an Edit Product CTA inside.
+      // Replaces the old "tap == edit" shortcut that skipped the
+      // preview entirely. push() so back/swipe-back returns here.
       onTap: () =>
-          context.go('/business/products/edit/${product.id}'),
+          context.push('/product/${product.id}?mode=owner'),
       child: SizedBox(
         width: 150,
         child: Container(
@@ -730,7 +735,7 @@ class _MerchantProductCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'LKR ${_fmtPrice(product.priceLkr)}',
+                      'LKR ${formatLkr(product.priceLkr)}',
                       style: GoogleFonts.nunito(
                         fontWeight: FontWeight.w800,
                         fontSize: 15,
@@ -774,12 +779,5 @@ class _NoScrollbarBehavior extends ScrollBehavior {
   Widget buildScrollbar(_, Widget child, __) => child;
 }
 
-String _fmtPrice(double v) {
-  final s = v.toStringAsFixed(0);
-  final buf = StringBuffer();
-  for (int i = 0; i < s.length; i++) {
-    if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
-    buf.write(s[i]);
-  }
-  return buf.toString();
-}
+// Local _fmtPrice removed — site-wide LKR formatter is now
+// lib/utils/price_format.dart's formatLkr().

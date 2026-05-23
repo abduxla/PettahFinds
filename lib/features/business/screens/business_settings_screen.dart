@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../widgets/delete_account_dialog.dart';
+import '../../../widgets/sign_out_dialog.dart';
 
 class BusinessSettingsScreen extends ConsumerWidget {
   const BusinessSettingsScreen({super.key});
@@ -95,22 +96,7 @@ class BusinessSettingsScreen extends ConsumerWidget {
             width: double.infinity,
             child: FilledButton.icon(
               onPressed: () async {
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Sign Out'),
-                    content:
-                        const Text('Are you sure you want to sign out?'),
-                    actions: [
-                      TextButton(
-                          onPressed: () => Navigator.pop(ctx, false),
-                          child: const Text('Cancel')),
-                      FilledButton(
-                          onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text('Sign Out')),
-                    ],
-                  ),
-                );
+                final confirm = await showSignOutDialog(context);
                 if (confirm != true) return;
                 await ref.read(authRepositoryProvider).signOut();
                 if (context.mounted) context.go('/sign-in');

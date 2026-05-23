@@ -25,14 +25,20 @@ class ChatListScreen extends ConsumerWidget {
         appBar: AppBar(
           backgroundColor: AppColors.bgSection,
           title: Text('Messages', style: _title()),
-          // Guests reach this via context.go('/chat') with no back-stack.
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_rounded, size: 22),
-            color: AppColors.text1,
-            onPressed: () => context.canPop()
-                ? context.pop()
-                : context.go('/home'),
-          ),
+          // Same canPop-gated leading as the signed-in branch.
+          // Guests usually arrive here via push() from the home AppBar
+          // chat icon, so canPop is true and the arrow lets them pop
+          // back. If they deep-linked /chat directly there's nothing
+          // to pop — hide the arrow and let them use the home tab.
+          leading: context.canPop()
+              ? IconButton(
+                  icon:
+                      const Icon(Icons.arrow_back_ios_new, size: 18),
+                  color: AppColors.text1,
+                  onPressed: () => context.pop(),
+                )
+              : null,
+          automaticallyImplyLeading: false,
         ),
         body: const SignInRequired(
           icon: Icons.chat_bubble_outline_rounded,
@@ -59,23 +65,27 @@ class ChatListScreen extends ConsumerWidget {
         appBar: AppBar(
           backgroundColor: AppColors.bgSection,
           title: Text('Messages', style: _title()),
-          // /chat is a top-level route reached via `context.go(...)` from
-          // home, profile, and the business shell — there's no parent
-          // back-stack, so we'd otherwise leave the user stranded here.
-          // Fall back to the role-aware home if nothing to pop.
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back_rounded, size: 22),
-            color: AppColors.text1,
-            onPressed: () {
-              if (context.canPop()) {
-                context.pop();
-              } else {
-                // Router's redirect rules send business users on /home
-                // straight to /business, so /home is a universal fallback.
-                context.go(appUser.isBusiness ? '/business' : '/home');
-              }
-            },
-          ),
+          // Leading arrow renders ONLY when there's a real Navigator
+          // entry to pop back to. When the messages screen is reached
+          // via the BUSINESS bottom-nav tab (StatefulShellRoute branch
+          // → goBranch), canPop() is false and there's no Navigator
+          // stack — swipe-back is a no-op by design. Hiding the arrow
+          // makes the UI honest about that: the bottom-nav Dashboard
+          // tab is the way back. When reached via push() from a
+          // drill-down (home AppBar chat icon, profile→messages,
+          // business-settings→messages — all use push()) canPop() is
+          // true and the arrow + swipe-back both work normally.
+          leading: context.canPop()
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+                  color: AppColors.text1,
+                  onPressed: () => context.pop(),
+                )
+              : null,
+          // Without an automatic back arrow, Flutter would still try
+          // to render the implicit one. Tell it not to bother — null
+          // leading + this flag together leave a clean header.
+          automaticallyImplyLeading: false,
           bottom: isBusiness
               ? TabBar(
                   indicatorColor: AppColors.teal,
