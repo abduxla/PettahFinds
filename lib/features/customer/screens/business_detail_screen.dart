@@ -8,6 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../models/business.dart';
 import '../../../models/product.dart';
 import '../../../models/review.dart';
+import '../../../utils/price_format.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
@@ -959,7 +960,7 @@ class _BusinessProductGridCell extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'LKR ${product.priceLkr.toStringAsFixed(0)}',
+                      'LKR ${formatLkr(product.priceLkr)}',
                       style: GoogleFonts.nunito(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,

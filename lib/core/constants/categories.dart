@@ -11,6 +11,7 @@ abstract class AppCategories {
     'Food & Drink',
     'Grocery',
     'Electronics',
+    'Hardware',
     'Home & Living',
     'Beauty & Wellness',
     'Jewellery',

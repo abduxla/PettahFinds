@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../utils/price_format.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/loading_widget.dart';
 import '../../../widgets/error_widget.dart';
@@ -36,7 +37,7 @@ class AdminProductsScreen extends ConsumerWidget {
                       ),
                       title: Text(p.title),
                       subtitle: Text(
-                        'LKR ${p.priceLkr.toStringAsFixed(2)} • ${p.category}\nBusiness: ${p.businessId}',
+                        'LKR ${formatLkr(p.priceLkr)} • ${p.category}\nBusiness: ${p.businessId}',
                         maxLines: 2,
                       ),
                       trailing: Chip(

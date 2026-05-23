@@ -11,6 +11,7 @@ import '../../../models/favorite.dart';
 import '../../../models/product.dart';
 import '../../../models/product_review.dart';
 import '../../../models/report.dart';
+import '../../../utils/price_format.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
@@ -846,7 +847,7 @@ class _PricingBlock extends StatelessWidget {
   final Product product;
   const _PricingBlock({required this.product});
 
-  String _money(double v) => 'LKR ${v.toStringAsFixed(0)}';
+  String _money(double v) => 'LKR ${formatLkr(v)}';
 
   @override
   Widget build(BuildContext context) {

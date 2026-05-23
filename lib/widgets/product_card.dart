@@ -6,6 +6,7 @@ import '../core/constants/categories.dart';
 import '../core/providers/providers.dart';
 import '../core/theme/app_colors.dart';
 import '../models/product.dart';
+import '../utils/price_format.dart';
 import 'cached_image.dart';
 import 'sign_in_required.dart';
 
@@ -37,13 +38,6 @@ class ProductCard extends ConsumerWidget {
   /// can override if they need a different aspect.
   final double imageHeight;
 
-  /// Search variant: replaces the teal street-pin chip with a plain
-  /// muted-grey "📍 {address}" line directly below the product name,
-  /// matching the search-results spec. Home + saved + products list
-  /// keep the chip variant (false). The address comes from a single
-  /// businessByIdProvider lookup so we don't add a Firestore read.
-  final bool searchVariant;
-
   static const _defaultTint = Color(0xFFFEF3E8);
 
   const ProductCard({
@@ -52,7 +46,6 @@ class ProductCard extends ConsumerWidget {
     this.tileColor,
     this.width,
     this.imageHeight = 108,
-    this.searchVariant = false,
   });
 
   @override
@@ -123,13 +116,9 @@ class ProductCard extends ConsumerWidget {
                     height: 1.35,
                   ),
                 ),
-                if (searchVariant) ...[
-                  const SizedBox(height: 4),
-                  _SearchAddressLine(businessId: product.businessId),
-                ],
                 const SizedBox(height: 6),
                 Text(
-                  'LKR ${_fmtPrice(product.priceLkr)}',
+                  'LKR ${formatLkr(product.priceLkr)}',
                   style: GoogleFonts.nunito(
                     fontWeight: FontWeight.w800,
                     fontSize: 15,
@@ -137,12 +126,8 @@ class ProductCard extends ConsumerWidget {
                     letterSpacing: -0.3,
                   ),
                 ),
-                // Search variant drops the teal street-pin chip — the
-                // grey address line above already communicates location.
-                if (!searchVariant) ...[
-                  const SizedBox(height: 5),
-                  _StreetPin(businessId: product.businessId),
-                ],
+                const SizedBox(height: 5),
+                _StreetPin(businessId: product.businessId),
               ],
             ),
           ),
@@ -170,6 +155,7 @@ class ProductCard extends ConsumerWidget {
 
 const Map<String, String> _categoryEmoji = {
   'Electronics': '📱',
+  'Hardware': '🔧',
   'Clothing': '👗',
   'Grocery': '🛒',
   'Food & Drink': '🍽️',
@@ -187,52 +173,9 @@ const Map<String, String> _categoryEmoji = {
 String _emojiFor(String raw) =>
     _categoryEmoji[AppCategories.normalize(raw)] ?? '🛍️';
 
-String _fmtPrice(double v) {
-  final s = v.toStringAsFixed(0);
-  final buf = StringBuffer();
-  for (int i = 0; i < s.length; i++) {
-    if (i > 0 && (s.length - i) % 3 == 0) buf.write(',');
-    buf.write(s[i]);
-  }
-  return buf.toString();
-}
-
-/// Search-variant address row. Pulls the business's location field via
-/// the shared businessByIdProvider (no extra Firestore subscription —
-/// the card's _StreetPin variant uses the same provider, so when both
-/// rendered on the same screen they share one stream per businessId).
-/// Renders nothing while the lookup resolves so the row doesn't jump.
-class _SearchAddressLine extends ConsumerWidget {
-  final String businessId;
-  const _SearchAddressLine({required this.businessId});
-
-  static const _muted = Color(0xFF9E9E9E);
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final bizAsync = ref.watch(businessByIdProvider(businessId));
-    final raw = bizAsync.valueOrNull?.location.trim() ?? '';
-    if (raw.isEmpty) return const SizedBox.shrink();
-    return Row(
-      children: [
-        const Icon(Icons.location_on, size: 11, color: _muted),
-        const SizedBox(width: 3),
-        Expanded(
-          child: Text(
-            raw,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.dmSans(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w500,
-              color: _muted,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
+// _fmtPrice + _SearchAddressLine deleted — site-wide LKR formatting
+// is now lib/utils/price_format.dart's formatLkr(), and the search
+// card now matches home identically (no separate variant).
 
 class _StreetPin extends ConsumerWidget {
   final String businessId;

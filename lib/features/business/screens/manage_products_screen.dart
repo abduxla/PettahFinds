@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/product.dart';
+import '../../../utils/price_format.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
@@ -156,7 +157,7 @@ class _ProductTileState extends State<_ProductTile> {
           subtitle: Row(
             children: [
               Text(
-                'LKR ${p.priceLkr.toStringAsFixed(0)}',
+                'LKR ${formatLkr(p.priceLkr)}',
                 style: GoogleFonts.nunito(
                   color: AppColors.teal,
                   fontWeight: FontWeight.w800,
