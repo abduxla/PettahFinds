@@ -66,6 +66,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final productAsync =
         ref.watch(_productDetailProvider(widget.productId));
     final appUser = ref.watch(appUserProvider).valueOrNull;
+    // Read `?mode=owner` from the route. The top-level /product/:id
+    // entry passes it from the business dashboard so the screen
+    // swaps the "Chat Seller" CTA for an "Edit Product" CTA. Any
+    // other route (e.g. /home/product/:id from the customer shell)
+    // leaves the param empty and renders the standard customer view.
+    final mode = GoRouterState.of(context).uri.queryParameters['mode'];
+    final isOwnerView = mode == 'owner';
 
     return productAsync.when(
       data: (product) {
@@ -316,6 +323,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           data: (business) => _SellerCard(
                             business: business,
                             productTitle: product.title,
+                            isOwnerView: isOwnerView,
+                            productId: product.id,
                           ),
                           loading: () =>
                               const ShimmerBox(height: 80, radius: 12),
@@ -417,7 +426,23 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 class _SellerCard extends StatelessWidget {
   final Business business;
   final String productTitle;
-  const _SellerCard({required this.business, required this.productTitle});
+  /// True when the screen was opened with `?mode=owner` — i.e. the
+  /// business owner is previewing their OWN listing from the merchant
+  /// dashboard. Swaps the "Chat Seller" CTA at the bottom of the card
+  /// for an "Edit Product" CTA, and hides the seller-info row's tap
+  /// affordance (owners don't need to "view their own shop" from
+  /// here).
+  final bool isOwnerView;
+  /// Product id needed by the Edit CTA when [isOwnerView] is true so
+  /// it can deep-link into the existing /business/products/edit/:id
+  /// form.
+  final String productId;
+  const _SellerCard({
+    required this.business,
+    required this.productTitle,
+    this.isOwnerView = false,
+    this.productId = '',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -515,8 +540,44 @@ class _SellerCard extends StatelessWidget {
         ),
           ),
           const SizedBox(height: 10),
-          _ChatSellerButton(business: business),
+          // Owner-mode swaps the Chat Seller CTA for Edit Product.
+          // Two distinct screens visually share the bottom slot.
+          if (isOwnerView)
+            _EditProductButton(productId: productId)
+          else
+            _ChatSellerButton(business: business),
         ],
+      ),
+    );
+  }
+}
+
+/// Owner-mode CTA shown at the bottom of the product detail when the
+/// signed-in user is previewing their own listing from the merchant
+/// dashboard. Pushes into the existing add/edit form.
+class _EditProductButton extends StatelessWidget {
+  final String productId;
+  const _EditProductButton({required this.productId});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
+        onPressed: productId.isEmpty
+            ? null
+            : () => context
+                .push('/business/products/edit/$productId'),
+        icon: const Icon(Icons.edit_outlined, size: 18),
+        label: const Text('Edit Product'),
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.teal,
+          foregroundColor: Colors.white,
+          minimumSize: const Size.fromHeight(48),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(999),
+          ),
+        ),
       ),
     );
   }

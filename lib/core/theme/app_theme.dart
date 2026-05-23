@@ -389,37 +389,46 @@ abstract class AppTheme {
   }
 }
 
-/// Custom PageTransitionsBuilder — Temu-style premium feel.
+/// Apple matched-geometry style cubic curves. Defined as explicit
+/// Cubic constants so this file compiles against any Flutter
+/// version (older SDKs don't ship Curves.easeOutExpo as a named
+/// constant). Values are the canonical easeOutExpo / easeInExpo
+/// control points from the CSS spec.
+const Cubic _kEaseOutExpo = Cubic(0.16, 1.0, 0.3, 1.0);
+const Cubic _kEaseInExpo = Cubic(0.7, 0.0, 0.84, 0.0);
+
+/// Custom PageTransitionsBuilder — Apple "matched geometry" feel.
 ///
-/// PHILOSOPHY
-/// Snappy but never bouncy. The incoming page slides in from the
-/// right AND scales up subtly (0.96 → 1.0) for a "stepping forward"
-/// sensation. The outgoing page (when a new route pushes on top)
-/// recedes slightly via scale-down + fade so the screen the user is
-/// leaving feels like it's settling into the background.
+/// SHAKE FIX (the visible jitter on swipe-back / pop):
+/// The previous builder ran TWO competing transforms on pop:
+///   1. The departing route's primaryAnimation reversed 1→0 — its
+///      ScaleTransition(0.96→1.0) un-scaled.
+///   2. The arriving route's secondaryAnimation reversed 1→0 — its
+///      ScaleTransition(1.0→0.97) un-scaled at the same time.
+///   3. Cupertino's slide added a third translateX on top.
+/// Three concurrent transforms on overlapping screens during the
+/// gesture-driven pop produced the shake. The new builder
+/// suppresses the secondary transform stack entirely when
+/// `animation.status == AnimationStatus.reverse`, leaving only the
+/// primary slide+scale+fade. That's what "settles" Apple's pop
+/// gesture in their own UIKit — secondary effects only run on
+/// PUSH; pop is a single-actor transform.
 ///
-/// LAYERING
-/// Three composed transitions:
-///   1. Slide (handled by CupertinoPageTransitionsBuilder so the
-///      edge-swipe-back gesture detector stays attached).
-///   2. Scale-up on enter — 0.96 → 1.0, easeOutCubic.
-///   3. Scale-down + fade on the outgoing page when something new
-///      pushes on top — 1.0 → 0.97 scale, 1.0 → 0.88 fade,
-///      easeInCubic.
+/// MATCHED GEOMETRY FEEL:
+/// Apple's push doesn't slide a screen all the way from off-screen.
+/// It emerges from a small offset (here Offset(0.06, 0)) while
+/// scaling up + fading in. Combined with the outgoing screen's
+/// scale-down + fade (push-only), the two screens feel spatially
+/// connected — like one geometry continuing into the next, not two
+/// rectangles sliding past each other.
 ///
-/// REVERSE / POP
-/// CurvedAnimation's `reverseCurve` is set explicitly so push and pop
-/// both feel right. On pop the entering page (the one underneath
-/// coming back to the front) un-scales from 0.97 → 1.0 and un-fades
-/// from 0.88 → 1.0 via easeOutCubic. The departing page (the one
-/// being popped off) un-scales from 1.0 → 0.96 and slides out to the
-/// right via the inverse Cupertino slide.
-///
-/// DURATION
-/// Inherited from each route's `transitionDuration`. MaterialPage
-/// (the default Page<T> go_router uses) is 300ms — already inside
-/// the Temu 280–320ms window the spec asks for. No global override
-/// needed.
+/// SWIPE-BACK GESTURE NOTE:
+/// We no longer delegate to CupertinoPageTransitionsBuilder, which
+/// also means the edge-swipe-back gesture detector (a Cupertino
+/// implementation detail) is no longer attached. Users can still
+/// pop via the AppBar back arrow on every screen. Add a custom
+/// SwipeBackGestureDetector in a follow-up if the gesture is
+/// strictly required.
 class _PremiumSlideTransitionsBuilder extends PageTransitionsBuilder {
   const _PremiumSlideTransitionsBuilder();
 
@@ -431,43 +440,80 @@ class _PremiumSlideTransitionsBuilder extends PageTransitionsBuilder {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    // Incoming-page curve. easeOutCubic on the forward direction is
-    // "starts fast, settles" — the snappy-but-not-bouncy feeling.
-    // reverseCurve flips to easeInCubic so the pop animation has the
-    // same "expensive" pacing in reverse (slow start, fast finish on
-    // exit).
-    final enter = CurvedAnimation(
+    // SHAKE-FIX GATE: only run the secondary (outgoing-page)
+    // dim+scale on PUSH. On POP the secondary animation is
+    // running in reverse from a non-zero starting point AND the
+    // primary is also reversing — running both produces the shake.
+    final isPopping = animation.status == AnimationStatus.reverse;
+
+    // Entering page — soft Apple-style emergence.
+    //   - Slide from a SUBTLE offset (6% of width). Full-width
+    //     slides feel like Android.
+    //   - Scale up from 0.97 → 1.0 (the "matched geometry" cue).
+    //   - Fade in 0→1 in the first 60% of the duration so the
+    //     pixels resolve before motion settles.
+    final enterSlide = Tween<Offset>(
+      begin: const Offset(0.06, 0.0),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
       parent: animation,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
+      curve: _kEaseOutExpo,
+      reverseCurve: _kEaseInExpo,
+    ));
+
+    final enterScale = Tween<double>(begin: 0.97, end: 1.0).animate(
+      CurvedAnimation(
+        parent: animation,
+        curve: _kEaseOutExpo,
+        reverseCurve: _kEaseInExpo,
+      ),
     );
 
-    // Outgoing-page curve. easeInCubic on the forward direction means
-    // the receding page accelerates as it leaves — gives the "stepping
-    // back" feeling without lingering.
-    final exit = CurvedAnimation(
-      parent: secondaryAnimation,
-      curve: Curves.easeInCubic,
-      reverseCurve: Curves.easeOutCubic,
+    final enterFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: animation,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+        reverseCurve: const Interval(0.4, 1.0, curve: Curves.easeIn),
+      ),
     );
 
-    // Compose: outermost wrap is the exit scale+fade on the outgoing
-    // page, then the enter scale, then the Cupertino slide. The
-    // gesture detector lives inside the Cupertino layer.
-    return ScaleTransition(
-      scale: Tween<double>(begin: 1.0, end: 0.97).animate(exit),
-      child: FadeTransition(
-        opacity: Tween<double>(begin: 1.0, end: 0.88).animate(exit),
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.96, end: 1.0).animate(enter),
-          child: const CupertinoPageTransitionsBuilder().buildTransitions<T>(
-            route,
-            context,
-            animation,
-            secondaryAnimation,
-            child,
-          ),
+    Widget enteringStack = SlideTransition(
+      position: enterSlide,
+      child: ScaleTransition(
+        scale: enterScale,
+        child: FadeTransition(
+          opacity: enterFade,
+          child: child,
         ),
+      ),
+    );
+
+    if (isPopping) {
+      // POP path: render the entering page's animation only. No
+      // secondary scale/fade — that's what caused the shake.
+      return enteringStack;
+    }
+
+    // PUSH path: also apply the outgoing-page recession so the
+    // user sees the leaving screen step back into the background.
+    final exitScale = Tween<double>(begin: 1.0, end: 0.96).animate(
+      CurvedAnimation(
+        parent: secondaryAnimation,
+        curve: _kEaseInExpo,
+      ),
+    );
+    final exitFade = Tween<double>(begin: 1.0, end: 0.7).animate(
+      CurvedAnimation(
+        parent: secondaryAnimation,
+        curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
+      ),
+    );
+
+    return ScaleTransition(
+      scale: exitScale,
+      child: FadeTransition(
+        opacity: exitFade,
+        child: enteringStack,
       ),
     );
   }

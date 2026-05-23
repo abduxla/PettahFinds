@@ -638,8 +638,12 @@ class _MerchantProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      // Two-step product flow: tap opens the read-only owner view
+      // (?mode=owner) which has an Edit Product CTA inside.
+      // Replaces the old "tap == edit" shortcut that skipped the
+      // preview entirely. push() so back/swipe-back returns here.
       onTap: () =>
-          context.go('/business/products/edit/${product.id}'),
+          context.push('/product/${product.id}?mode=owner'),
       child: SizedBox(
         width: 150,
         child: Container(
