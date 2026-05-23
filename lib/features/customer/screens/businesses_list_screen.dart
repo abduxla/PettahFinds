@@ -132,11 +132,7 @@ class _BusinessListCard extends StatelessWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis),
                             ),
-                            if (business.isVerified) ...[
-                              const SizedBox(width: 4),
-                              Icon(Icons.verified,
-                                  size: 16, color: theme.colorScheme.primary),
-                            ],
+                            // VERIFIED BADGE — shown only on business own profile per spec.
                           ],
                         ),
                         const SizedBox(height: 3),

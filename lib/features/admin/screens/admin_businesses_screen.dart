@@ -145,11 +145,10 @@ class _BusinessRow extends ConsumerWidget {
         title: Row(
           children: [
             Flexible(child: Text(b.businessName)),
-            if (b.isVerified) ...[
-              const SizedBox(width: 4),
-              Icon(Icons.verified,
-                  size: 16, color: theme.colorScheme.primary),
-            ],
+            // VERIFIED BADGE — shown only on business own profile per spec.
+            // Admin moderation row still has the toggle Switch and the
+            // tinted-row treatment for pending rows, so verification status
+            // is communicated without a redundant icon.
             if (b.createdByAdminUid != null) ...[
               const SizedBox(width: 4),
               Tooltip(

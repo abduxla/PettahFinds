@@ -300,12 +300,7 @@ class _BusinessResultCard extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            if (business.isVerified) ...[
-                              const SizedBox(width: 4),
-                              Icon(Icons.verified,
-                                  size: 15,
-                                  color: theme.colorScheme.primary),
-                            ],
+                            // VERIFIED BADGE — shown only on business own profile per spec.
                           ],
                         ),
                         const SizedBox(height: 3),

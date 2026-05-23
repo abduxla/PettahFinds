@@ -228,7 +228,7 @@ class _BusinessFavTile extends StatelessWidget {
       subtitle: business.location.isNotEmpty
           ? business.location
           : business.category,
-      verified: business.isVerified,
+      // VERIFIED BADGE — shown only on business own profile per spec.
     );
   }
 }
@@ -245,7 +245,6 @@ class _BaseTile extends StatelessWidget {
   final Color? subtitleColor;
   final FontWeight? subtitleWeight;
   final String? subtitleFont;
-  final bool verified;
   const _BaseTile({
     required this.onTap,
     required this.onRemove,
@@ -258,7 +257,6 @@ class _BaseTile extends StatelessWidget {
     this.subtitleColor,
     this.subtitleWeight,
     this.subtitleFont,
-    this.verified = false,
   });
 
   @override
@@ -339,11 +337,7 @@ class _BaseTile extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (verified) ...[
-                        const SizedBox(width: 4),
-                        const Icon(Icons.verified,
-                            size: 14, color: AppColors.teal),
-                      ],
+                      // VERIFIED BADGE — shown only on business own profile per spec.
                     ],
                   ),
                   const SizedBox(height: 3),

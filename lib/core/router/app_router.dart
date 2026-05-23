@@ -42,7 +42,10 @@ import '../../features/legal/legal_documents.dart';
 import '../../features/chat/screens/chat_list_screen.dart';
 import '../../features/chat/screens/chat_screen.dart';
 
-final _rootNavigatorKey = GlobalKey<NavigatorState>();
+/// Public so non-router callers (FCM tap handler, deep links) can
+/// reach BuildContext via rootNavigatorKey.currentState/.currentContext
+/// without holding a Riverpod ref.
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 final _customerShellKey = GlobalKey<NavigatorState>(debugLabel: 'customer');
 final _businessShellKey = GlobalKey<NavigatorState>(debugLabel: 'business');
 final _adminShellKey = GlobalKey<NavigatorState>(debugLabel: 'admin');
@@ -52,7 +55,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   final appUser = ref.watch(appUserProvider);
 
   return GoRouter(
-    navigatorKey: _rootNavigatorKey,
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
     redirect: (context, state) {
       final isAuthLoading = authState.isLoading;
@@ -193,12 +196,27 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // --- Chat (top-level so it can be opened from any shell) ---
-      GoRoute(path: '/chat', builder: (_, __) => const ChatListScreen()),
+      //
+      // Nested parent/child structure so go_router treats /chat/:id as
+      // a sub-route of /chat. Two payoffs:
+      //   1) go('/chat/:id') builds the stack as [/chat, /chat/:id] —
+      //      pop from the thread naturally returns to the inbox with
+      //      the correct right-to-left "pop" slide direction.
+      //   2) The back button on ChatScreen can just call pop() (with a
+      //      go('/chat') fallback for deep-linked entry), which the
+      //      Navigator animates in reverse — no more wrong-direction
+      //      slide on back gestures.
       GoRoute(
-        path: '/chat/:conversationId',
-        builder: (_, state) => ChatScreen(
-          conversationId: state.pathParameters['conversationId']!,
-        ),
+        path: '/chat',
+        builder: (_, __) => const ChatListScreen(),
+        routes: [
+          GoRoute(
+            path: ':conversationId',
+            builder: (_, state) => ChatScreen(
+              conversationId: state.pathParameters['conversationId']!,
+            ),
+          ),
+        ],
       ),
 
       // --- Customer Shell ---

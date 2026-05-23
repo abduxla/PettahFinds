@@ -239,11 +239,7 @@ class _WelcomeSection extends StatelessWidget {
                   ),
                 ),
               ),
-              if (business.isVerified) ...[
-                const SizedBox(width: 6),
-                const Icon(Icons.verified,
-                    size: 18, color: AppColors.teal),
-              ],
+              // VERIFIED BADGE — shown only on business own profile per spec.
             ],
           ),
           // Unverified listings are hidden from customers until an admin

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../widgets/unread_badge.dart';
 
 class CustomerShell extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
@@ -12,7 +15,22 @@ class CustomerShell extends StatelessWidget {
     return Scaffold(
       extendBody: true,
       backgroundColor: AppColors.bgSection,
-      body: navigationShell,
+      // Tab-switch animation: fade only, no slide. AnimatedSwitcher
+      // keyed by the active branch index gives the cross-fade; the
+      // underlying StatefulNavigationShell still uses IndexedStack
+      // internally so state across the four branches is preserved.
+      // 200ms easeInOut per the motion spec.
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 200),
+        switchInCurve: Curves.easeInOut,
+        switchOutCurve: Curves.easeInOut,
+        transitionBuilder: (child, animation) =>
+            FadeTransition(opacity: animation, child: child),
+        child: KeyedSubtree(
+          key: ValueKey(navigationShell.currentIndex),
+          child: navigationShell,
+        ),
+      ),
       bottomNavigationBar: _PremiumBottomNav(
         currentIndex: navigationShell.currentIndex,
         onTap: (i) {
@@ -33,7 +51,7 @@ class CustomerShell extends StatelessWidget {
   }
 }
 
-class _PremiumBottomNav extends StatelessWidget {
+class _PremiumBottomNav extends ConsumerWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
 
@@ -43,7 +61,12 @@ class _PremiumBottomNav extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Live unread total across every conversation the customer is in.
+    // Messages live behind the Profile tab, so the badge rides the
+    // Profile nav icon.
+    final unread =
+        ref.watch(totalUnreadCountProvider).valueOrNull ?? 0;
     return SafeArea(
       top: false,
       child: Container(
@@ -94,6 +117,7 @@ class _PremiumBottomNav extends StatelessWidget {
                   activeIcon: Icons.person_rounded,
                   label: 'Profile',
                   selected: currentIndex == 4,
+                  badgeCount: unread,
                   onTap: () => onTap(4),
                 ),
               ],
@@ -122,6 +146,8 @@ class _NavItem extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  /// Optional unread-count badge overlay. 0 (default) hides the badge.
+  final int badgeCount;
 
   const _NavItem({
     required this.icon,
@@ -129,6 +155,7 @@ class _NavItem extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.badgeCount = 0,
   });
 
   @override
@@ -148,10 +175,13 @@ class _NavItem extends StatelessWidget {
                 color: selected ? AppColors.tealLight : Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
-                selected ? activeIcon : icon,
-                color: color,
-                size: 22,
+              child: UnreadBadge(
+                count: badgeCount,
+                child: Icon(
+                  selected ? activeIcon : icon,
+                  color: color,
+                  size: 22,
+                ),
               ),
             ),
             const SizedBox(height: 3),

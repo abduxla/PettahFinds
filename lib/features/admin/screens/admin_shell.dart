@@ -8,7 +8,20 @@ class AdminShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: navigationShell,
+      // Fade-only tab-switch animation, mirrors the customer + business
+      // shells. 200ms easeInOut per the motion spec; no slide on
+      // goBranch.
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 200),
+        switchInCurve: Curves.easeInOut,
+        switchOutCurve: Curves.easeInOut,
+        transitionBuilder: (child, animation) =>
+            FadeTransition(opacity: animation, child: child),
+        child: KeyedSubtree(
+          key: ValueKey(navigationShell.currentIndex),
+          child: navigationShell,
+        ),
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: navigationShell.currentIndex,
         onDestinationSelected: (i) => navigationShell.goBranch(i,

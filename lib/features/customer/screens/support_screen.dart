@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../widgets/whatsapp_icon.dart';
 
 /// Replaces the old "About" dialogs. Real FAQ + contact channels.
 class SupportScreen extends StatelessWidget {
@@ -77,6 +78,7 @@ class SupportScreen extends StatelessWidget {
           ),
           _ContactTile(
             icon: Icons.chat_bubble_outline_rounded,
+            customIcon: const WhatsAppIcon(size: 20),
             label: 'WhatsApp support',
             value: _supportPhone,
             onTap: () => _launchSafe(
@@ -153,11 +155,16 @@ class _Section extends StatelessWidget {
 
 class _ContactTile extends StatelessWidget {
   final IconData icon;
+  /// Optional widget that replaces [icon] when set. Used to drop the
+  /// official WhatsApp glyph in for the WhatsApp support row without
+  /// breaking the IconData-based phone row above it.
+  final Widget? customIcon;
   final String label;
   final String value;
   final VoidCallback onTap;
   const _ContactTile({
     required this.icon,
+    this.customIcon,
     required this.label,
     required this.value,
     required this.onTap,
@@ -180,7 +187,8 @@ class _ContactTile extends StatelessWidget {
             color: AppColors.tealLight,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, color: AppColors.teal, size: 20),
+          child: customIcon ??
+              Icon(icon, color: AppColors.teal, size: 20),
         ),
         title: Text(
           label,

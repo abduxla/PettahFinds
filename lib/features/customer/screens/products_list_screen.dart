@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../../core/providers/providers.dart';
-import '../../../models/product.dart';
-import '../../../widgets/cached_image.dart';
-import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/empty_state_widget.dart';
+import '../../../widgets/product_card.dart';
+import '../../../widgets/shimmer_loading.dart';
 
 class ProductsListScreen extends ConsumerWidget {
   const ProductsListScreen({super.key});
@@ -50,7 +48,12 @@ class ProductsListScreen extends ConsumerWidget {
                 crossAxisSpacing: 14,
               ),
               itemCount: products.length,
-              itemBuilder: (_, i) => _ProductGridCard(product: products[i]),
+              // Canonical home-spec card. childAspectRatio bumped from
+              // 0.65 → 0.62 so the taller home-card composition (image
+              // + title + price + street pin) fits the grid cell
+              // without overflow.
+              itemBuilder: (_, i) =>
+                  ProductCard(product: products[i]),
             ),
           );
         },
@@ -64,87 +67,5 @@ class ProductsListScreen extends ConsumerWidget {
   }
 }
 
-class _ProductGridCard extends StatelessWidget {
-  final Product product;
-  const _ProductGridCard({required this.product});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(8),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => context.go('/home/product/${product.id}'),
-        borderRadius: BorderRadius.circular(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              flex: 3,
-              child: CachedImage(
-                imageUrl: product.image1Url,
-                width: double.infinity,
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(18)),
-                placeholderIcon: Icons.shopping_bag_outlined,
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      product.title,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        height: 1.3,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const Spacer(),
-                    Text(
-                      'LKR ${product.priceLkr.toStringAsFixed(0)}',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: theme.colorScheme.primary,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      product.category,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: theme.colorScheme.outline,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+// _ProductGridCard removed — replaced by the canonical ProductCard
+// widget (lib/widgets/product_card.dart) per the home-spec unification.

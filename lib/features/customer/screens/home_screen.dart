@@ -13,6 +13,7 @@ import '../../../models/product.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/sign_in_required.dart';
+import '../../../widgets/unread_badge.dart';
 import '../../../widgets/verify_email_banner.dart';
 
 // ---------- Real-data providers ----------
@@ -398,6 +399,8 @@ class _HeaderIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Delegate the badge to the shared UnreadBadge widget so every
+    // message-icon surface across the app shows the same dot.
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -407,46 +410,11 @@ class _HeaderIconButton extends StatelessWidget {
           child: SizedBox(
             width: 38,
             height: 38,
-            child: Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.center,
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, color: Colors.white, size: 20),
-                ),
-                if (badgeCount > 0)
-                  Positioned(
-                    top: 2,
-                    right: 2,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 5, vertical: 1),
-                      constraints: const BoxConstraints(
-                          minWidth: 18, minHeight: 18),
-                      decoration: BoxDecoration(
-                        color: AppColors.orange,
-                        borderRadius: BorderRadius.circular(9),
-                        border: Border.all(color: Colors.white, width: 1.5),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        badgeCount > 99 ? '99+' : '$badgeCount',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          height: 1,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+            child: Center(
+              child: UnreadBadge(
+                count: badgeCount,
+                child: Icon(icon, color: Colors.white, size: 20),
+              ),
             ),
           ),
         ),
@@ -1144,9 +1112,6 @@ class _ProductCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final style = _styleFor(product.category);
-    final bizAsync =
-        ref.watch(_homeBusinessByIdProvider(product.businessId));
-    final isVerified = bizAsync.valueOrNull?.isVerified ?? false;
 
     return _TapScale(
       onTap: () => context.go('/home/product/${product.id}'),
@@ -1189,29 +1154,7 @@ class _ProductCard extends ConsumerWidget {
                                 style: const TextStyle(fontSize: 44)),
                           ),
                   ),
-                  if (isVerified)
-                    Positioned(
-                      top: 7,
-                      right: 7,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.tealLight,
-                          border: Border.all(
-                              color: AppColors.teal.withValues(alpha: 0.2)),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          '✓ Verified',
-                          style: GoogleFonts.dmSans(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 8.5,
-                            color: AppColors.teal,
-                          ),
-                        ),
-                      ),
-                    ),
+                  // VERIFIED BADGE — shown only on business own profile per spec.
                   Positioned(
                     bottom: 7,
                     right: 7,
