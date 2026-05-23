@@ -20,12 +20,33 @@
 
 const {onDocumentCreated, onDocumentUpdated} =
   require("firebase-functions/v2/firestore");
+const {defineSecret} = require("firebase-functions/params");
 const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
+const nodemailer = require("nodemailer");
 
 admin.initializeApp();
 const db = admin.firestore();
 const messaging = admin.messaging();
+
+// --------------------------------------------------------------------------
+// Email transport (Gmail SMTP via App Password)
+//
+// Secrets are set per-environment via:
+//   firebase functions:secrets:set EMAIL_USER
+//   firebase functions:secrets:set EMAIL_PASS
+//
+// EMAIL_USER  the Gmail address that sends the welcome mail
+// EMAIL_PASS  a Gmail App Password (NOT the account password) — generate
+//             at https://myaccount.google.com/apppasswords
+//
+// The transporter is built fresh inside the onUserSignUp handler because
+// (a) defineSecret().value() can only be read at runtime, not module
+// load, and (b) lazy construction keeps the cold-start cheaper for any
+// other function in this file that doesn't send mail.
+// --------------------------------------------------------------------------
+const EMAIL_USER = defineSecret("EMAIL_USER");
+const EMAIL_PASS = defineSecret("EMAIL_PASS");
 
 // --------------------------------------------------------------------------
 // Helpers
@@ -205,3 +226,143 @@ exports.onNewProductReview = onDocumentCreated(
     );
   },
 );
+
+// --------------------------------------------------------------------------
+// 5. Welcome email — fires on /users/{uid} create
+//
+// Two templates:
+//   - role 'user'      → "Welcome to PetaFinds" (browse-Pettah copy)
+//   - role 'business'  → "Your PetaFinds Business Account" (under-review copy)
+//
+// Email goes to whatever Firebase Auth has on file for the new user
+// (admin.auth().getUser(uid).email). Silently no-ops when the user
+// signed up via Apple with "Hide My Email" turned off + no email
+// associated, or in any other no-email edge case.
+//
+// Idempotent on doc create — Firestore triggers fire once per doc
+// version; account deletion + re-create would mail twice but that's
+// rare and acceptable.
+// --------------------------------------------------------------------------
+exports.onUserSignUp = onDocumentCreated(
+  {
+    document: "users/{uid}",
+    secrets: [EMAIL_USER, EMAIL_PASS],
+  },
+  async (event) => {
+    const user = event.data?.data();
+    if (!user) return;
+    const role = user.role || "user";
+    const uid = event.params.uid;
+
+    let email;
+    try {
+      const authUser = await admin.auth().getUser(uid);
+      email = authUser.email;
+    } catch (err) {
+      logger.warn("[email] no auth user for", uid, err);
+      return;
+    }
+    if (!email) {
+      logger.info("[email] no email on file for", uid, "— skipping");
+      return;
+    }
+
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: EMAIL_USER.value(),
+        pass: EMAIL_PASS.value(),
+      },
+    });
+
+    try {
+      if (role === "business") {
+        await transporter.sendMail({
+          from: "\"PetaFinds\" <noreply@petafinds.lk>",
+          to: email,
+          subject: "Your PetaFinds Business Account",
+          html: _businessWelcomeHtml(),
+        });
+      } else {
+        await transporter.sendMail({
+          from: "\"PetaFinds\" <noreply@petafinds.lk>",
+          to: email,
+          subject: "Welcome to PetaFinds! 🎉",
+          html: _customerWelcomeHtml(),
+        });
+      }
+      logger.info("[email] welcome sent to", email, "role", role);
+    } catch (err) {
+      logger.error("[email] sendMail failed for", email, err);
+    }
+  },
+);
+
+function _customerWelcomeHtml() {
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 520px; margin: 0 auto; color: #1A1A1A;">
+      <div style="background: #095858; padding: 32px; text-align: center;
+        border-radius: 12px 12px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 800;">
+          Welcome to PetaFinds
+        </h1>
+      </div>
+      <div style="padding: 32px; background: #FAFAF8;
+        border-radius: 0 0 12px 12px; border: 1px solid #E8E8E8;">
+        <p style="font-size: 16px; line-height: 1.6;">
+          You now have access to Pettah's wholesale market from your phone.
+          Discover products, find businesses, and explore Sri Lanka's busiest
+          trade district — all in one place.
+        </p>
+        <a href="https://petafinds.lk"
+          style="display: inline-block; background: #095858; color: white;
+          padding: 14px 28px; border-radius: 999px; text-decoration: none;
+          font-weight: 600; margin-top: 16px;">
+          Start Exploring →
+        </a>
+        <p style="margin-top: 32px; font-size: 12px; color: #9E9E9E;">
+          PetaFinds · Pettah, Colombo 11
+        </p>
+      </div>
+    </div>
+  `;
+}
+
+function _businessWelcomeHtml() {
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 520px; margin: 0 auto; color: #1A1A1A;">
+      <div style="background: #095858; padding: 32px; text-align: center;
+        border-radius: 12px 12px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 800;">
+          Welcome to PetaFinds
+        </h1>
+      </div>
+      <div style="padding: 32px; background: #FAFAF8;
+        border-radius: 0 0 12px 12px; border: 1px solid #E8E8E8;">
+        <p style="font-size: 16px; line-height: 1.6;">
+          Thank you for registering your business on PetaFinds. Your listing
+          is currently under review by our team.
+        </p>
+        <div style="background: #FFF8F0; border-left: 4px solid #E8821A;
+          padding: 16px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0; font-size: 14px; color: #E8821A; font-weight: 600;">
+            Review Timeline
+          </p>
+          <p style="margin: 8px 0 0; font-size: 14px; color: #555;">
+            A decision will be made within 24–48 hours. You'll receive a
+            notification once your listing goes live.
+          </p>
+        </div>
+        <p style="font-size: 14px; color: #555; line-height: 1.6;">
+          Once approved, your products will be visible to thousands of buyers
+          across Colombo and beyond.
+        </p>
+        <p style="margin-top: 32px; font-size: 12px; color: #9E9E9E;">
+          PetaFinds · Pettah, Colombo 11
+        </p>
+      </div>
+    </div>
+  `;
+}

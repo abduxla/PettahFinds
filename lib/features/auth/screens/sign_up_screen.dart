@@ -1,12 +1,16 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../models/app_user.dart';
 import '../../../utils/validators.dart';
+import '../../../widgets/signup_role_picker_sheet.dart';
 
 class SignUpScreen extends ConsumerStatefulWidget {
   const SignUpScreen({super.key});
@@ -53,17 +57,106 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
             role: _selectedRole,
           );
       if (!mounted) return;
-      if (appUser.isBusiness) {
-        context.go('/business/setup');
-      } else {
-        context.go('/home');
-      }
+      _routeAfterAuth(appUser);
     } catch (e) {
       if (mounted) context.showErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
+
+  /// Google + Apple share the same post-OAuth flow:
+  ///   1. Run the platform sheet → Firebase Auth user.
+  ///   2. Check /users/{uid}. If it exists they're a RETURNING user
+  ///      who tapped sign-up by mistake — route to their role's home
+  ///      and skip the picker.
+  ///   3. If it doesn't exist they're a NEW user — show the role
+  ///      picker bottom sheet, then seed /users with the chosen role.
+  ///   4. Route based on role.
+  /// Wrapped to dismiss the keyboard before AND after the OAuth call
+  /// so the system keyboard doesn't linger on /home after the navigator
+  /// transition (FocusManager.instance.primaryFocus?.unfocus()).
+  Future<void> _continueWithGoogle() => _continueWithOAuth(
+        authenticate: () =>
+            ref.read(authRepositoryProvider).authenticateWithGoogle(),
+      );
+
+  Future<void> _continueWithApple() => _continueWithOAuth(
+        authenticate: () =>
+            ref.read(authRepositoryProvider).authenticateWithApple(),
+      );
+
+  Future<void> _continueWithOAuth({
+    required Future<dynamic> Function() authenticate,
+  }) async {
+    if (_loading) return;
+    // Dismiss the keyboard BEFORE jumping into the native OAuth sheet
+    // so when the sheet returns and we navigate, there's no focused
+    // field handing off the keyboard to the next screen.
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _loading = true);
+    try {
+      final repo = ref.read(authRepositoryProvider);
+      final firebaseUser = await authenticate();
+
+      // Existing user? Use their stored role + route home.
+      AppUser? existing;
+      try {
+        existing = await repo.getAppUser(firebaseUser.uid);
+      } catch (_) {
+        existing = null; // doc missing — that's the new-user signal
+      }
+      if (existing != null) {
+        if (!mounted) return;
+        _routeAfterAuth(existing);
+        return;
+      }
+
+      // New user — ask for role before seeding the doc.
+      if (!mounted) return;
+      final pickedRole = await showSignupRolePickerSheet(context);
+      if (pickedRole == null) {
+        // User dismissed the sheet — abort the signup, sign back out
+        // so an orphan FirebaseAuth user doesn't linger.
+        await repo.signOut();
+        return;
+      }
+      final appUser = await repo.seedAppUserIfMissing(
+        firebaseUser: firebaseUser,
+        role: pickedRole,
+      );
+      if (!mounted) return;
+      _routeAfterAuth(appUser);
+    } catch (e) {
+      if (mounted) context.showErrorSnackBar(e);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _routeAfterAuth(AppUser appUser) {
+    // Belt-and-suspenders unfocus + a micro-delay before navigation so
+    // the keyboard's dismiss animation completes before the route
+    // transition takes over. Without this the keyboard occasionally
+    // sticks on the destination screen after Google sign-in.
+    FocusScope.of(context).unfocus();
+    Future<void>.delayed(const Duration(milliseconds: 50)).then((_) {
+      if (!mounted) return;
+      if (appUser.isBusiness) {
+        context.go('/business/setup');
+      } else {
+        context.go('/home');
+      }
+    });
+  }
+
+  /// True only on iOS/macOS where Apple's native sheet is available.
+  /// Web + Android need extra Services-ID setup we haven't done, so
+  /// the button is hidden on those platforms.
+  bool get _appleAvailable =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.macOS);
 
   @override
   Widget build(BuildContext context) {
@@ -216,6 +309,64 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                                 strokeWidth: 2, color: Colors.white))
                         : const Text('Sign Up'),
                   ),
+
+                  // ──── or divider ────
+                  // Visually separates email signup from the OAuth
+                  // shortcuts below. Matches the sign-in screen's
+                  // divider so the two flows feel symmetric.
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Divider(color: AppColors.border, thickness: 1),
+                      ),
+                      Padding(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 12),
+                        child: Text(
+                          'or',
+                          style: GoogleFonts.dmSans(
+                            color: AppColors.text3,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const Expanded(
+                        child: Divider(color: AppColors.border, thickness: 1),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  OutlinedButton.icon(
+                    onPressed:
+                        _loading ? null : _continueWithGoogle,
+                    icon: const Icon(Icons.account_circle_outlined,
+                        size: 20),
+                    label: const Text('Continue with Google'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.text1,
+                      side: const BorderSide(color: AppColors.border),
+                      padding:
+                          const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  // Apple sign-in — required by App Store Review when
+                  // any social sign-in is offered. iOS/macOS only;
+                  // Android + web fall back to email + Google.
+                  if (_appleAvailable) ...[
+                    const SizedBox(height: 10),
+                    SignInWithAppleButton(
+                      onPressed:
+                          _loading ? () {} : _continueWithApple,
+                      style: SignInWithAppleButtonStyle.black,
+                      borderRadius: BorderRadius.circular(12),
+                      height: 48,
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
