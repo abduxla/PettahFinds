@@ -67,6 +67,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isLoggedIn = authState.valueOrNull != null;
       final currentPath = state.uri.path;
 
+      // One-line trace at the top of every redirect evaluation. Reads
+      // the inputs that determine the decision so a sign-in flow can
+      // be replayed end-to-end from `flutter logs` without instrumenting
+      // every return point. Outputs e.g.:
+      //   🔀 ROUTER path=/sign-up loggedIn=true authLoad=false
+      //              appUser=null isHandling=true
+      debugPrint(
+          '🔀 ROUTER path=$currentPath loggedIn=$isLoggedIn '
+          'authLoad=$isAuthLoading appUser=${appUser.valueOrNull?.role} '
+          'isHandling=$isHandlingSignIn');
+
       // MID-OAUTH GUARD. While the Sign-Up / Sign-In screen is mid-
       // handshake (OAuth → existing-doc check → role picker → seed),
       // suppress every redirect. Without this, the appUserProvider's
@@ -82,7 +93,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       // OAuth call and cleared in its finally{} block after the doc
       // is written (or the user cancels), so the suppression window
       // is exactly the danger window.
-      if (isHandlingSignIn) return null;
+      if (isHandlingSignIn) {
+        debugPrint('🔀 ROUTER → suppressed (mid-OAuth)');
+        return null;
+      }
 
       // Allow splash always — it handles its own navigation
       if (currentPath == '/splash') return null;

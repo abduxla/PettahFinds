@@ -82,18 +82,26 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen> {
 
   void _tryRouteFromCurrentState() {
     final authUser = ref.read(authStateProvider).valueOrNull;
+    debugPrint(
+        '⏳ [loading] tryRouteFromCurrentState: authUid=${authUser?.uid}');
     // No Firebase Auth user at all — bail to sign-in immediately.
     // Defensive: the router redirect should have caught this, but if a
     // caller deep-links straight to /loading we must not strand them.
     if (authUser == null) {
+      debugPrint('🔴 [loading] no Firebase Auth user → /sign-in');
       _go('/sign-in');
       return;
     }
     final appUser = ref.read(appUserProvider).valueOrNull;
+    debugPrint(
+        '⏳ [loading] initial appUser snapshot: role=${appUser?.role} '
+        'businessId=${appUser?.businessId}');
     if (appUser != null) _routeByRole(appUser);
   }
 
   void _routeByRole(AppUser u) {
+    debugPrint(
+        '🟢 [loading] routeByRole: role=${u.role} businessId=${u.businessId}');
     if (u.isAdmin) {
       _go('/admin');
       return;
@@ -110,7 +118,12 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen> {
   }
 
   void _go(String path) {
-    if (_navigated || !mounted) return;
+    if (_navigated || !mounted) {
+      debugPrint(
+          '⏳ [loading] _go($path) ignored — navigated=$_navigated mounted=$mounted');
+      return;
+    }
+    debugPrint('🟢 [loading] _go($path) firing');
     _navigated = true;
     _timeout?.cancel();
     context.go(path);
@@ -152,9 +165,14 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen> {
     //   2. authStateProvider drops to null       → bail to /sign-in.
     ref.listen<AsyncValue<AppUser?>>(appUserProvider, (prev, next) {
       final u = next.valueOrNull;
+      debugPrint(
+          '⏳ [loading] appUserProvider emit: role=${u?.role} '
+          'isLoading=${next.isLoading} hasError=${next.hasError}');
       if (u != null) _routeByRole(u);
     });
     ref.listen<AsyncValue<User?>>(authStateProvider, (prev, next) {
+      debugPrint(
+          '⏳ [loading] authStateProvider emit: uid=${next.valueOrNull?.uid}');
       if (!next.isLoading && next.valueOrNull == null) _go('/sign-in');
     });
 

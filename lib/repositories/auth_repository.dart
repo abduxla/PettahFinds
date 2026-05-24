@@ -156,6 +156,7 @@ class AuthRepository {
   /// Sign-In screens share this exact sequence (see their
   /// _continueWithOAuth methods).
   Future<User> authenticateWithGoogle() async {
+    debugPrint('🟣 [auth] authenticateWithGoogle: start (web=$kIsWeb)');
     // Web and native are two completely different flows. Both branches
     // converge on the same Firebase Auth credential — only how the
     // credential is obtained differs.
@@ -165,6 +166,8 @@ class AuthRepository {
         cred = await _auth.signInWithPopup(GoogleAuthProvider());
       } else {
         final googleUser = await GoogleSignIn().signIn();
+        debugPrint(
+            '🟣 [auth] GoogleSignIn.signIn returned ${googleUser?.email ?? "null"}');
         if (googleUser == null) {
           throw Exception('Google sign-in cancelled.');
         }
@@ -175,8 +178,10 @@ class AuthRepository {
         );
         cred = await _auth.signInWithCredential(credential);
       }
+      debugPrint(
+          '🟢 [auth] authenticateWithGoogle: signed in uid=${cred.user?.uid}');
     } catch (e) {
-      if (kDebugMode) debugPrint('[auth] Google Sign-In error: $e');
+      debugPrint('🔴 [auth] Google Sign-In error: $e');
       final s = e.toString();
       if (s.contains('popup-closed-by-user') ||
           s.contains('cancelled')) {
@@ -301,6 +306,7 @@ class AuthRepository {
   /// caller is responsible for the role-picker + seed sequence (see
   /// [authenticateWithGoogle]'s docstring for the shared pattern).
   Future<User> authenticateWithApple() async {
+    debugPrint('🟣 [auth] authenticateWithApple: start');
     final appleCredential = await SignInWithApple.getAppleIDCredential(
       scopes: const [
         AppleIDAuthorizationScopes.email,
@@ -315,6 +321,7 @@ class AuthRepository {
 
     final cred = await _auth.signInWithCredential(oauthCredential);
     final user = cred.user!;
+    debugPrint('🟢 [auth] authenticateWithApple: signed in uid=${user.uid}');
 
     // FIRST-SIGN-IN NAME QUIRK. Apple's privacy model only sends
     // givenName+familyName when the user authorizes the app for the

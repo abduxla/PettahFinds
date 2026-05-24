@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show debugPrint, defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -90,7 +91,11 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   Future<void> _continueWithOAuth({
     required Future<dynamic> Function() authenticate,
   }) async {
-    if (_loading) return;
+    debugPrint('🔵 [signin] STEP 1: OAuth started');
+    if (_loading) {
+      debugPrint('🟡 [signin] STEP 1a: already loading — abort');
+      return;
+    }
     // KEYBOARD-LINGER BUG. Before this unfocus, the email/password
     // TextFormField retained focus into the OAuth sheet round-trip;
     // when we navigated to /home the keyboard came along with the
@@ -104,40 +109,67 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     // emission and the doc-seed completion, which would otherwise
     // unmount this screen and abort the doc creation.
     ref.read(isHandlingSignInProvider.notifier).state = true;
+    debugPrint('🔵 [signin] STEP 1b: isHandlingSignIn = true');
     try {
       final repo = ref.read(authRepositoryProvider);
       final firebaseUser = await authenticate();
+      debugPrint(
+          '🔵 [signin] STEP 2: OAuth complete uid=${firebaseUser.uid}');
 
       // Returning user? Use their stored role, skip the picker.
       AppUser? existing;
       try {
         existing = await repo.getAppUser(firebaseUser.uid);
+        debugPrint(
+            '🔵 [signin] STEP 3: existing doc found role=${existing.role}');
       } catch (_) {
         existing = null; // doc missing — first-time OAuth
+        debugPrint('🔵 [signin] STEP 3: no existing doc — new-user path');
       }
       if (existing != null) {
-        if (!mounted) return;
+        if (!mounted) {
+          debugPrint('🟡 [signin] STEP 3a: unmounted — skip route');
+          return;
+        }
+        debugPrint('🟢 [signin] STEP 3b: routing existing user to /loading');
         _routeAfterSignIn();
         return;
       }
 
       // First-time OAuth — pick role BEFORE seeding /users/{uid}.
-      if (!mounted) return;
+      if (!mounted) {
+        debugPrint('🔴 [signin] STEP 4: unmounted before picker — abort');
+        return;
+      }
+      debugPrint(
+          '🔵 [signin] STEP 4: showing role picker (mounted=$mounted)');
       final pickedRole = await showSignupRolePickerSheet(context);
+      debugPrint('🔵 [signin] STEP 5: picker returned role=$pickedRole');
       if (pickedRole == null) {
+        debugPrint('🟡 [signin] STEP 5a: picker cancelled — signing out');
         // User cancelled the (non-dismissible) sheet via the explicit
         // Cancel button — back out cleanly so we don't leave an
         // orphaned Firebase Auth session with no /users doc.
         await repo.signOut();
         return;
       }
+      debugPrint(
+          '🔵 [signin] STEP 6: seeding /users/${firebaseUser.uid} role=$pickedRole');
       await repo.seedAppUserIfMissing(
         firebaseUser: firebaseUser,
         role: pickedRole,
       );
-      if (!mounted) return;
+      debugPrint('🟢 [signin] STEP 6a: seed complete');
+      if (!mounted) {
+        debugPrint(
+            '🟡 [signin] STEP 6b: unmounted after seed — router already navigated');
+        return;
+      }
+      debugPrint('🟢 [signin] STEP 7: handing off to /loading');
       _routeAfterSignIn();
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('🔴 [signin] ERROR: $e');
+      debugPrint('🔴 [signin] STACK: $st');
       // Defensive sign-out on any error so we never leave a Firebase
       // Auth session alive without a /users doc.
       try {
@@ -145,6 +177,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       } catch (_) {}
       if (mounted) context.showErrorSnackBar(e);
     } finally {
+      debugPrint('🔵 [signin] FINALLY: clearing isHandlingSignIn');
       ref.read(isHandlingSignInProvider.notifier).state = false;
       if (mounted) setState(() => _loading = false);
     }

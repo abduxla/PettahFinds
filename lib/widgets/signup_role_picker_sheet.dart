@@ -20,6 +20,15 @@ Future<String?> showSignupRolePickerSheet(BuildContext context) {
     // paths historically stranded auth state.
     isDismissible: false,
     enableDrag: false,
+    // CRITICAL: pin the sheet to the ROOT Navigator, not whichever
+    // GoRoute happens to be on top when we open it. Without this, any
+    // mid-OAuth route rebuild (e.g. router reacting to the appUser
+    // stream emitting the new doc) tore down the sheet's host
+    // Navigator and the await resolved with `null` — leaving an
+    // authed Firebase user with no /users doc and tripping the
+    // "Something went wrong" timeout downstream. Root-navigator
+    // hosting survives every nested route swap.
+    useRootNavigator: true,
     backgroundColor: Colors.white,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),

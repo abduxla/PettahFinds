@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show debugPrint, defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -89,7 +90,11 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
   Future<void> _continueWithOAuth({
     required Future<dynamic> Function() authenticate,
   }) async {
-    if (_loading) return;
+    debugPrint('🔵 [signup] STEP 1: OAuth started');
+    if (_loading) {
+      debugPrint('🟡 [signup] STEP 1a: already loading — abort');
+      return;
+    }
     // Dismiss the keyboard BEFORE jumping into the native OAuth sheet
     // so when the sheet returns and we navigate, there's no focused
     // field handing off the keyboard to the next screen.
@@ -102,39 +107,66 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     // post-write emission would redirect us off /sign-up mid-await
     // and abort the doc creation. Cleared in finally{}.
     ref.read(isHandlingSignInProvider.notifier).state = true;
+    debugPrint('🔵 [signup] STEP 1b: isHandlingSignIn = true');
     try {
       final repo = ref.read(authRepositoryProvider);
       final firebaseUser = await authenticate();
+      debugPrint(
+          '🔵 [signup] STEP 2: OAuth complete uid=${firebaseUser.uid}');
 
       // Existing user? Use their stored role + route home.
       AppUser? existing;
       try {
         existing = await repo.getAppUser(firebaseUser.uid);
+        debugPrint(
+            '🔵 [signup] STEP 3: existing doc found role=${existing.role}');
       } catch (_) {
         existing = null; // doc missing — that's the new-user signal
+        debugPrint('🔵 [signup] STEP 3: no existing doc — new-user path');
       }
       if (existing != null) {
-        if (!mounted) return;
+        if (!mounted) {
+          debugPrint('🟡 [signup] STEP 3a: unmounted — skip route');
+          return;
+        }
+        debugPrint('🟢 [signup] STEP 3b: routing existing user to /loading');
         _routeAfterAuth();
         return;
       }
 
       // New user — ask for role before seeding the doc.
-      if (!mounted) return;
+      if (!mounted) {
+        debugPrint('🔴 [signup] STEP 4: unmounted before picker — abort');
+        return;
+      }
+      debugPrint(
+          '🔵 [signup] STEP 4: showing role picker (mounted=$mounted)');
       final pickedRole = await showSignupRolePickerSheet(context);
+      debugPrint('🔵 [signup] STEP 5: picker returned role=$pickedRole');
       if (pickedRole == null) {
+        debugPrint('🟡 [signup] STEP 5a: picker cancelled — signing out');
         // User dismissed the sheet — abort the signup, sign back out
         // so an orphan FirebaseAuth user doesn't linger.
         await repo.signOut();
         return;
       }
+      debugPrint(
+          '🔵 [signup] STEP 6: seeding /users/${firebaseUser.uid} role=$pickedRole');
       await repo.seedAppUserIfMissing(
         firebaseUser: firebaseUser,
         role: pickedRole,
       );
-      if (!mounted) return;
+      debugPrint('🟢 [signup] STEP 6a: seed complete');
+      if (!mounted) {
+        debugPrint(
+            '🟡 [signup] STEP 6b: unmounted after seed — router already navigated');
+        return;
+      }
+      debugPrint('🟢 [signup] STEP 7: handing off to /loading');
       _routeAfterAuth();
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('🔴 [signup] ERROR: $e');
+      debugPrint('🔴 [signup] STACK: $st');
       // Defensive: sign back out on ANY error so we never leave a
       // Firebase Auth session alive with no /users doc (the exact
       // stranded state /loading was timing out on).
@@ -143,6 +175,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       } catch (_) {}
       if (mounted) context.showErrorSnackBar(e);
     } finally {
+      debugPrint('🔵 [signup] FINALLY: clearing isHandlingSignIn');
       // Always release the router guard, even on error/cancel — the
       // router needs to be free to redirect the now-unauthed user
       // back to /sign-in.
