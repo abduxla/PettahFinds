@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart' show User;
 import 'package:flutter/foundation.dart'
     show debugPrint, defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/gestures.dart';
@@ -51,14 +52,14 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       // TODO(legal): persist accepted legal version on AppUser
       // (LegalDocuments.legalVersion + DateTime.now()) once the AppUser
       // model has acceptedTermsVersion / acceptedTermsAt fields.
-      await ref.read(authRepositoryProvider).signUp(
+      final appUser = await ref.read(authRepositoryProvider).signUp(
             email: _emailCtrl.text,
             password: _passwordCtrl.text,
             displayName: _nameCtrl.text,
             role: _selectedRole,
           );
       if (!mounted) return;
-      _routeAfterAuth();
+      _routeAfterAuth(appUser);
     } catch (e) {
       if (mounted) context.showErrorSnackBar(e);
     } finally {
@@ -66,156 +67,198 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     }
   }
 
-  /// Google + Apple share the same post-OAuth flow:
-  ///   1. Run the platform sheet → Firebase Auth user.
-  ///   2. Check /users/{uid}. If it exists they're a RETURNING user
-  ///      who tapped sign-up by mistake — route to their role's home
-  ///      and skip the picker.
-  ///   3. If it doesn't exist they're a NEW user — show the role
-  ///      picker bottom sheet, then seed /users with the chosen role.
-  ///   4. Route based on role.
-  /// Wrapped to dismiss the keyboard before AND after the OAuth call
-  /// so the system keyboard doesn't linger on /home after the navigator
-  /// transition (FocusManager.instance.primaryFocus?.unfocus()).
+  /// Google + Apple share the same post-OAuth flow. See
+  /// [_continueWithOAuth] for the full step-by-step. These wrappers
+  /// only exist so the buttons read cleanly.
   Future<void> _continueWithGoogle() => _continueWithOAuth(
-        authenticate: () =>
-            ref.read(authRepositoryProvider).authenticateWithGoogle(),
+        () => ref.read(authRepositoryProvider).authenticateWithGoogle(),
       );
 
   Future<void> _continueWithApple() => _continueWithOAuth(
-        authenticate: () =>
-            ref.read(authRepositoryProvider).authenticateWithApple(),
+        () => ref.read(authRepositoryProvider).authenticateWithApple(),
       );
 
-  Future<void> _continueWithOAuth({
-    required Future<dynamic> Function() authenticate,
-  }) async {
-    debugPrint('🔵 [signup] STEP 1: OAuth started');
+  /// Post-OAuth handshake.
+  ///
+  /// 1. Set the mid-OAuth router guard BEFORE any async work.
+  /// 2. Run the platform OAuth sheet → Firebase Auth user.
+  /// 3. Check /users/{uid}. Existing → route by stored role.
+  /// 4. Missing → show role picker → seed /users with picked role.
+  /// 5. Release the guard EXPLICITLY in every exit branch BEFORE
+  ///    navigation, then route by role.
+  ///
+  /// No finally{} block: a finally that runs after the synchronous
+  /// _routeAfterAuth call below would flip the guard off after the
+  /// router has already started re-evaluating, on slow devices that
+  /// produced a redirect race. Releasing per-branch keeps the
+  /// suppression window exactly the danger window.
+  Future<void> _continueWithOAuth(
+    Future<User> Function() authenticate,
+  ) async {
+    debugPrint('🔵 [signup] _continueWithOAuth start');
     if (_loading) {
-      debugPrint('🟡 [signup] STEP 1a: already loading — abort');
+      debugPrint('🟡 [signup] already loading — abort');
       return;
     }
-    // Dismiss the keyboard BEFORE jumping into the native OAuth sheet
-    // so when the sheet returns and we navigate, there's no focused
-    // field handing off the keyboard to the next screen.
+    // Keyboard down BEFORE the native sheet to stop the focused field
+    // handing the keyboard off to the next screen post-OAuth.
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _loading = true);
-    // CRITICAL: flip the mid-OAuth guard BEFORE the auth state change
-    // can reach the router. Suppresses every redirect until we've
-    // either written /users/{uid} with the picked role or signed the
-    // user back out — closing the race where the appUserProvider's
-    // post-write emission would redirect us off /sign-up mid-await
-    // and abort the doc creation. Cleared in finally{}.
+    // CRITICAL: guard set BEFORE the first await so the router's
+    // first rebuild after the Firebase Auth state change already
+    // sees isHandling=true and short-circuits.
     ref.read(isHandlingSignInProvider.notifier).state = true;
-    debugPrint('🔵 [signup] STEP 1b: isHandlingSignIn = true');
-    try {
-      final repo = ref.read(authRepositoryProvider);
-      final firebaseUser = await authenticate();
-      debugPrint(
-          '🔵 [signup] STEP 2: OAuth complete uid=${firebaseUser.uid}');
+    debugPrint('🔵 [signup] guard SET');
 
-      // Existing user? Use their stored role + route home.
-      //
-      // CRITICAL DISTINCTION: the bare `catch (_)` previously here
-      // swallowed FirebaseException too, so a permission-denied or
-      // unavailable rule rejection got mis-classified as "doc just
-      // doesn't exist yet → new user". The flow then ran the picker
-      // and the seed, and the seed died on the SAME rule with no
-      // user-visible trace. Now we ONLY treat the literal
-      // "User document not found" sentinel as the new-user signal.
-      // Anything else (FirebaseException, network, etc.) re-throws
-      // into the outer catch which surfaces the real error.
-      AppUser? existing;
-      try {
-        existing = await repo.getAppUser(firebaseUser.uid);
-        debugPrint(
-            '🔵 [signup] STEP 3: existing doc found role=${existing.role}');
-      } catch (e) {
-        if (e.toString().contains('User document not found')) {
-          existing = null;
-          debugPrint(
-              '🔵 [signup] STEP 3: no existing doc — new-user path');
-        } else {
-          debugPrint(
-              '🔴 [signup] STEP 3: getAppUser failed with REAL error — rethrowing');
-          rethrow;
-        }
-      }
-      if (existing != null) {
-        if (!mounted) {
-          debugPrint('🟡 [signup] STEP 3a: unmounted — skip route');
-          return;
-        }
-        debugPrint('🟢 [signup] STEP 3b: routing existing user to /loading');
-        _routeAfterAuth();
-        return;
-      }
-
-      // New user — ask for role before seeding the doc.
-      if (!mounted) {
-        debugPrint('🔴 [signup] STEP 4: unmounted before picker — abort');
-        return;
-      }
-      debugPrint(
-          '🔵 [signup] STEP 4: showing role picker (mounted=$mounted)');
-      final pickedRole = await showSignupRolePickerSheet(context);
-      debugPrint('🔵 [signup] STEP 5: picker returned role=$pickedRole');
-      if (pickedRole == null) {
-        debugPrint('🟡 [signup] STEP 5a: picker cancelled — signing out');
-        // User dismissed the sheet — abort the signup, sign back out
-        // so an orphan FirebaseAuth user doesn't linger.
-        await repo.signOut();
-        return;
-      }
-      debugPrint(
-          '🔵 [signup] STEP 6: seeding /users/${firebaseUser.uid} role=$pickedRole');
-      await repo.seedAppUserIfMissing(
-        firebaseUser: firebaseUser,
-        role: pickedRole,
-      );
-      debugPrint('🟢 [signup] STEP 6a: seed complete');
-      if (!mounted) {
-        debugPrint(
-            '🟡 [signup] STEP 6b: unmounted after seed — router already navigated');
-        return;
-      }
-      debugPrint('🟢 [signup] STEP 7: handing off to /loading');
-      _routeAfterAuth();
-    } catch (e, st) {
-      debugPrint('🔴 [signup] ERROR: $e');
-      debugPrint('🔴 [signup] STACK: $st');
-      // Defensive: sign back out on ANY error so we never leave a
-      // Firebase Auth session alive with no /users doc (the exact
-      // stranded state /loading was timing out on).
-      try {
-        await ref.read(authRepositoryProvider).signOut();
-      } catch (_) {}
-      if (mounted) context.showErrorSnackBar(e);
-    } finally {
-      debugPrint('🔵 [signup] FINALLY: clearing isHandlingSignIn');
-      // Always release the router guard, even on error/cancel — the
-      // router needs to be free to redirect the now-unauthed user
-      // back to /sign-in.
+    // Tiny helper used at every successful exit branch — clears the
+    // router guard AND the local _loading flag. The catch block at
+    // the end calls this too so error paths can't leak the guard.
+    void releaseGuards() {
       ref.read(isHandlingSignInProvider.notifier).state = false;
       if (mounted) setState(() => _loading = false);
     }
+
+    try {
+      final repo = ref.read(authRepositoryProvider);
+
+      // ---- Step 2: OAuth ----
+      debugPrint('🔵 [signup] calling authenticate()');
+      final firebaseUser = await authenticate();
+      debugPrint(
+          '🟢 [signup] authenticate() done: uid=${firebaseUser.uid}');
+
+      // ---- Step 3: Existing-doc check ----
+      // ADAPTATION vs spec: spec uses bare `catch (_)` which would
+      // re-introduce the silent-FirebaseException-swallow bug fixed
+      // in commit a7657e4. We only treat the literal
+      // "User document not found" sentinel as new-user; everything
+      // else (permission-denied, unavailable, etc.) rethrows into
+      // the outer catch which logs + signs out + shows snackbar.
+      debugPrint('🔵 [signup] checking existing doc');
+      AppUser? existingUser;
+      try {
+        existingUser = await repo.getAppUser(firebaseUser.uid);
+        debugPrint(
+            '🟢 [signup] existing user found: role=${existingUser.role}');
+      } catch (e) {
+        if (e.toString().contains('User document not found')) {
+          existingUser = null;
+          debugPrint('🔵 [signup] no existing doc — new user flow');
+        } else {
+          debugPrint(
+              '🔴 [signup] getAppUser failed with REAL error — rethrowing');
+          rethrow;
+        }
+      }
+
+      // ---- Step 4: Existing user → skip picker ----
+      if (existingUser != null) {
+        debugPrint('🔵 [signup] existing user → routing by role');
+        releaseGuards();
+        if (!mounted) return;
+        _routeAfterAuth(existingUser);
+        return;
+      }
+
+      // ---- Step 5: Mounted check before picker ----
+      if (!mounted) {
+        debugPrint('🔴 [signup] not mounted before picker — signing out');
+        await repo.signOut();
+        releaseGuards();
+        return;
+      }
+
+      // ---- Step 6: Role picker ----
+      debugPrint('🔵 [signup] showing role picker (mounted=$mounted)');
+      final role = await showSignupRolePickerSheet(
+        context,
+        useRootNavigator: true,
+      );
+      debugPrint('🔵 [signup] role picker returned: $role');
+
+      // ---- Step 7: User cancelled picker ----
+      if (role == null || role.isEmpty) {
+        debugPrint('🟡 [signup] role null/empty — signing out');
+        // ADAPTATION vs spec: repo.signOut() (not FirebaseAuth direct)
+        // because it also clears the GoogleSignIn session so the next
+        // attempt shows the account picker again instead of silently
+        // re-using the last token.
+        await repo.signOut();
+        releaseGuards();
+        return;
+      }
+
+      // ---- Step 8: Mounted check before seed ----
+      if (!mounted) {
+        debugPrint('🔴 [signup] not mounted before seed — signing out');
+        await repo.signOut();
+        releaseGuards();
+        return;
+      }
+
+      // ---- Step 9: Seed the /users doc ----
+      debugPrint('🔵 [signup] seeding doc with role=$role');
+      final appUser = await repo.seedAppUserIfMissing(
+        firebaseUser: firebaseUser,
+        role: role,
+      );
+      debugPrint('🟢 [signup] doc seeded: role=${appUser.role}');
+
+      // ---- Step 10: Release guard BEFORE navigating ----
+      // The router redirect re-evaluates the moment the guard flips.
+      // By that point appUserProvider's snapshot listener has already
+      // fired (the set() succeeded synchronously above), so the
+      // redirect either no-ops or routes to the same destination we
+      // navigate to next.
+      releaseGuards();
+      debugPrint('🟢 [signup] guard RELEASED');
+
+      if (!mounted) return;
+      _routeAfterAuth(appUser);
+    } catch (e, stack) {
+      debugPrint('🔴 [signup] _continueWithOAuth CRASHED: $e');
+      debugPrint('🔴 [signup] stack: $stack');
+      // Release guard FIRST so the router can route the user back to
+      // /sign-in cleanly once we sign out below.
+      releaseGuards();
+      try {
+        await ref.read(authRepositoryProvider).signOut();
+      } catch (_) {}
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().contains('cancelled')
+                ? 'Sign-in cancelled.'
+                : 'Sign-in failed. Please try again.',
+          ),
+          backgroundColor: Colors.red[700],
+        ),
+      );
+    }
+    // Intentionally NO finally{} — see header comment.
   }
 
-  void _routeAfterAuth() {
-    // Always hand off to /loading instead of routing direct-to-role.
-    //
-    // Why: between the Firestore write and the appUserProvider stream
-    // emitting the new doc, the router would race and bounce the user
-    // (e.g. a fresh business signup with businessId still null in the
-    // cached AppUser would be sent to /business/setup, then bounced
-    // back, then forward — depending on stream timing). /loading is
-    // listener-driven, so it waits for the authoritative emission and
-    // routes once, correctly. The 50ms keyboard-dismiss delay stays.
+  /// Route directly by role using the AppUser we already have in
+  /// hand from the seed/existing-doc step. The /loading screen
+  /// detour was a workaround for not having the AppUser at this
+  /// point; now we do.
+  void _routeAfterAuth(AppUser user) {
+    debugPrint(
+        '🔵 [signup] _routeAfterAuth: role=${user.role} '
+        'businessId=${user.businessId}');
     FocusScope.of(context).unfocus();
-    Future<void>.delayed(const Duration(milliseconds: 50)).then((_) {
-      if (!mounted) return;
-      context.go('/loading');
-    });
+    if (user.isAdmin) {
+      context.go('/admin');
+    } else if (user.isBusiness) {
+      if (user.businessId == null || user.businessId!.isEmpty) {
+        context.go('/business/setup');
+      } else {
+        context.go('/business');
+      }
+    } else {
+      context.go('/home');
+    }
   }
 
   /// True only on iOS/macOS where Apple's native sheet is available.

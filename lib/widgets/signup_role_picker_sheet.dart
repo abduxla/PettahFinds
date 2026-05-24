@@ -12,7 +12,15 @@ import '../core/theme/app_colors.dart';
 /// doc, which left earlier builds in a permanent loading loop with no
 /// way to sign out. The sheet must end in a role choice OR an explicit
 /// Cancel that triggers a clean signOut.
-Future<String?> showSignupRolePickerSheet(BuildContext context) {
+Future<String?> showSignupRolePickerSheet(
+  BuildContext context, {
+  /// Defaults to true and should almost always stay true.
+  /// Exposed so callers can be explicit about their intent at the
+  /// OAuth call-site (see sign_up_screen / sign_in_screen
+  /// _continueWithOAuth) and so a regression that drops the root
+  /// navigator can be caught by a passing test.
+  bool useRootNavigator = true,
+}) {
   return showModalBottomSheet<String>(
     context: context,
     // CRITICAL: see header comment. Tapping the scrim must NOT dismiss
@@ -28,7 +36,7 @@ Future<String?> showSignupRolePickerSheet(BuildContext context) {
     // authed Firebase user with no /users doc and tripping the
     // "Something went wrong" timeout downstream. Root-navigator
     // hosting survives every nested route swap.
-    useRootNavigator: true,
+    useRootNavigator: useRootNavigator,
     backgroundColor: Colors.white,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
