@@ -35,10 +35,19 @@ class LoadingScreen extends ConsumerStatefulWidget {
 
 class _LoadingScreenState extends ConsumerState<LoadingScreen> {
   Timer? _timeout;
+  Timer? _slowTick;
   bool _navigated = false;
   bool _stuck = false;
+  // Flips at the halfway mark so the spinner copy reassures users that
+  // we're still working on slow connections instead of looking frozen.
+  bool _showSlowMessage = false;
 
-  static const _timeoutDuration = Duration(seconds: 10);
+  // 20s total — generous enough to cover slow upstream Firestore
+  // writes + first-read replication on weak Sri Lankan mobile data.
+  // The 10s mark switches the copy from "Setting up your account..."
+  // to "Almost there..." so the screen doesn't feel dead.
+  static const _timeoutDuration = Duration(seconds: 20);
+  static const _slowMessageAfter = Duration(seconds: 10);
 
   @override
   void initState() {
@@ -54,6 +63,11 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen> {
 
   void _armTimeout() {
     _timeout?.cancel();
+    _slowTick?.cancel();
+    _showSlowMessage = false;
+    _slowTick = Timer(_slowMessageAfter, () {
+      if (mounted && !_navigated) setState(() => _showSlowMessage = true);
+    });
     _timeout = Timer(_timeoutDuration, () {
       if (mounted && !_navigated) setState(() => _stuck = true);
     });
@@ -62,6 +76,7 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen> {
   @override
   void dispose() {
     _timeout?.cancel();
+    _slowTick?.cancel();
     super.dispose();
   }
 
@@ -108,6 +123,17 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen> {
     try {
       await ref.read(authRepositoryProvider).signOut();
     } catch (_) {}
+    // Force-clear any cached Riverpod state tied to the stranded
+    // session so the next sign-in starts from a clean slate. Without
+    // these invalidates, a stale AppUser snapshot could otherwise
+    // race the new auth state and re-route the user back into the
+    // broken state they just escaped.
+    ref.invalidate(appUserProvider);
+    ref.invalidate(currentUserBusinessProvider);
+    // Also release the mid-OAuth guard in case the stuck state
+    // happened mid-handshake (defensive — the OAuth caller's
+    // finally{} already clears it on the happy path).
+    ref.read(isHandlingSignInProvider.notifier).state = false;
     if (!mounted) return;
     _navigated = false; // allow _go to fire
     _go('/sign-in');
@@ -147,7 +173,9 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen> {
               const CircularProgressIndicator(color: AppColors.teal),
               const SizedBox(height: 16),
               Text(
-                'Setting up your account...',
+                _showSlowMessage
+                    ? 'Almost there...'
+                    : 'Setting up your account...',
                 style: GoogleFonts.dmSans(
                   fontSize: 13.5,
                   color: AppColors.text2,

@@ -55,6 +55,9 @@ final _adminShellKey = GlobalKey<NavigatorState>(debugLabel: 'admin');
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
   final appUser = ref.watch(appUserProvider);
+  // Watch the mid-OAuth guard so the router rebuilds when it flips and
+  // the redirect below can short-circuit during the handshake.
+  final isHandlingSignIn = ref.watch(isHandlingSignInProvider);
 
   return GoRouter(
     navigatorKey: rootNavigatorKey,
@@ -63,6 +66,23 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isAuthLoading = authState.isLoading;
       final isLoggedIn = authState.valueOrNull != null;
       final currentPath = state.uri.path;
+
+      // MID-OAUTH GUARD. While the Sign-Up / Sign-In screen is mid-
+      // handshake (OAuth → existing-doc check → role picker → seed),
+      // suppress every redirect. Without this, the appUserProvider's
+      // first emission after seedAppUserIfMissing writes the doc
+      // would race the still-running `_continueWithOAuth` Future: the
+      // redirect sees signed-in + AppUser + on /sign-up (an auth
+      // path) → returns roleHome() → router yanks the screen → the
+      // post-await `if (!mounted) return;` short-circuits → no doc
+      // write actually completes from the caller's perspective →
+      // /loading sits empty → "Something went wrong" timeout.
+      //
+      // The flag is set in the screen's _continueWithOAuth before the
+      // OAuth call and cleared in its finally{} block after the doc
+      // is written (or the user cancels), so the suppression window
+      // is exactly the danger window.
+      if (isHandlingSignIn) return null;
 
       // Allow splash always — it handles its own navigation
       if (currentPath == '/splash') return null;

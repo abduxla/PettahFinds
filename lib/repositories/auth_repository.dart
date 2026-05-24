@@ -210,6 +210,8 @@ class AuthRepository {
         .doc(firebaseUser.uid);
     final snap = await userDoc.get();
     if (snap.exists) {
+      debugPrint(
+          '[auth] seedAppUserIfMissing: doc already exists for ${firebaseUser.uid} — returning stored role');
       return AppUser.fromFirestore(snap);
     }
 
@@ -220,15 +222,25 @@ class AuthRepository {
       uid: firebaseUser.uid,
       email: firebaseUser.email ?? '',
       displayName:
-
-
-    
           (firebaseUser.displayName ?? 'PetaFinds user').trim(),
       role: safeRole,
       photoUrl: firebaseUser.photoURL ?? '',
       createdAt: DateTime.now(),
     );
-    await userDoc.set(appUser.toMap());
+    try {
+      await userDoc.set(appUser.toMap());
+      // Visible-in-DevTools confirmation that the doc actually landed
+      // with the expected role. The post-F1 "Something went wrong"
+      // bug surfaced as silent doc-creation failure; logging both
+      // success and failure here makes any future regression
+      // self-diagnosing on the very first failed sign-up.
+      debugPrint(
+          '[auth] seedAppUserIfMissing: /users/${firebaseUser.uid} created with role=$safeRole');
+    } catch (e) {
+      debugPrint(
+          '[auth] seedAppUserIfMissing FAILED for ${firebaseUser.uid} (role=$safeRole): $e');
+      rethrow;
+    }
 
     // Best-effort welcome notification. Same pattern as email signup.
     try {

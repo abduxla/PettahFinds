@@ -334,6 +334,28 @@ final authStateProvider = StreamProvider<User?>((ref) {
   return ref.watch(authRepositoryProvider).authStateChanges;
 });
 
+/// True while an OAuth sign-up flow is mid-handshake — the moment we
+/// kick off Google/Apple OAuth on the Sign-Up or Sign-In screen, until
+/// we have either written /users/{uid} with the picked role OR signed
+/// the user back out on cancellation.
+///
+/// The router's redirect reads this flag and returns null (no
+/// redirect) whenever it's true. Without it, the appUserProvider's
+/// first emission after `seedAppUserIfMissing` writes the doc would
+/// race the picker await: the router sees `isLoggedIn=true` +
+/// `user.isBusiness` + `currentPath=/sign-up` (an auth path) and
+/// instantly redirects to roleHome → unmounting the screen that owns
+/// the picker → the post-picker `if (!mounted) return;` short-circuits
+/// the doc-write code path → /loading screen sits empty for 10s →
+/// "Something went wrong".
+///
+/// Lives in a separate StateProvider so the router rebuilds when it
+/// flips (Riverpod's reactivity does the work — no manual refresh
+/// needed). Scoped to the OAuth flow only; password sign-in writes
+/// the doc inside [AuthRepository.signUp] synchronously before any
+/// state change reaches the router, so it doesn't need the guard.
+final isHandlingSignInProvider = StateProvider<bool>((ref) => false);
+
 // --- Current AppUser ---
 final appUserProvider = StreamProvider<AppUser?>((ref) {
   final authState = ref.watch(authStateProvider);

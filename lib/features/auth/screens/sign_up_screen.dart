@@ -95,6 +95,13 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     // field handing off the keyboard to the next screen.
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _loading = true);
+    // CRITICAL: flip the mid-OAuth guard BEFORE the auth state change
+    // can reach the router. Suppresses every redirect until we've
+    // either written /users/{uid} with the picked role or signed the
+    // user back out — closing the race where the appUserProvider's
+    // post-write emission would redirect us off /sign-up mid-await
+    // and abort the doc creation. Cleared in finally{}.
+    ref.read(isHandlingSignInProvider.notifier).state = true;
     try {
       final repo = ref.read(authRepositoryProvider);
       final firebaseUser = await authenticate();
@@ -128,8 +135,18 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       if (!mounted) return;
       _routeAfterAuth();
     } catch (e) {
+      // Defensive: sign back out on ANY error so we never leave a
+      // Firebase Auth session alive with no /users doc (the exact
+      // stranded state /loading was timing out on).
+      try {
+        await ref.read(authRepositoryProvider).signOut();
+      } catch (_) {}
       if (mounted) context.showErrorSnackBar(e);
     } finally {
+      // Always release the router guard, even on error/cancel — the
+      // router needs to be free to redirect the now-unauthed user
+      // back to /sign-in.
+      ref.read(isHandlingSignInProvider.notifier).state = false;
       if (mounted) setState(() => _loading = false);
     }
   }

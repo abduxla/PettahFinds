@@ -98,6 +98,12 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     // post-auth (in _routeAfterSignIn) kills the bug at both ends.
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _loading = true);
+    // CRITICAL mid-OAuth guard — see the matching block in
+    // sign_up_screen.dart for the full rationale. In short: blocks
+    // the router from redirecting between the post-OAuth auth state
+    // emission and the doc-seed completion, which would otherwise
+    // unmount this screen and abort the doc creation.
+    ref.read(isHandlingSignInProvider.notifier).state = true;
     try {
       final repo = ref.read(authRepositoryProvider);
       final firebaseUser = await authenticate();
@@ -132,8 +138,14 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       if (!mounted) return;
       _routeAfterSignIn();
     } catch (e) {
+      // Defensive sign-out on any error so we never leave a Firebase
+      // Auth session alive without a /users doc.
+      try {
+        await ref.read(authRepositoryProvider).signOut();
+      } catch (_) {}
       if (mounted) context.showErrorSnackBar(e);
     } finally {
+      ref.read(isHandlingSignInProvider.notifier).state = false;
       if (mounted) setState(() => _loading = false);
     }
   }
