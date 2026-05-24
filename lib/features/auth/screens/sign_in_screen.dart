@@ -117,14 +117,28 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
           '🔵 [signin] STEP 2: OAuth complete uid=${firebaseUser.uid}');
 
       // Returning user? Use their stored role, skip the picker.
+      //
+      // Same distinction as sign_up_screen — only the literal
+      // "User document not found" sentinel counts as new-user. A
+      // FirebaseException (rule rejection, network, etc.) re-throws
+      // into the outer catch so the real error is logged + the
+      // user is signed out cleanly instead of being marched into a
+      // picker → seed → "Something went wrong" loop.
       AppUser? existing;
       try {
         existing = await repo.getAppUser(firebaseUser.uid);
         debugPrint(
             '🔵 [signin] STEP 3: existing doc found role=${existing.role}');
-      } catch (_) {
-        existing = null; // doc missing — first-time OAuth
-        debugPrint('🔵 [signin] STEP 3: no existing doc — new-user path');
+      } catch (e) {
+        if (e.toString().contains('User document not found')) {
+          existing = null;
+          debugPrint(
+              '🔵 [signin] STEP 3: no existing doc — new-user path');
+        } else {
+          debugPrint(
+              '🔴 [signin] STEP 3: getAppUser failed with REAL error — rethrowing');
+          rethrow;
+        }
       }
       if (existing != null) {
         if (!mounted) {

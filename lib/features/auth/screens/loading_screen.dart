@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/app_user.dart';
@@ -41,6 +43,12 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen> {
   // Flips at the halfway mark so the spinner copy reassures users that
   // we're still working on slow connections instead of looking frozen.
   bool _showSlowMessage = false;
+  // Counts non-routing emissions from appUserProvider so we can probe
+  // Firestore directly after a few empty hits and surface the REAL
+  // error (e.g. permission-denied) instead of the generic "Something
+  // went wrong" copy.
+  int _emptyEmissions = 0;
+  String? _firebaseDiagnostic;
 
   // 20s total — generous enough to cover slow upstream Firestore
   // writes + first-read replication on weak Sri Lankan mobile data.
@@ -153,9 +161,62 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen> {
   }
 
   void _retry() {
-    setState(() => _stuck = false);
+    setState(() {
+      _stuck = false;
+      _firebaseDiagnostic = null;
+      _emptyEmissions = 0;
+    });
     _armTimeout();
     _tryRouteFromCurrentState();
+  }
+
+  /// One-shot direct read against /users/{uid} that bypasses the
+  /// Riverpod stream, so the FirebaseException code (if any) lands
+  /// in our hands instead of being mapped to null by the stream's
+  /// `.map((doc) => doc.exists ? ... : null)`. Result is rendered
+  /// on the stuck recovery card so a non-developer can still
+  /// screenshot the actual error.
+  Future<void> _probeFirestoreForError() async {
+    final uid = ref.read(authStateProvider).valueOrNull?.uid;
+    if (uid == null) return;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection(AppConstants.usersCollection)
+          .doc(uid)
+          .get();
+      final data = doc.data();
+      debugPrint(
+          '🔴 [loading] probe: exists=${doc.exists} data=$data');
+      if (mounted) {
+        setState(() {
+          _firebaseDiagnostic = doc.exists
+              ? 'Doc exists but role missing.\nuid=$uid\ndata=$data'
+              : 'Firestore says /users/$uid does NOT exist '
+                  'after sign-in. The picker→seed write never landed.';
+        });
+      }
+    } on FirebaseException catch (e) {
+      debugPrint('🔴 [loading] probe FIREBASE ERROR');
+      debugPrint('🔴   code=${e.code}');
+      debugPrint('🔴   message=${e.message}');
+      debugPrint('🔴   plugin=${e.plugin}');
+      if (mounted) {
+        setState(() {
+          _firebaseDiagnostic = 'FirebaseException\n'
+              'code: ${e.code}\n'
+              'plugin: ${e.plugin}\n'
+              'message: ${e.message}';
+        });
+      }
+    } catch (e, st) {
+      debugPrint('🔴 [loading] probe UNKNOWN ERROR: $e');
+      debugPrint('🔴 stack: $st');
+      if (mounted) {
+        setState(() {
+          _firebaseDiagnostic = 'Error: $e';
+        });
+      }
+    }
   }
 
   @override
@@ -168,7 +229,21 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen> {
       debugPrint(
           '⏳ [loading] appUserProvider emit: role=${u?.role} '
           'isLoading=${next.isLoading} hasError=${next.hasError}');
-      if (u != null) _routeByRole(u);
+      if (u != null) {
+        _routeByRole(u);
+        return;
+      }
+      // Empty / null emission while signed in — count it. After
+      // 3 consecutive empties we probe Firestore directly to
+      // capture the REAL error (permission-denied, unavailable,
+      // etc.) and surface its code on the recovery card instead
+      // of the generic "Something went wrong".
+      _emptyEmissions += 1;
+      if (_emptyEmissions == 3) {
+        debugPrint(
+            '🔴 [loading] 3 empty appUser emissions — probing Firestore directly');
+        _probeFirestoreForError();
+      }
     });
     ref.listen<AsyncValue<User?>>(authStateProvider, (prev, next) {
       debugPrint(
@@ -208,6 +283,7 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen> {
   }
 
   Widget _buildStuckRecovery() {
+    final diagnostic = _firebaseDiagnostic;
     return Scaffold(
       backgroundColor: AppColors.bgSection,
       body: SafeArea(
@@ -243,6 +319,28 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen> {
                     height: 1.45,
                   ),
                 ),
+                if (diagnostic != null) ...[
+                  const SizedBox(height: 14),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.red.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: AppColors.red.withValues(alpha: 0.25)),
+                    ),
+                    child: Text(
+                      diagnostic,
+                      textAlign: TextAlign.left,
+                      style: GoogleFonts.firaMono(
+                        fontSize: 11.5,
+                        color: AppColors.text1,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,

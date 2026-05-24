@@ -210,13 +210,35 @@ class AuthRepository {
     required User firebaseUser,
     required String role,
   }) async {
+    final uid = firebaseUser.uid;
     final userDoc = _firestore
         .collection(AppConstants.usersCollection)
-        .doc(firebaseUser.uid);
-    final snap = await userDoc.get();
+        .doc(uid);
+
+    // -- Pre-read: does the doc already exist? --
+    // Wrapped so a permission/network error here surfaces with its
+    // real code instead of being swallowed by the caller's
+    // `catch (_) => existing = null` and silently treated as
+    // "new user".
+    debugPrint('🟣 [auth] seedAppUserIfMissing: GET /users/$uid');
+    final DocumentSnapshot<Map<String, dynamic>> snap;
+    try {
+      snap = await userDoc.get();
+    } on FirebaseException catch (e) {
+      debugPrint('🔴 [auth] seed pre-read FIREBASE ERROR');
+      debugPrint('🔴   code=${e.code}');
+      debugPrint('🔴   message=${e.message}');
+      debugPrint('🔴   plugin=${e.plugin}');
+      rethrow;
+    } catch (e, st) {
+      debugPrint('🔴 [auth] seed pre-read UNKNOWN ERROR: $e');
+      debugPrint('🔴 [auth] stack: $st');
+      rethrow;
+    }
     if (snap.exists) {
       debugPrint(
-          '[auth] seedAppUserIfMissing: doc already exists for ${firebaseUser.uid} — returning stored role');
+          '🟣 [auth] seedAppUserIfMissing: doc already exists for $uid '
+          '— returning stored role=${snap.data()?['role']}');
       return AppUser.fromFirestore(snap);
     }
 
@@ -224,7 +246,7 @@ class AuthRepository {
         _allowedSignupRoles.contains(role) ? role : 'user';
 
     final appUser = AppUser(
-      uid: firebaseUser.uid,
+      uid: uid,
       email: firebaseUser.email ?? '',
       displayName:
           (firebaseUser.displayName ?? 'PetaFinds user').trim(),
@@ -232,18 +254,30 @@ class AuthRepository {
       photoUrl: firebaseUser.photoURL ?? '',
       createdAt: DateTime.now(),
     );
+
+    // -- The actual write. --
+    // Detailed catch on the .set() so any rule rejection /
+    // network failure / type mismatch lands in the logs with its
+    // real Firestore error code instead of a generic "Something
+    // went wrong" downstream. Re-thrown so the OAuth caller's outer
+    // catch still runs (snackbar + signOut + flag release).
+    final payload = appUser.toMap();
+    debugPrint(
+        '🟣 [auth] seedAppUserIfMissing: SET /users/$uid '
+        'role=$safeRole keys=${payload.keys.toList()}');
     try {
-      await userDoc.set(appUser.toMap());
-      // Visible-in-DevTools confirmation that the doc actually landed
-      // with the expected role. The post-F1 "Something went wrong"
-      // bug surfaced as silent doc-creation failure; logging both
-      // success and failure here makes any future regression
-      // self-diagnosing on the very first failed sign-up.
-      debugPrint(
-          '[auth] seedAppUserIfMissing: /users/${firebaseUser.uid} created with role=$safeRole');
-    } catch (e) {
-      debugPrint(
-          '[auth] seedAppUserIfMissing FAILED for ${firebaseUser.uid} (role=$safeRole): $e');
+      await userDoc.set(payload);
+      debugPrint('✅ USER DOC WRITTEN: $uid role=$safeRole');
+    } on FirebaseException catch (e) {
+      debugPrint('🔴 FIREBASE ERROR on /users/$uid SET');
+      debugPrint('🔴   code=${e.code}');
+      debugPrint('🔴   message=${e.message}');
+      debugPrint('🔴   plugin=${e.plugin}');
+      debugPrint('🔴   payload=$payload');
+      rethrow;
+    } catch (e, st) {
+      debugPrint('🔴 UNKNOWN ERROR on /users/$uid SET: $e');
+      debugPrint('🔴 stack: $st');
       rethrow;
     }
 
@@ -353,14 +387,36 @@ class AuthRepository {
   // block for the full rationale.
 
   Future<AppUser> getAppUser(String uid) async {
-    final doc = await _firestore
-        .collection(AppConstants.usersCollection)
-        .doc(uid)
-        .get();
-    if (!doc.exists) {
-      throw Exception('User document not found');
+    debugPrint('🟣 [auth] getAppUser: GET /users/$uid');
+    try {
+      final doc = await _firestore
+          .collection(AppConstants.usersCollection)
+          .doc(uid)
+          .get();
+      debugPrint(
+          '🟣 [auth] getAppUser: GET ok exists=${doc.exists} '
+          'role=${doc.data()?['role']}');
+      if (!doc.exists) {
+        throw Exception('User document not found');
+      }
+      return AppUser.fromFirestore(doc);
+    } on FirebaseException catch (e) {
+      // Surface the EXACT Firestore failure so callers (and the
+      // bare `catch (_)` in _continueWithOAuth) can no longer treat
+      // a permission-denied / unavailable / failed-precondition as
+      // "doc just doesn't exist yet". Mis-classifying a rule
+      // rejection as the new-user signal is what let the OAuth flow
+      // fall through to the picker and then crash on the seed.
+      debugPrint('🔴 [auth] getAppUser FIREBASE ERROR');
+      debugPrint('🔴   code=${e.code}');
+      debugPrint('🔴   message=${e.message}');
+      debugPrint('🔴   plugin=${e.plugin}');
+      rethrow;
+    } catch (e, st) {
+      debugPrint('🔴 [auth] getAppUser UNKNOWN ERROR: $e');
+      debugPrint('🔴 [auth] stack: $st');
+      rethrow;
     }
-    return AppUser.fromFirestore(doc);
   }
 
   /// Updates only the self-mutable profile fields. role / email / createdAt

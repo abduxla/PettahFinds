@@ -115,14 +115,31 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
           '🔵 [signup] STEP 2: OAuth complete uid=${firebaseUser.uid}');
 
       // Existing user? Use their stored role + route home.
+      //
+      // CRITICAL DISTINCTION: the bare `catch (_)` previously here
+      // swallowed FirebaseException too, so a permission-denied or
+      // unavailable rule rejection got mis-classified as "doc just
+      // doesn't exist yet → new user". The flow then ran the picker
+      // and the seed, and the seed died on the SAME rule with no
+      // user-visible trace. Now we ONLY treat the literal
+      // "User document not found" sentinel as the new-user signal.
+      // Anything else (FirebaseException, network, etc.) re-throws
+      // into the outer catch which surfaces the real error.
       AppUser? existing;
       try {
         existing = await repo.getAppUser(firebaseUser.uid);
         debugPrint(
             '🔵 [signup] STEP 3: existing doc found role=${existing.role}');
-      } catch (_) {
-        existing = null; // doc missing — that's the new-user signal
-        debugPrint('🔵 [signup] STEP 3: no existing doc — new-user path');
+      } catch (e) {
+        if (e.toString().contains('User document not found')) {
+          existing = null;
+          debugPrint(
+              '🔵 [signup] STEP 3: no existing doc — new-user path');
+        } else {
+          debugPrint(
+              '🔴 [signup] STEP 3: getAppUser failed with REAL error — rethrowing');
+          rethrow;
+        }
       }
       if (existing != null) {
         if (!mounted) {
