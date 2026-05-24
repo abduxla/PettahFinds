@@ -93,10 +93,22 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
 
       // Refresh the cached business so the dashboard sees the new doc.
       ref.invalidate(currentUserBusinessProvider);
+      // Force the AppUser stream to re-subscribe. Without this, the
+      // existing snapshot listener may not surface the new businessId
+      // before the router's redirect re-evaluates — and the redirect
+      // would see the STALE AppUser (businessId still null), classify
+      // the user as needsSetup, and bounce them right back here. The
+      // invalidate guarantees /loading reads a fresh stream that
+      // emits the just-written value.
+      ref.invalidate(appUserProvider);
 
       if (mounted) {
         context.showSuccessSnackBar('Business created successfully!');
-        context.go('/business');
+        // /loading owns the race against the AppUser stream: it
+        // listens, waits for the freshly-written businessId to
+        // appear, then routes to /business. Direct context.go('/business')
+        // here was the source of the post-setup bounce loop.
+        context.go('/loading');
       }
     } catch (e) {
       if (mounted) context.showErrorSnackBar(e);

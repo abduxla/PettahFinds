@@ -54,6 +54,14 @@ class BusinessSettingsScreen extends ConsumerWidget {
                 // user back at /business via the canPop fallback.
                 onTap: () => context.push('/chat'),
               ),
+              _MenuItem(
+                // Read-only feed of shop + product reviews left by
+                // customers. Lives at /business-settings/reviews so it
+                // stays inside this shell branch — pop returns here.
+                icon: Icons.star_outline_rounded,
+                label: 'Customer Reviews',
+                onTap: () => context.push('/business-settings/reviews'),
+              ),
             ],
           ),
 

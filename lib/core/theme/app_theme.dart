@@ -103,23 +103,32 @@ abstract class AppTheme {
       textTheme: textTheme,
       fontFamily: GoogleFonts.dmSans().fontFamily,
 
-      // Snappy iOS-style page transitions on every platform.
-      // [_PremiumSlideTransitionsBuilder] front-loads the route's
-      // animation with Curves.fastEaseInToSlowEaseOut before handing
-      // off to the standard Cupertino implementation, so the slide
-      // reaches ~80% complete in the first 60% of the duration. Net
-      // effect: feels markedly snappier WITHOUT shortening the route
-      // duration (which would break the edge-swipe-back gesture). The
-      // gesture detector is preserved because we delegate the actual
-      // build to CupertinoPageTransitionsBuilder.
+      // iOS-standard page transitions on every platform.
+      //
+      // We previously shipped a custom _PremiumSlideTransitionsBuilder
+      // that did not delegate to Cupertino — which silently detached
+      // the native edge-swipe-back gesture recognizer (it's a
+      // Cupertino implementation detail, not a Flutter-level feature).
+      // The result was no swipe-back app-wide AND a visible pop
+      // shake from three competing transforms.
+      //
+      // CupertinoPageTransitionsBuilder gives us, in one line:
+      //   • native iOS slide-from-right
+      //   • the edge-swipe-back gesture detector
+      //   • the parallax-back recession on the underlying page
+      //   • zero shake / zero jitter — Apple's own settled motion
+      //
+      // Tab switches inside StatefulShellRoute bypass this entirely
+      // (CustomerShell / BusinessShell / AdminShell each wrap the
+      // active branch in a 200ms fade AnimatedSwitcher).
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
-          TargetPlatform.android: _PremiumSlideTransitionsBuilder(),
-          TargetPlatform.iOS: _PremiumSlideTransitionsBuilder(),
-          TargetPlatform.macOS: _PremiumSlideTransitionsBuilder(),
-          TargetPlatform.linux: _PremiumSlideTransitionsBuilder(),
-          TargetPlatform.windows: _PremiumSlideTransitionsBuilder(),
-          TargetPlatform.fuchsia: _PremiumSlideTransitionsBuilder(),
+          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.fuchsia: CupertinoPageTransitionsBuilder(),
         },
       ),
 
@@ -389,132 +398,3 @@ abstract class AppTheme {
   }
 }
 
-/// Apple matched-geometry style cubic curves. Defined as explicit
-/// Cubic constants so this file compiles against any Flutter
-/// version (older SDKs don't ship Curves.easeOutExpo as a named
-/// constant). Values are the canonical easeOutExpo / easeInExpo
-/// control points from the CSS spec.
-const Cubic _kEaseOutExpo = Cubic(0.16, 1.0, 0.3, 1.0);
-const Cubic _kEaseInExpo = Cubic(0.7, 0.0, 0.84, 0.0);
-
-/// Custom PageTransitionsBuilder — Apple "matched geometry" feel.
-///
-/// SHAKE FIX (the visible jitter on swipe-back / pop):
-/// The previous builder ran TWO competing transforms on pop:
-///   1. The departing route's primaryAnimation reversed 1→0 — its
-///      ScaleTransition(0.96→1.0) un-scaled.
-///   2. The arriving route's secondaryAnimation reversed 1→0 — its
-///      ScaleTransition(1.0→0.97) un-scaled at the same time.
-///   3. Cupertino's slide added a third translateX on top.
-/// Three concurrent transforms on overlapping screens during the
-/// gesture-driven pop produced the shake. The new builder
-/// suppresses the secondary transform stack entirely when
-/// `animation.status == AnimationStatus.reverse`, leaving only the
-/// primary slide+scale+fade. That's what "settles" Apple's pop
-/// gesture in their own UIKit — secondary effects only run on
-/// PUSH; pop is a single-actor transform.
-///
-/// MATCHED GEOMETRY FEEL:
-/// Apple's push doesn't slide a screen all the way from off-screen.
-/// It emerges from a small offset (here Offset(0.06, 0)) while
-/// scaling up + fading in. Combined with the outgoing screen's
-/// scale-down + fade (push-only), the two screens feel spatially
-/// connected — like one geometry continuing into the next, not two
-/// rectangles sliding past each other.
-///
-/// SWIPE-BACK GESTURE NOTE:
-/// We no longer delegate to CupertinoPageTransitionsBuilder, which
-/// also means the edge-swipe-back gesture detector (a Cupertino
-/// implementation detail) is no longer attached. Users can still
-/// pop via the AppBar back arrow on every screen. Add a custom
-/// SwipeBackGestureDetector in a follow-up if the gesture is
-/// strictly required.
-class _PremiumSlideTransitionsBuilder extends PageTransitionsBuilder {
-  const _PremiumSlideTransitionsBuilder();
-
-  @override
-  Widget buildTransitions<T>(
-    PageRoute<T> route,
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) {
-    // SHAKE-FIX GATE: only run the secondary (outgoing-page)
-    // dim+scale on PUSH. On POP the secondary animation is
-    // running in reverse from a non-zero starting point AND the
-    // primary is also reversing — running both produces the shake.
-    final isPopping = animation.status == AnimationStatus.reverse;
-
-    // Entering page — soft Apple-style emergence.
-    //   - Slide from a SUBTLE offset (6% of width). Full-width
-    //     slides feel like Android.
-    //   - Scale up from 0.97 → 1.0 (the "matched geometry" cue).
-    //   - Fade in 0→1 in the first 60% of the duration so the
-    //     pixels resolve before motion settles.
-    final enterSlide = Tween<Offset>(
-      begin: const Offset(0.06, 0.0),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: animation,
-      curve: _kEaseOutExpo,
-      reverseCurve: _kEaseInExpo,
-    ));
-
-    final enterScale = Tween<double>(begin: 0.97, end: 1.0).animate(
-      CurvedAnimation(
-        parent: animation,
-        curve: _kEaseOutExpo,
-        reverseCurve: _kEaseInExpo,
-      ),
-    );
-
-    final enterFade = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: animation,
-        curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
-        reverseCurve: const Interval(0.4, 1.0, curve: Curves.easeIn),
-      ),
-    );
-
-    Widget enteringStack = SlideTransition(
-      position: enterSlide,
-      child: ScaleTransition(
-        scale: enterScale,
-        child: FadeTransition(
-          opacity: enterFade,
-          child: child,
-        ),
-      ),
-    );
-
-    if (isPopping) {
-      // POP path: render the entering page's animation only. No
-      // secondary scale/fade — that's what caused the shake.
-      return enteringStack;
-    }
-
-    // PUSH path: also apply the outgoing-page recession so the
-    // user sees the leaving screen step back into the background.
-    final exitScale = Tween<double>(begin: 1.0, end: 0.96).animate(
-      CurvedAnimation(
-        parent: secondaryAnimation,
-        curve: _kEaseInExpo,
-      ),
-    );
-    final exitFade = Tween<double>(begin: 1.0, end: 0.7).animate(
-      CurvedAnimation(
-        parent: secondaryAnimation,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
-      ),
-    );
-
-    return ScaleTransition(
-      scale: exitScale,
-      child: FadeTransition(
-        opacity: exitFade,
-        child: enteringStack,
-      ),
-    );
-  }
-}

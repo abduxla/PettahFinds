@@ -72,10 +72,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     }
     final firebaseUser = ref.read(authStateProvider).valueOrNull;
     if (firebaseUser != null) {
-      // Firebase user resolved but AppUser doc not yet — route conservatively
-      // to /home so we don't strand them; router redirect will correct once
-      // the AppUser stream emits.
-      _go('/home');
+      // Firebase user resolved but AppUser doc not yet — hand off to
+      // /loading instead of conservatively dumping them on /home. The
+      // old behavior could land a business owner inside the customer
+      // shell for a few hundred ms while the AppUser stream caught
+      // up; /loading waits, then routes by role correctly, AND it
+      // surfaces an emergency sign-out if the doc never arrives
+      // (e.g. signup interrupted, doc was deleted out-of-band).
+      _go('/loading');
       return;
     }
     // Cold prefs read may not have completed by the time the timeout fires.

@@ -50,14 +50,14 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       // TODO(legal): persist accepted legal version on AppUser
       // (LegalDocuments.legalVersion + DateTime.now()) once the AppUser
       // model has acceptedTermsVersion / acceptedTermsAt fields.
-      final appUser = await ref.read(authRepositoryProvider).signUp(
+      await ref.read(authRepositoryProvider).signUp(
             email: _emailCtrl.text,
             password: _passwordCtrl.text,
             displayName: _nameCtrl.text,
             role: _selectedRole,
           );
       if (!mounted) return;
-      _routeAfterAuth(appUser);
+      _routeAfterAuth();
     } catch (e) {
       if (mounted) context.showErrorSnackBar(e);
     } finally {
@@ -108,7 +108,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       }
       if (existing != null) {
         if (!mounted) return;
-        _routeAfterAuth(existing);
+        _routeAfterAuth();
         return;
       }
 
@@ -121,12 +121,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         await repo.signOut();
         return;
       }
-      final appUser = await repo.seedAppUserIfMissing(
+      await repo.seedAppUserIfMissing(
         firebaseUser: firebaseUser,
         role: pickedRole,
       );
       if (!mounted) return;
-      _routeAfterAuth(appUser);
+      _routeAfterAuth();
     } catch (e) {
       if (mounted) context.showErrorSnackBar(e);
     } finally {
@@ -134,19 +134,20 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
     }
   }
 
-  void _routeAfterAuth(AppUser appUser) {
-    // Belt-and-suspenders unfocus + a micro-delay before navigation so
-    // the keyboard's dismiss animation completes before the route
-    // transition takes over. Without this the keyboard occasionally
-    // sticks on the destination screen after Google sign-in.
+  void _routeAfterAuth() {
+    // Always hand off to /loading instead of routing direct-to-role.
+    //
+    // Why: between the Firestore write and the appUserProvider stream
+    // emitting the new doc, the router would race and bounce the user
+    // (e.g. a fresh business signup with businessId still null in the
+    // cached AppUser would be sent to /business/setup, then bounced
+    // back, then forward — depending on stream timing). /loading is
+    // listener-driven, so it waits for the authoritative emission and
+    // routes once, correctly. The 50ms keyboard-dismiss delay stays.
     FocusScope.of(context).unfocus();
     Future<void>.delayed(const Duration(milliseconds: 50)).then((_) {
       if (!mounted) return;
-      if (appUser.isBusiness) {
-        context.go('/business/setup');
-      } else {
-        context.go('/home');
-      }
+      context.go('/loading');
     });
   }
 

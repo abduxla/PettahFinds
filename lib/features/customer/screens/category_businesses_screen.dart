@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../utils/price_format.dart';
-import '../../../widgets/cached_image.dart';
-import '../../../widgets/error_widget.dart';
 import '../../../widgets/empty_state_widget.dart';
+import '../../../widgets/error_widget.dart';
+import '../../../widgets/product_card.dart';
 import '../../../widgets/shimmer_loading.dart';
 
 /// Category landing — renders PRODUCTS in the given category (per the
@@ -48,93 +46,34 @@ class CategoryBusinessesScreen extends ConsumerWidget {
               )
             : GridView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+                // mainAxisExtent locks the cell height to the canonical
+                // ProductCard's natural content height — eliminates the
+                // bottom-of-cell whitespace the old childAspectRatio:0.68
+                // produced. 218 = 108 image + ~110 content/padding stack
+                // measured against ProductCard's spec.
                 gridDelegate:
                     const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  childAspectRatio: 0.68,
+                  mainAxisExtent: 218,
                   mainAxisSpacing: 14,
                   crossAxisSpacing: 14,
                 ),
                 itemCount: products.length,
-                itemBuilder: (_, i) {
-                  final p = products[i];
-                  return InkWell(
-                    onTap: () => context.go('/home/product/${p.id}'),
-                    borderRadius: BorderRadius.circular(18),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.white,
-                        borderRadius: BorderRadius.circular(18),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withAlpha(10),
-                            blurRadius: 14,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: CachedImage(
-                              imageUrl: p.image1Url,
-                              width: double.infinity,
-                              placeholderIcon: Icons.shopping_bag_outlined,
-                            ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    p.title,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.dmSans(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.text1,
-                                      height: 1.3,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Text(
-                                    'LKR ${formatLkr(p.priceLkr)}',
-                                    style: GoogleFonts.nunito(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w800,
-                                      color: AppColors.teal,
-                                      letterSpacing: -0.3,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+                // Use the canonical ProductCard — the prior custom card
+                // (Expanded flex 3/2 with Spacer) reflowed unpredictably
+                // and left empty space below the price on tall cells.
+                itemBuilder: (_, i) => ProductCard(product: products[i]),
               ),
         loading: () => GridView.builder(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            childAspectRatio: 0.68,
+            mainAxisExtent: 218,
             mainAxisSpacing: 14,
             crossAxisSpacing: 14,
           ),
           itemCount: 4,
-          itemBuilder: (_, _) => const ShimmerBox(height: 220, radius: 18),
+          itemBuilder: (_, _) => const ShimmerBox(height: 218, radius: 18),
         ),
         error: (e, _) => AppErrorWidget(
           message: e.toString(),

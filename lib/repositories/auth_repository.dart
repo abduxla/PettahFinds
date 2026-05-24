@@ -149,14 +149,16 @@ class AuthRepository {
   /// signs in to Firebase Auth, returns the Firebase [User]. Does NOT
   /// touch /users/{uid}.
   ///
-  /// Use this when the caller needs to decide what to do BEFORE the
-  /// app-user doc is seeded — e.g. the signup screen prompts the new
-  /// user to pick a role before writing the doc. For ordinary sign-in
-  /// use [signInWithGoogle] which composes this + [seedAppUserIfMissing]
-  /// with the default 'user' role.
+  /// Use this from BOTH the Sign-Up and Sign-In screens. Caller is
+  /// responsible for the post-OAuth flow: check if /users/{uid}
+  /// exists, show the role picker for first-time users, and call
+  /// [seedAppUserIfMissing] with the chosen role. The Sign-Up and
+  /// Sign-In screens share this exact sequence (see their
+  /// _continueWithOAuth methods).
   Future<User> authenticateWithGoogle() async {
-    // Web and native are two completely different flows. See the
-    // comment on signInWithGoogle below for the why.
+    // Web and native are two completely different flows. Both branches
+    // converge on the same Firebase Auth credential — only how the
+    // credential is obtained differs.
     final UserCredential cred;
     try {
       if (kIsWeb) {
@@ -218,6 +220,9 @@ class AuthRepository {
       uid: firebaseUser.uid,
       email: firebaseUser.email ?? '',
       displayName:
+
+
+    
           (firebaseUser.displayName ?? 'PetaFinds user').trim(),
       role: safeRole,
       photoUrl: firebaseUser.photoURL ?? '',
@@ -240,27 +245,22 @@ class AuthRepository {
     return appUser;
   }
 
-  Future<AppUser> signInWithGoogle() async {
-    // Web and native are two completely different flows:
-    //
-    //   - Native (iOS / Android / macOS): google_sign_in plugin
-    //     drives the native account picker, hands back tokens, we
-    //     build a Firebase credential and signInWithCredential.
-    //
-    //   - Web: google_sign_in 6.x's .signIn() is deprecated and
-    //     throws ("api is not supported on this platform"). The
-    //     supported web path is Firebase Auth's signInWithPopup with
-    //     a GoogleAuthProvider — that opens Google's OAuth popup and
-    //     signs in to Firebase in one call.
-    //
-    // Both branches converge on the same /users/{uid} seeding logic
-    // below. Returning users have their existing role; first-time
-    // sign-ins through THIS method get role='user'. (Sign-up screen
-    // uses the lower-level authenticateWithGoogle + role picker for
-    // first-timers who want to be businesses.)
-    final user = await authenticateWithGoogle();
-    return seedAppUserIfMissing(firebaseUser: user, role: 'user');
-  }
+  // signInWithGoogle() (the convenience wrapper that called
+  // seedAppUserIfMissing with role:'user') was REMOVED. It silently
+  // registered first-time Google users as customers without ever
+  // showing the role picker — a critical bug for anyone intending to
+  // sign up as a business via the Sign-In screen.
+  //
+  // The Sign-In and Sign-Up screens BOTH now use the lower-level
+  // [authenticateWithGoogle] + role-picker + [seedAppUserIfMissing]
+  // pattern, so role assignment requires an explicit user choice on
+  // first-time OAuth. There is no longer any code path in the app
+  // that writes `role: 'user'` without the user picking it.
+  //
+  // Returning Google users hit [authenticateWithGoogle] +
+  // [getAppUser] in the screen, which returns the existing doc with
+  // its stored role; the picker only renders when /users/{uid} is
+  // genuinely missing.
 
   /// Sign in with Apple (iOS native).
   ///
@@ -285,9 +285,9 @@ class AuthRepository {
   /// OAuth ONLY — drives Apple's native sheet, exchanges tokens,
   /// signs in to Firebase Auth, and caches the first-sign-in name
   /// onto the Firebase user's displayName. Does NOT touch
-  /// /users/{uid}. Use this when the caller wants to seed the doc
-  /// itself (e.g. signup screen with a role picker). For ordinary
-  /// sign-in use [signInWithApple].
+  /// /users/{uid}. Used by BOTH Sign-Up and Sign-In screens; the
+  /// caller is responsible for the role-picker + seed sequence (see
+  /// [authenticateWithGoogle]'s docstring for the shared pattern).
   Future<User> authenticateWithApple() async {
     final appleCredential = await SignInWithApple.getAppleIDCredential(
       scopes: const [
@@ -324,14 +324,14 @@ class AuthRepository {
     return user;
   }
 
-  Future<AppUser> signInWithApple() async {
-    // Returning users keep their existing role; first-timers through
-    // THIS method default to 'user'. The signup screen uses the
-    // lower-level authenticateWithApple + role picker to let new
-    // users sign up as businesses.
-    final user = await authenticateWithApple();
-    return seedAppUserIfMissing(firebaseUser: user, role: 'user');
-  }
+  // signInWithApple() was REMOVED for the same reason as
+  // signInWithGoogle above — hardcoded role:'user' bypassed the
+  // role picker for first-time Apple sign-ups, so anyone intending
+  // to sign up as a business via the Sign-In screen was silently
+  // locked into a customer account. Callers now use
+  // [authenticateWithApple] + role picker + [seedAppUserIfMissing]
+  // explicitly. See the comment above the deleted signInWithGoogle
+  // block for the full rationale.
 
   Future<AppUser> getAppUser(String uid) async {
     final doc = await _firestore

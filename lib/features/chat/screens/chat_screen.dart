@@ -179,8 +179,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       ),
                       if (conv.productId.isNotEmpty)
                         IconButton(
+                          // PUSH so pop returns to this chat thread.
+                          // .go would rebuild to [/home, /home/product/:id]
+                          // and pop would dump the user on /home instead
+                          // of back into the conversation.
                           onPressed: () =>
-                              context.go('/home/product/${conv.productId}'),
+                              context.push('/home/product/${conv.productId}'),
                           icon: const Icon(Icons.arrow_outward_rounded,
                               size: 18, color: AppColors.teal),
                           tooltip: 'View product',

@@ -879,7 +879,7 @@ class _RecentlyViewedCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final style = _styleFor(product.category);
     return _TapScale(
-      onTap: () => context.go('/home/product/${product.id}'),
+      onTap: () => context.push('/home/product/${product.id}'),
       child: Container(
         width: 120,
         decoration: BoxDecoration(
@@ -1121,7 +1121,7 @@ class _ProductCard extends ConsumerWidget {
     final style = _styleFor(product.category);
 
     return _TapScale(
-      onTap: () => context.go('/home/product/${product.id}'),
+      onTap: () => context.push('/home/product/${product.id}'),
       child: SizedBox(
         width: 150,
         child: Container(

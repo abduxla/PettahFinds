@@ -7,6 +7,7 @@ import '../../features/auth/screens/onboarding_screen.dart';
 import '../../features/auth/screens/sign_in_screen.dart';
 import '../../features/auth/screens/sign_up_screen.dart';
 import '../../features/auth/screens/forgot_password_screen.dart';
+import '../../features/auth/screens/loading_screen.dart';
 import '../../features/customer/screens/customer_shell.dart';
 import '../../features/customer/screens/home_screen.dart';
 import '../../features/customer/screens/map_screen.dart';
@@ -32,6 +33,7 @@ import '../../features/business/screens/add_edit_product_screen.dart';
 import '../../features/business/screens/business_profile_screen.dart';
 import '../../features/business/screens/edit_business_profile_screen.dart';
 import '../../features/business/screens/business_settings_screen.dart';
+import '../../features/business/screens/business_reviews_screen.dart';
 import '../../features/admin/screens/admin_shell.dart';
 import '../../features/admin/screens/admin_dashboard_screen.dart';
 import '../../features/admin/screens/admin_businesses_screen.dart';
@@ -65,6 +67,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Allow splash always — it handles its own navigation
       if (currentPath == '/splash') return null;
 
+      // /loading is the post-auth landing pad. It owns its own
+      // routing decisions (polls appUserProvider + has an emergency
+      // sign-out). The redirect must never touch it or we'd race
+      // against its own ref.listen handlers.
+      if (currentPath == '/loading') return null;
+
       // Legal docs are reachable from everywhere (sign-up, settings, product
       // form), regardless of auth state or role.
       if (currentPath.startsWith('/legal/')) return null;
@@ -79,6 +87,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       // customers can deep-link to it too. Skip the role-shell
       // bounce below so business users aren't kicked to /business.
       if (currentPath.startsWith('/product/')) return null;
+
+      // Top-level /edit-product/:id — opened from the owner-view's
+      // Edit CTA. Lives outside the business shell so the cross-shell
+      // push from /product/:id?mode=owner doesn't fail to mount the
+      // shell (white-screen bug). Same skip-the-shell-bounce treatment
+      // as /product/:id above.
+      if (currentPath.startsWith('/edit-product/')) return null;
 
       // While auth is still initializing, don't redirect — stay put
       if (isAuthLoading) return null;
@@ -101,8 +116,25 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Logged in. We need the AppUser to enforce role-based access.
       final user = appUser.valueOrNull;
-      // AppUser still loading from Firestore — don't redirect yet
-      if (user == null) return null;
+      // CRITICAL stranded-auth guard.
+      //
+      // Firebase Auth has a user but the /users/{uid} doc hasn't
+      // arrived yet — either the stream is still loading, the doc
+      // genuinely doesn't exist (signup interrupted mid-flow), or a
+      // recently-signed-up doc is still propagating. In every case we
+      // route to /loading, which:
+      //   • shows a teal spinner
+      //   • listens for the doc and routes by role when it appears
+      //   • surfaces an emergency Sign Out & Retry after 10s
+      //
+      // EXCEPT on the auth screens themselves — sign-up/sign-in own
+      // their own post-OAuth navigation (role picker bottom sheet,
+      // _routeAfterAuth) and a redirect here would yank the screen
+      // out from under their `await showModalBottomSheet`.
+      if (user == null) {
+        if (authPaths.contains(currentPath)) return null;
+        return '/loading';
+      }
 
       String roleHome() {
         if (user.isAdmin) return '/admin';
@@ -164,6 +196,9 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
+      // Post-auth landing pad — waits for /users/{uid} doc + routes by role.
+      // See LoadingScreen for the rationale (stranded-auth recovery).
+      GoRoute(path: '/loading', builder: (_, __) => const LoadingScreen()),
       GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingScreen()),
       GoRoute(path: '/sign-in', builder: (_, __) => const SignInScreen()),
       GoRoute(path: '/sign-up', builder: (_, __) => const SignUpScreen()),
@@ -212,6 +247,22 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/product/:productId',
         builder: (_, state) => ProductDetailScreen(
+          productId: state.pathParameters['productId']!,
+        ),
+      ),
+
+      // Top-level edit-product route. Reachable from BOTH:
+      //   • product owner view (/product/:id?mode=owner → Edit Product
+      //     CTA — cross-shell push that used to white-screen against
+      //     the shell-nested route)
+      //   • Manage Products list inside the business shell (still
+      //     pops back to /business/products via the navigator stack)
+      // Single canonical edit screen; the AddEditProductScreen
+      // reads currentUserBusinessProvider so it doesn't need the
+      // business shell wrapper for context.
+      GoRoute(
+        path: '/edit-product/:productId',
+        builder: (_, state) => AddEditProductScreen(
           productId: state.pathParameters['productId']!,
         ),
       ),
@@ -351,12 +402,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'products/add',
                     builder: (_, __) => const AddEditProductScreen(),
                   ),
-                  GoRoute(
-                    path: 'products/edit/:productId',
-                    builder: (_, state) => AddEditProductScreen(
-                      productId: state.pathParameters['productId'],
-                    ),
-                  ),
+                  // /business/products/edit/:id REMOVED. Edit now lives
+                  // at the top-level /edit-product/:id route (see above)
+                  // so the cross-shell push from the owner-view CTA
+                  // doesn't try to remount the business shell — that
+                  // remount was the white-screen bug.
                   GoRoute(
                     path: 'notifications',
                     builder: (_, __) =>
@@ -395,6 +445,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                 GoRoute(
                   path: 'edit-profile',
                   builder: (_, __) => const EditBusinessProfileScreen(),
+                ),
+                GoRoute(
+                  // /business-settings/reviews — Customer Reviews screen.
+                  // Nested under the settings branch so pop returns to
+                  // settings cleanly and the bottom-nav stays on the
+                  // Settings tab while the merchant browses reviews.
+                  path: 'reviews',
+                  builder: (_, __) => const BusinessReviewsScreen(),
                 ),
               ],
             ),

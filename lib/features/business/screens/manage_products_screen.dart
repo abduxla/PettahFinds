@@ -243,7 +243,9 @@ class _ProductTileState extends State<_ProductTile> {
                   ],
                   onSelected: (val) async {
                     if (val == 'edit') {
-                      context.go('/business/products/edit/${p.id}');
+                      // Top-level /edit-product/:id — single canonical
+                      // edit route. push() so pop returns to this list.
+                      context.push('/edit-product/${p.id}');
                     } else if (val == 'toggle') {
                       setState(() => _toggling = true);
                       try {

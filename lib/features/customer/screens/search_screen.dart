@@ -244,10 +244,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           : GridView.builder(
                               padding: const EdgeInsets.fromLTRB(
                                   16, 4, 16, 120),
+                              // mainAxisExtent locks cell height to the
+                              // canonical ProductCard content height
+                              // (image 108 + padded content ~110 ≈ 218).
+                              // Eliminates the trailing whitespace gap
+                              // childAspectRatio:0.68 was producing.
                               gridDelegate:
                                   const SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: 2,
-                                childAspectRatio: 0.68,
+                                mainAxisExtent: 218,
                                 mainAxisSpacing: 14,
                                 crossAxisSpacing: 14,
                               ),
@@ -330,10 +335,21 @@ class _SortFilterButton extends ConsumerWidget {
 /// Opens the sort/filter modal. Returns nothing — selection is written
 /// straight into `searchSortProvider` so the parent grid re-sorts on
 /// dismiss.
+///
+/// NAVBAR-OVERLAP FIX. The customer shell's floating bottom nav (white
+/// pill, ~68 tall + 12 bottom margin + SafeArea inset) sits OVER the
+/// sheet because Flutter's modal sheet doesn't know the parent has a
+/// floating nav — viewPadding doesn't include it. We add ~96 of bottom
+/// padding inside the sheet to keep the Apply button (and the Clear
+/// sort row beneath it) above the nav pill on every device.
+/// isScrollControlled + useSafeArea cover the keyboard / status bar
+/// edges that were also clipping before.
 void _showSortSheet(BuildContext context, WidgetRef ref) {
   showModalBottomSheet<void>(
     context: context,
     isDismissible: true,
+    isScrollControlled: true,
+    useSafeArea: true,
     backgroundColor: Colors.white,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -369,10 +385,16 @@ class _SortSheetState extends ConsumerState<_SortSheet> {
 
   @override
   Widget build(BuildContext context) {
+    // Floating-nav clearance: the customer shell renders a 68px nav pill
+    // with a 12px bottom margin on top of the safe-area inset, and the
+    // modal sheet sits underneath that pill. Pad the sheet body to keep
+    // the Apply CTA fully tappable above the nav. ~96 covers nav + gap
+    // across iPhone SE → 15 Pro Max with room to spare.
+    const navClearance = 96.0;
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20 + navClearance),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -20,6 +20,7 @@ import '../../models/conversation.dart';
 import '../../models/product.dart';
 import '../../models/product_review.dart';
 import '../../models/report.dart';
+import '../../models/review.dart';
 
 // --- Repositories ---
 final authRepositoryProvider = Provider((ref) => AuthRepository());
@@ -139,6 +140,39 @@ final productReviewsProvider = StreamProvider.autoDispose
   return ref
       .watch(productReviewRepositoryProvider)
       .streamByProduct(productId);
+});
+
+/// Live shop-level reviews for the given business. Backs the Shop
+/// Reviews tab on the merchant Customer Reviews screen.
+final businessReviewsProvider = StreamProvider.autoDispose
+    .family<List<Review>, String>((ref, businessId) {
+  if (businessId.isEmpty) return Stream.value(const []);
+  return ref.watch(reviewRepositoryProvider).streamByBusiness(businessId);
+});
+
+/// Live product reviews across every product owned by the given
+/// business. Backs the Product Reviews tab on the merchant Customer
+/// Reviews screen. Uses the denormalized `businessId` on each
+/// productReview doc — no two-step query through /products needed.
+final businessProductReviewsProvider = StreamProvider.autoDispose
+    .family<List<ProductReview>, String>((ref, businessId) {
+  if (businessId.isEmpty) return Stream.value(const []);
+  return ref
+      .watch(productReviewRepositoryProvider)
+      .streamByBusiness(businessId);
+});
+
+/// Single-product lookup by id. autoDispose family so review tiles
+/// that need to show the parent product's title can subscribe per-id
+/// without leaking subscriptions when the review scrolls off.
+final productByIdProvider =
+    FutureProvider.autoDispose.family<Product?, String>((ref, id) async {
+  if (id.isEmpty) return null;
+  try {
+    return await ref.watch(productRepositoryProvider).getById(id);
+  } catch (_) {
+    return null;
+  }
 });
 
 /// All products (active + inactive) for a specific business. Used by the

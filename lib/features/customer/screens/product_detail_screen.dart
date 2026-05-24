@@ -88,13 +88,21 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         return Scaffold(
           backgroundColor: AppColors.bgSection,
           body: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
-            ),
+            // ClampingScrollPhysics (not Bouncing). Bouncing on a pinned
+            // SliverAppBar with FlexibleSpaceBar lets the user overscroll
+            // past the hero, which separates the pinned header from the
+            // sliver body and leaves a visible whitespace gap in the
+            // middle of the screen. Clamping pins the top so the hero
+            // and body stay flush at all times.
+            physics: const ClampingScrollPhysics(),
             slivers: [
               SliverAppBar(
                 expandedHeight: 340,
                 pinned: true,
+                // stretch:false + an empty stretchModes list on the
+                // FlexibleSpaceBar below stops the hero from stretching
+                // on overscroll, which was another source of the gap.
+                stretch: false,
                 backgroundColor: AppColors.white,
                 surfaceTintColor: Colors.transparent,
                 leading: Padding(
@@ -153,10 +161,19 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   ),
                 ],
                 flexibleSpace: FlexibleSpaceBar(
+                  // Empty stretchModes — matches stretch:false on the
+                  // SliverAppBar so an overscroll bounce can't stretch
+                  // the hero away from the body sliver.
+                  stretchModes: const [],
                   background: product.imageUrls.isNotEmpty
                       ? Stack(
                           fit: StackFit.expand,
                           children: [
+                            // Light backdrop behind contained image so
+                            // tall portrait shots have a clean frame
+                            // instead of falling onto the transparent
+                            // app background.
+                            Container(color: const Color(0xFFF5F5F5)),
                             PageView.builder(
                               itemCount: product.imageUrls.length,
                               onPageChanged: (i) =>
@@ -165,6 +182,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                 imageUrl: product.imageUrls[i],
                                 width: double.infinity,
                                 height: 340,
+                                // BoxFit.contain — show the whole hero
+                                // image, never crop. Same call as the
+                                // grid card so listing vs. detail can't
+                                // disagree on what the user is buying.
+                                fit: BoxFit.contain,
                               ),
                             ),
                             if (product.imageUrls.length > 1)
@@ -457,7 +479,7 @@ class _SellerCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           InkWell(
-            onTap: () => context.go('/home/business/${business.id}'),
+            onTap: () => context.push('/home/business/${business.id}'),
             borderRadius: BorderRadius.circular(8),
             child: Row(
           children: [
@@ -566,8 +588,7 @@ class _EditProductButton extends StatelessWidget {
       child: FilledButton.icon(
         onPressed: productId.isEmpty
             ? null
-            : () => context
-                .push('/business/products/edit/$productId'),
+            : () => context.push('/edit-product/$productId'),
         icon: const Icon(Icons.edit_outlined, size: 18),
         label: const Text('Edit Product'),
         style: FilledButton.styleFrom(
@@ -630,7 +651,11 @@ class _ChatSellerButtonState extends ConsumerState<_ChatSellerButton> {
             customerName: appUser.displayName,
           );
       if (!context.mounted) return;
-      context.go('/chat/${conv.id}');
+      // PUSH not GO so the user pops back to the product detail
+      // (where they tapped Chat Seller) instead of being dumped on
+      // the top-level inbox. See chat_list_screen tile for the
+      // shell-stack rationale.
+      context.push('/chat/${conv.id}');
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1212,6 +1237,12 @@ class _ProductReviewsSectionState
               children: [
                 for (final r in reviews)
                   _ProductReviewTile(review: r),
+                // Sign-in nudge after the list when the visitor is
+                // signed out. Previously only shown when reviews were
+                // empty — meaning a guest reading reviews had no path
+                // to leave one of their own. Always-on prompt below
+                // the list closes that gap.
+                if (appUser == null) const _SignInToReviewPrompt(),
               ],
             );
           },
@@ -1298,6 +1329,62 @@ class _ProductReviewTile extends StatelessWidget {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Inline sign-in nudge appended below an EXISTING reviews list when
+/// the visitor is signed out. Distinct from [_ReviewsEmptyState] which
+/// replaces the list entirely; this one supplements it so a guest
+/// reading reviews still sees a clear path to leaving one of their own.
+class _SignInToReviewPrompt extends StatelessWidget {
+  const _SignInToReviewPrompt();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.rate_review_outlined,
+            size: 28,
+            color: Color(0xFF9E9E9E),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Sign in to leave a review',
+            style: GoogleFonts.dmSans(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+              color: AppColors.text2,
+            ),
+          ),
+          const SizedBox(height: 4),
+          TextButton(
+            onPressed: () => context.push('/sign-in'),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.teal,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 6),
+            ),
+            child: Text(
+              'Sign In',
+              style: GoogleFonts.dmSans(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.teal,
+              ),
+            ),
+          ),
         ],
       ),
     );

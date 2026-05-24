@@ -25,19 +25,16 @@ class ChatListScreen extends ConsumerWidget {
         appBar: AppBar(
           backgroundColor: AppColors.bgSection,
           title: Text('Messages', style: _title()),
-          // Same canPop-gated leading as the signed-in branch.
-          // Guests usually arrive here via push() from the home AppBar
-          // chat icon, so canPop is true and the arrow lets them pop
-          // back. If they deep-linked /chat directly there's nothing
-          // to pop — hide the arrow and let them use the home tab.
-          leading: context.canPop()
-              ? IconButton(
-                  icon:
-                      const Icon(Icons.arrow_back_ios_new, size: 18),
-                  color: AppColors.text1,
-                  onPressed: () => context.pop(),
-                )
-              : null,
+          // Always-visible back with /home fallback. Guests have no
+          // role-shell to bounce them around — straight to /home.
+          // Same rationale as the signed-in branch below.
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+            color: AppColors.text1,
+            onPressed: () => context.canPop()
+                ? context.pop()
+                : context.go('/home'),
+          ),
           automaticallyImplyLeading: false,
         ),
         body: const SignInRequired(
@@ -65,26 +62,35 @@ class ChatListScreen extends ConsumerWidget {
         appBar: AppBar(
           backgroundColor: AppColors.bgSection,
           title: Text('Messages', style: _title()),
-          // Leading arrow renders ONLY when there's a real Navigator
-          // entry to pop back to. When the messages screen is reached
-          // via the BUSINESS bottom-nav tab (StatefulShellRoute branch
-          // → goBranch), canPop() is false and there's no Navigator
-          // stack — swipe-back is a no-op by design. Hiding the arrow
-          // makes the UI honest about that: the bottom-nav Dashboard
-          // tab is the way back. When reached via push() from a
-          // drill-down (home AppBar chat icon, profile→messages,
-          // business-settings→messages — all use push()) canPop() is
-          // true and the arrow + swipe-back both work normally.
-          leading: context.canPop()
-              ? IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-                  color: AppColors.text1,
-                  onPressed: () => context.pop(),
-                )
-              : null,
-          // Without an automatic back arrow, Flutter would still try
-          // to render the implicit one. Tell it not to bother — null
-          // leading + this flag together leave a clean header.
+          // ALWAYS-VISIBLE back button with role-aware fallback.
+          //
+          // The screen is reused for both /chat (top-level, pushed
+          // from the home AppBar chat icon, profile→messages, etc.)
+          // and /business-messages (shell tab, reached via goBranch
+          // where canPop() returns false). Previously we hid the
+          // arrow on the shell-tab path and told users to leave via
+          // the bottom-nav Dashboard tab — that was reported as a
+          // trap (user expects a back arrow on every page header).
+          //
+          // Now: canPop() ? pop() : roleHome(). On a real Navigator
+          // stack we pop normally (and swipe-back also works thanks
+          // to CupertinoPageTransitionsBuilder). On a shell tab with
+          // nothing to pop, we go() to the role's home shell route
+          // — business owners land on /business (dashboard),
+          // customers on /home.
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+            color: AppColors.text1,
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else if (isBusiness) {
+                context.go('/business');
+              } else {
+                context.go('/home');
+              }
+            },
+          ),
           automaticallyImplyLeading: false,
           bottom: isBusiness
               ? TabBar(
@@ -339,7 +345,15 @@ Widget _renderList(BuildContext context, List<Conversation> items,
     itemBuilder: (_, i) => ConversationTile(
       conversation: items[i],
       viewerIsSeller: viewerIsSeller,
-      onTap: () => context.go('/chat/${items[i].id}'),
+      // PUSH not GO. `.go('/chat/:id')` rebuilds the navigator stack
+      // from the route chain, which obliterates the parent shell —
+      // a business user opening a thread from /business-messages
+      // would pop back to /chat (top-level inbox) instead of their
+      // dashboard's messages tab, and the message-tab back button
+      // would then be dead (canPop=false, no shell underneath).
+      // .push preserves the entry stack so pop returns the user to
+      // EXACTLY where they came from, and swipe-back works.
+      onTap: () => context.push('/chat/${items[i].id}'),
     ),
   );
 }

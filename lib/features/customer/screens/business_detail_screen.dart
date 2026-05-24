@@ -596,6 +596,62 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
                   : SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (_, i) {
+                          // Trailing sign-in nudge for signed-out viewers
+                          // when reviews already exist. Closes the gap
+                          // where guests could READ reviews but had no
+                          // visible prompt to leave one of their own
+                          // (the empty-state prompt only appears when
+                          // reviews.isEmpty).
+                          if (i == reviews.length) {
+                            if (appUser != null) return const SizedBox.shrink();
+                            return Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
+                              child: Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF5F5F5),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AppColors.border),
+                                ),
+                                child: Column(
+                                  children: [
+                                    const Icon(
+                                      Icons.rate_review_outlined,
+                                      size: 28,
+                                      color: Color(0xFF9E9E9E),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Sign in to leave a review',
+                                      style: GoogleFonts.dmSans(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFF616161),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    TextButton(
+                                      onPressed: () =>
+                                          context.push('/sign-in'),
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: AppColors.teal,
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 6),
+                                      ),
+                                      child: Text(
+                                        'Sign In',
+                                        style: GoogleFonts.dmSans(
+                                          fontSize: 13.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.teal,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
                           final r = reviews[i];
                           return Padding(
                             padding:
@@ -659,7 +715,9 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
                             ),
                           );
                         },
-                        childCount: reviews.length,
+                        // +1 for the trailing sign-in prompt slot
+                        // (renders as SizedBox.shrink when signed in).
+                        childCount: reviews.length + 1,
                       ),
                     );
               },
@@ -911,7 +969,7 @@ class _BusinessProductGridCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return InkWell(
-      onTap: () => context.go('/home/product/${product.id}'),
+      onTap: () => context.push('/home/product/${product.id}'),
       borderRadius: BorderRadius.circular(10),
       child: Container(
         decoration: BoxDecoration(

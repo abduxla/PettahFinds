@@ -85,6 +85,24 @@ class ProductReviewRepository {
     });
   }
 
+  /// Stream every product review left on ANY product owned by a single
+  /// business. Mirrors [ReviewRepository.streamByBusiness] in shape so
+  /// the merchant Customer Reviews screen can render both tabs from
+  /// the same single-field-index pattern. Uses the denormalized
+  /// `businessId` field stored on each productReview doc so no
+  /// products-collection join is needed.
+  Stream<List<ProductReview>> streamByBusiness(String businessId) {
+    return _ref
+        .where('businessId', isEqualTo: businessId)
+        .limit(_streamLimit)
+        .snapshots()
+        .map((snap) {
+      final list = snap.docs.map(ProductReview.fromFirestore).toList();
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return list;
+    });
+  }
+
   /// "Load more" pagination — same composite-index-free strategy.
   /// Returns reviews older than [before], sorted newest-first.
   Future<List<ProductReview>> getOlderByProduct({
