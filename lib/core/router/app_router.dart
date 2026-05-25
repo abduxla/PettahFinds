@@ -32,6 +32,7 @@ import '../../features/business/screens/add_edit_product_screen.dart';
 import '../../features/business/screens/business_profile_screen.dart';
 import '../../features/business/screens/edit_business_profile_screen.dart';
 import '../../features/business/screens/business_settings_screen.dart';
+import '../../features/business/screens/business_pending_screen.dart';
 import '../../features/admin/screens/admin_shell.dart';
 import '../../features/admin/screens/admin_dashboard_screen.dart';
 import '../../features/admin/screens/admin_businesses_screen.dart';
@@ -53,6 +54,7 @@ final _adminShellKey = GlobalKey<NavigatorState>(debugLabel: 'admin');
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
   final appUser = ref.watch(appUserProvider);
+  final businessStream = ref.watch(currentUserBusinessStreamProvider);
 
   return GoRouter(
     navigatorKey: rootNavigatorKey,
@@ -104,12 +106,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       // AppUser still loading from Firestore — don't redirect yet
       if (user == null) return null;
 
+      // Snapshot of the owner's business doc (null while loading or no biz).
+      final biz = businessStream.valueOrNull;
+
       String roleHome() {
         if (user.isAdmin) return '/admin';
         if (user.isBusiness) {
           if (user.businessId == null || user.businessId!.isEmpty) {
             return '/business/setup';
           }
+          if (biz != null && !biz.isVerified) return '/business/under-review';
           return '/business';
         }
         return '/home';
@@ -140,6 +146,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Role-shell mismatch guards: keep users inside their own shell.
       final inAdminShell = currentPath.startsWith('/admin');
       final inBusinessShell = currentPath == '/business/setup' ||
+          currentPath == '/business/under-review' ||
           currentPath.startsWith('/business') ||
           currentPath.startsWith('/business-profile') ||
           currentPath.startsWith('/business-messages') ||
@@ -153,6 +160,21 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (user.isAdmin && !inAdminShell) {
         return '/admin';
       }
+
+      // Pending business owners: block the business shell (except the
+      // under-review page itself), but let them freely browse customer
+      // routes while they wait for approval.
+      final hasBizId = user.isBusiness &&
+          user.businessId != null &&
+          user.businessId!.isNotEmpty;
+      if (hasBizId && biz != null && !biz.isVerified) {
+        if (currentPath == '/business/under-review') return null;
+        if (inBusinessShell) return '/business/under-review';
+        return null; // customer browsing allowed
+      }
+      // Business stream still loading — don't redirect yet.
+      if (hasBizId && businessStream.isLoading) return null;
+
       if (user.isBusiness && !inBusinessShell) {
         return roleHome();
       }
@@ -331,6 +353,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/business/setup',
         builder: (_, __) => const BusinessSetupScreen(),
+      ),
+      GoRoute(
+        path: '/business/under-review',
+        builder: (_, __) => const BusinessPendingScreen(),
       ),
       StatefulShellRoute.indexedStack(
         builder: (_, __, navigationShell) =>

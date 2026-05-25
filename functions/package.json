@@ -16,7 +16,8 @@
   "dependencies": {
     "firebase-admin": "^13.0.2",
     "firebase-functions": "^6.3.2",
-    "nodemailer": "^6.9.16"
+    "nodemailer": "^6.9.16",
+    "resend": "^4.0.0"
   },
   "private": true
 }

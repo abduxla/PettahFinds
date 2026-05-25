@@ -101,7 +101,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
 
       if (mounted) {
         context.showSuccessSnackBar('Business created successfully!');
-        context.go('/business');
+        context.go('/business/under-review');
       }
     } catch (e) {
       if (mounted) context.showErrorSnackBar(e);

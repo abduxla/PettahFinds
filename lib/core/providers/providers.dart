@@ -326,3 +326,13 @@ final currentUserBusinessProvider = FutureProvider<Business?>((ref) async {
   }
   return ref.read(businessRepositoryProvider).getByOwnerUid(appUser.uid);
 });
+
+// Real-time stream of the current owner's business doc. Used by the router
+// to auto-exit /business/under-review the moment an admin flips isVerified.
+final currentUserBusinessStreamProvider = StreamProvider<Business?>((ref) {
+  final appUser = ref.watch(appUserProvider).valueOrNull;
+  if (appUser == null || !appUser.isBusiness) return Stream.value(null);
+  final bizId = appUser.businessId;
+  if (bizId == null || bizId.isEmpty) return Stream.value(null);
+  return ref.read(businessRepositoryProvider).streamById(bizId);
+});

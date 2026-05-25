@@ -57,6 +57,12 @@ class BusinessRepository {
     return Business.fromFirestore(snap.docs.first);
   }
 
+  Stream<Business?> streamById(String id) {
+    return _ref.doc(id).snapshots().map(
+          (doc) => doc.exists ? Business.fromFirestore(doc) : null,
+        );
+  }
+
   Future<void> update(Business business) async {
     await _ref.doc(business.id).update(business.toMap());
   }
