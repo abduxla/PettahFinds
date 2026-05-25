@@ -175,6 +175,24 @@ final productByIdProvider =
   }
 });
 
+/// Single-user lookup by uid. Returns null on missing / permission-
+/// denied so admin surfaces can degrade to "Unknown" instead of
+/// crashing the row. autoDispose family keyed on uid.
+///
+/// Used by the admin Businesses list to render the owner's display
+/// name + email instead of the raw Firebase UID. The Firestore rule
+/// on /users/{uid} read is `isOwner(uid) || isAdmin()`, so this
+/// query only succeeds for the calling admin.
+final userByIdProvider =
+    FutureProvider.autoDispose.family<AppUser?, String>((ref, uid) async {
+  if (uid.isEmpty) return null;
+  try {
+    return await ref.read(authRepositoryProvider).getAppUser(uid);
+  } catch (_) {
+    return null;
+  }
+});
+
 /// All products (active + inactive) for a specific business. Used by the
 /// business Manage Products screen. Top-level autoDispose.family so the
 /// subscription is stable across rebuilds and invalidation actually works.

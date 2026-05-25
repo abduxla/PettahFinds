@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../models/business.dart';
@@ -137,6 +138,10 @@ class _BusinessRow extends ConsumerWidget {
           ? theme.colorScheme.errorContainer.withAlpha(40)
           : null,
       child: ListTile(
+        // Tap anywhere on the row → admin review screen for this
+        // business. Listed under the Businesses shell branch so the
+        // bottom-nav stays put and pop returns to the list.
+        onTap: () => context.push('/admin/businesses/review/${b.id}'),
         leading: CircleAvatar(
           backgroundImage:
               b.logoUrl.isNotEmpty ? NetworkImage(b.logoUrl) : null,
@@ -160,10 +165,7 @@ class _BusinessRow extends ConsumerWidget {
             ],
           ],
         ),
-        subtitle: Text(
-          '${b.category} • ${b.location}\nOwner: ${b.ownerUid}',
-          maxLines: 2,
-        ),
+        subtitle: _OwnerSubtitle(business: b),
         // Two trailing actions: verify toggle + destructive delete.
         // Mainaxis-min so the row never exceeds the ListTile slot.
         trailing: Row(
@@ -203,6 +205,59 @@ class _BusinessRow extends ConsumerWidget {
     );
   }
 
+}
+
+/// Subtitle for an admin business row.
+///
+/// Resolves the owner's UID to their actual display name + email via
+/// [userByIdProvider] so admins see "Owner: Jane Doe (jane@x.com)"
+/// instead of the raw Firebase UID. Falls back to a shortened UID
+/// label when the lookup is loading, errors, or returns null (e.g.
+/// the user doc was deleted out-of-band).
+class _OwnerSubtitle extends ConsumerWidget {
+  final Business business;
+  const _OwnerSubtitle({required this.business});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ownerAsync = ref.watch(userByIdProvider(business.ownerUid));
+    final owner = ownerAsync.valueOrNull;
+
+    final String ownerLine;
+    if (owner != null) {
+      final name = owner.displayName.trim();
+      final email = owner.email.trim();
+      if (name.isNotEmpty && email.isNotEmpty) {
+        ownerLine = 'Owner: $name ($email)';
+      } else if (name.isNotEmpty) {
+        ownerLine = 'Owner: $name';
+      } else if (email.isNotEmpty) {
+        ownerLine = 'Owner: $email';
+      } else {
+        ownerLine = 'Owner: uid ${_shortUid(business.ownerUid)}';
+      }
+    } else if (ownerAsync.isLoading) {
+      ownerLine = 'Owner: loading...';
+    } else {
+      // Doc missing / permission-denied / stale. Show a short uid so
+      // the admin still has something to copy if they need to query
+      // Firestore directly.
+      ownerLine = 'Owner: uid ${_shortUid(business.ownerUid)} (no /users doc)';
+    }
+
+    return Text(
+      '${business.category} • ${business.location}\n$ownerLine',
+      maxLines: 2,
+    );
+  }
+
+  String _shortUid(String uid) {
+    if (uid.length <= 10) return uid;
+    return '${uid.substring(0, 6)}…${uid.substring(uid.length - 4)}';
+  }
+}
+
+extension _AdminDeleteHelper on _BusinessRow {
   /// Admin-side hard delete of a business + its owner's user record.
   /// Two confirmation gates:
   ///   1. AlertDialog with type-DELETE input (same as self-delete).

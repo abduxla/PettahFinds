@@ -46,34 +46,35 @@ class CategoryBusinessesScreen extends ConsumerWidget {
               )
             : GridView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
-                // mainAxisExtent locks the cell height to the canonical
-                // ProductCard's natural content height — eliminates the
-                // bottom-of-cell whitespace the old childAspectRatio:0.68
-                // produced. 218 = 108 image + ~110 content/padding stack
-                // measured against ProductCard's spec.
+                // Larger cells to match the Temu / Daraz reference. The
+                // canonical ProductCard takes imageHeight=140 here (vs.
+                // 108 on home's "for you" rail) so the photo dominates
+                // the card like the reference. mainAxisExtent=250 leaves
+                // ~7px of slack below the address pin so it never gets
+                // clipped on dense font metrics.
                 gridDelegate:
                     const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  mainAxisExtent: 218,
+                  mainAxisExtent: 250,
                   mainAxisSpacing: 14,
                   crossAxisSpacing: 14,
                 ),
                 itemCount: products.length,
-                // Use the canonical ProductCard — the prior custom card
-                // (Expanded flex 3/2 with Spacer) reflowed unpredictably
-                // and left empty space below the price on tall cells.
-                itemBuilder: (_, i) => ProductCard(product: products[i]),
+                itemBuilder: (_, i) => ProductCard(
+                  product: products[i],
+                  imageHeight: 140,
+                ),
               ),
         loading: () => GridView.builder(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            mainAxisExtent: 218,
+            mainAxisExtent: 250,
             mainAxisSpacing: 14,
             crossAxisSpacing: 14,
           ),
           itemCount: 4,
-          itemBuilder: (_, _) => const ShimmerBox(height: 218, radius: 18),
+          itemBuilder: (_, _) => const ShimmerBox(height: 250, radius: 18),
         ),
         error: (e, _) => AppErrorWidget(
           message: e.toString(),

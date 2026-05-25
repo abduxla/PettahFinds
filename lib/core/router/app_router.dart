@@ -37,6 +37,7 @@ import '../../features/business/screens/business_reviews_screen.dart';
 import '../../features/admin/screens/admin_shell.dart';
 import '../../features/admin/screens/admin_dashboard_screen.dart';
 import '../../features/admin/screens/admin_businesses_screen.dart';
+import '../../features/admin/screens/admin_business_detail_screen.dart';
 import '../../features/admin/screens/admin_products_screen.dart';
 import '../../features/admin/screens/admin_reports_screen.dart';
 import '../../features/legal/legal_document_screen.dart';
@@ -528,6 +529,19 @@ final routerProvider = Provider<GoRouter>((ref) {
             GoRoute(
               path: '/admin/businesses',
               builder: (_, __) => const AdminBusinessesScreen(),
+              routes: [
+                // /admin/businesses/review/:businessId — admin moderation
+                // surface for one business. Nested inside the admin
+                // Businesses branch so pop returns to the list and the
+                // admin bottom nav stays on the Businesses tab while
+                // reviewing.
+                GoRoute(
+                  path: 'review/:businessId',
+                  builder: (_, state) => AdminBusinessDetailScreen(
+                    businessId: state.pathParameters['businessId']!,
+                  ),
+                ),
+              ],
             ),
           ]),
           StatefulShellBranch(routes: [
