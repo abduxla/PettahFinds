@@ -52,47 +52,63 @@ final _customerShellKey = GlobalKey<NavigatorState>(debugLabel: 'customer');
 final _businessShellKey = GlobalKey<NavigatorState>(debugLabel: 'business');
 final _adminShellKey = GlobalKey<NavigatorState>(debugLabel: 'admin');
 
+/// Tiny ChangeNotifier that GoRouter listens to for redirect
+/// re-evaluations. We bridge Riverpod providers into this notifier
+/// via `ref.listen` instead of `ref.watch`, so the [routerProvider]
+/// itself NEVER rebuilds and the GoRouter (with its four
+/// `GlobalKey<NavigatorState>` instances) stays a single object for
+/// the app lifetime.
+///
+/// Previously the routerProvider used `ref.watch` on three providers
+/// (authState, appUser, isHandlingSignIn) and Riverpod re-ran the
+/// create function on every emission — building a fresh GoRouter
+/// while the old one's Navigators were still in the widget tree.
+/// That caused "Duplicate GlobalKey detected" crashes and made the
+/// StatefulShellRoute branches cycle rapidly (the "/home → /favorites
+/// → /profile → /home → /home/product/..." log signature). Single-
+/// instance router + listenable refresh is the standard fix.
+class _RouterRefreshNotifier extends ChangeNotifier {
+  void ping() => notifyListeners();
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
-  final appUser = ref.watch(appUserProvider);
-  // Watch the mid-OAuth guard so the router rebuilds when it flips and
-  // the redirect below can short-circuit during the handshake.
-  final isHandlingSignIn = ref.watch(isHandlingSignInProvider);
+  final refresh = _RouterRefreshNotifier();
+  // Bridge the three Riverpod state sources into the notifier WITHOUT
+  // re-running this Provider's create function. ref.listen never
+  // triggers a rebuild of the provider it's called from.
+  ref.listen(authStateProvider, (_, __) => refresh.ping());
+  ref.listen(appUserProvider, (_, __) => refresh.ping());
+  ref.listen(isHandlingSignInProvider, (_, __) => refresh.ping());
+  ref.onDispose(refresh.dispose);
 
   return GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
+    // GoRouter refreshes its redirect evaluation whenever this
+    // listenable fires — but the GoRouter INSTANCE is preserved, so
+    // the rootNavigatorKey + shell GlobalKeys stay attached to the
+    // same Navigator widgets the whole time. No more duplicate-key
+    // crashes during OAuth.
+    refreshListenable: refresh,
     redirect: (context, state) {
+      // Read providers at evaluation time (NOT at provider build
+      // time). ref.read inside a closure is fine — we're not
+      // subscribing, just sampling current values.
+      final authState = ref.read(authStateProvider);
+      final appUser = ref.read(appUserProvider);
+      final isHandlingSignIn = ref.read(isHandlingSignInProvider);
+
       final isAuthLoading = authState.isLoading;
       final isLoggedIn = authState.valueOrNull != null;
       final currentPath = state.uri.path;
 
-      // One-line trace at the top of every redirect evaluation. Reads
-      // the inputs that determine the decision so a sign-in flow can
-      // be replayed end-to-end from `flutter logs` without instrumenting
-      // every return point. Outputs e.g.:
-      //   🔀 ROUTER path=/sign-up loggedIn=true authLoad=false
-      //              appUser=null isHandling=true
       debugPrint(
           '🔀 ROUTER path=$currentPath loggedIn=$isLoggedIn '
           'authLoad=$isAuthLoading appUser=${appUser.valueOrNull?.role} '
           'isHandling=$isHandlingSignIn');
 
-      // MID-OAUTH GUARD. While the Sign-Up / Sign-In screen is mid-
-      // handshake (OAuth → existing-doc check → role picker → seed),
-      // suppress every redirect. Without this, the appUserProvider's
-      // first emission after seedAppUserIfMissing writes the doc
-      // would race the still-running `_continueWithOAuth` Future: the
-      // redirect sees signed-in + AppUser + on /sign-up (an auth
-      // path) → returns roleHome() → router yanks the screen → the
-      // post-await `if (!mounted) return;` short-circuits → no doc
-      // write actually completes from the caller's perspective →
-      // /loading sits empty → "Something went wrong" timeout.
-      //
-      // The flag is set in the screen's _continueWithOAuth before the
-      // OAuth call and cleared in its finally{} block after the doc
-      // is written (or the user cancels), so the suppression window
-      // is exactly the danger window.
+      // MID-OAUTH GUARD. See _continueWithOAuth in sign_up_screen /
+      // sign_in_screen for the rationale.
       if (isHandlingSignIn) {
         debugPrint('🔀 ROUTER → suppressed (mid-OAuth)');
         return null;
