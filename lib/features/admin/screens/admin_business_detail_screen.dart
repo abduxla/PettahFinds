@@ -491,7 +491,16 @@ class _AdminProductTileState extends ConsumerState<_AdminProductTile> {
     final p = widget.product;
     return Opacity(
       opacity: p.isActive ? 1.0 : 0.55,
-      child: Container(
+      child: InkWell(
+        // Tap → full product detail in ADMIN mode. The detail screen
+        // detects ?mode=admin + AppUser.isAdmin and swaps the
+        // customer "Chat Seller" CTA for Activate/Deactivate + Delete
+        // actions, so the admin can review every field (images,
+        // description, wholesale tier, reviews) before acting.
+        // The popup menu on the right is kept as a one-tap shortcut.
+        onTap: () => context.push('/product/${p.id}?mode=admin'),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
@@ -624,6 +633,7 @@ class _AdminProductTileState extends ConsumerState<_AdminProductTile> {
               ),
           ],
         ),
+      ),
       ),
     );
   }

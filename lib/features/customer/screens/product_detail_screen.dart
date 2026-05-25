@@ -66,13 +66,20 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final productAsync =
         ref.watch(_productDetailProvider(widget.productId));
     final appUser = ref.watch(appUserProvider).valueOrNull;
-    // Read `?mode=owner` from the route. The top-level /product/:id
-    // entry passes it from the business dashboard so the screen
-    // swaps the "Chat Seller" CTA for an "Edit Product" CTA. Any
-    // other route (e.g. /home/product/:id from the customer shell)
-    // leaves the param empty and renders the standard customer view.
+    // Read `?mode=` from the route. Three variants currently:
+    //   • mode=owner — business owner previewing their OWN listing
+    //     from the merchant dashboard. Swaps "Chat Seller" → "Edit
+    //     Product".
+    //   • mode=admin — admin reviewing a product from the admin
+    //     business review screen. Swaps "Chat Seller" → Activate/
+    //     Deactivate + Delete actions. Server-side enforced by the
+    //     isAdmin() Firestore rule, but we also gate the UI on the
+    //     signed-in AppUser's role so a curious non-admin can't see
+    //     admin controls by editing the URL.
+    //   • no mode — standard customer view.
     final mode = GoRouterState.of(context).uri.queryParameters['mode'];
     final isOwnerView = mode == 'owner';
+    final isAdminView = mode == 'admin' && (appUser?.isAdmin ?? false);
 
     return productAsync.when(
       data: (product) {
@@ -346,7 +353,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             business: business,
                             productTitle: product.title,
                             isOwnerView: isOwnerView,
+                            isAdminView: isAdminView,
                             productId: product.id,
+                            product: product,
                           ),
                           loading: () =>
                               const ShimmerBox(height: 80, radius: 12),
@@ -455,15 +464,26 @@ class _SellerCard extends StatelessWidget {
   /// affordance (owners don't need to "view their own shop" from
   /// here).
   final bool isOwnerView;
+  /// True when the screen was opened with `?mode=admin` AND the
+  /// signed-in user actually has role=admin. Swaps the "Chat Seller"
+  /// CTA for a row of admin actions (Activate/Deactivate + Delete).
+  /// Set by the admin business review screen when an admin taps a
+  /// product tile.
+  final bool isAdminView;
   /// Product id needed by the Edit CTA when [isOwnerView] is true so
   /// it can deep-link into the existing /business/products/edit/:id
-  /// form.
+  /// form. Also passed to the admin actions widget.
   final String productId;
+  /// Full product, only consumed by the admin actions widget so it
+  /// can show the current active/inactive state on its toggle.
+  final Product? product;
   const _SellerCard({
     required this.business,
     required this.productTitle,
     this.isOwnerView = false,
+    this.isAdminView = false,
     this.productId = '',
+    this.product,
   });
 
   @override
@@ -562,14 +582,205 @@ class _SellerCard extends StatelessWidget {
         ),
           ),
           const SizedBox(height: 10),
-          // Owner-mode swaps the Chat Seller CTA for Edit Product.
-          // Two distinct screens visually share the bottom slot.
-          if (isOwnerView)
+          // Three-way bottom-slot swap. Admin > Owner > Customer
+          // since an admin viewing the product takes precedence over
+          // the owner-edit CTA (admins reviewing a merchant's own
+          // listing should never see the merchant's Edit button).
+          if (isAdminView && product != null)
+            _AdminProductActions(product: product!)
+          else if (isOwnerView)
             _EditProductButton(productId: productId)
           else
             _ChatSellerButton(business: business),
         ],
       ),
+    );
+  }
+}
+
+/// Admin-mode action row shown at the bottom of the seller card when
+/// the screen was opened with `?mode=admin` AND the viewer's
+/// AppUser.isAdmin is true. Both actions are server-enforced by the
+/// `isAdmin()` Firestore rule on /products, so the UI gate is purely
+/// for UX (don't surface controls a non-admin can't use anyway).
+class _AdminProductActions extends ConsumerStatefulWidget {
+  final Product product;
+  const _AdminProductActions({required this.product});
+
+  @override
+  ConsumerState<_AdminProductActions> createState() =>
+      _AdminProductActionsState();
+}
+
+class _AdminProductActionsState
+    extends ConsumerState<_AdminProductActions> {
+  bool _busy = false;
+
+  Future<void> _toggleActive() async {
+    final p = widget.product;
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(productRepositoryProvider)
+          .update(p.copyWith(isActive: !p.isActive));
+      // Force the detail provider to re-fetch so the screen reflects
+      // the new active state immediately (the in-stream rebuilds
+      // covering the admin business detail list are a separate path).
+      ref.invalidate(_productDetailProvider(p.id));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(p.isActive
+              ? 'Product deactivated — hidden from customers'
+              : 'Product activated — visible to customers'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not update: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _confirmDelete() async {
+    final p = widget.product;
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete this product?'),
+        content: Text(
+          '"${p.title}" will be permanently removed from this business\'s '
+          'listings. The merchant will not be notified. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (go != true) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(productRepositoryProvider).hardDelete(p.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Product deleted')),
+      );
+      // Pop back to the admin business review screen; the products
+      // stream there auto-reflects the removal.
+      if (context.canPop()) context.pop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Delete failed: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.product;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Status pill — quick visual cue on whether the product is
+        // currently visible to customers.
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: p.isActive
+                ? AppColors.tealLight
+                : AppColors.red.withAlpha(30),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                p.isActive
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
+                size: 14,
+                color: p.isActive ? AppColors.teal : AppColors.red,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                p.isActive
+                    ? 'Active — visible to customers'
+                    : 'Inactive — hidden from customers',
+                style: GoogleFonts.dmSans(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: p.isActive ? AppColors.teal : AppColors.red,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            // Activate / Deactivate
+            Expanded(
+              child: SizedBox(
+                height: 46,
+                child: OutlinedButton.icon(
+                  onPressed: _busy ? null : _toggleActive,
+                  icon: Icon(
+                    p.isActive
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    size: 18,
+                  ),
+                  label: Text(p.isActive ? 'Deactivate' : 'Activate'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.teal,
+                    side: const BorderSide(color: AppColors.teal),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Hard delete
+            Expanded(
+              child: SizedBox(
+                height: 46,
+                child: FilledButton.icon(
+                  onPressed: _busy ? null : _confirmDelete,
+                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                  label: const Text('Delete'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (_busy) ...[
+          const SizedBox(height: 10),
+          const Center(
+            child: SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
