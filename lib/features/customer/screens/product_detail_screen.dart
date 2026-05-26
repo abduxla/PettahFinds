@@ -20,11 +20,15 @@ import '../../../widgets/sign_in_required.dart';
 final _productDetailProvider =
     FutureProvider.autoDispose.family<Product, String>((ref, id) async {
   if (id.isEmpty) throw Exception('Invalid product');
-  final product = await ref.watch(productRepositoryProvider).getById(id);
-  if (!product.isActive) {
-    throw Exception('This product is no longer available');
-  }
-  return product;
+  // Returns whether-active-or-not. The customer-facing branch of the
+  // screen still gates on `product.isActive` and renders a "no
+  // longer available" placeholder; the admin-mode branch needs to
+  // load inactive products so it can review them and re-activate /
+  // delete. The previous `throw if !isActive` here painted the
+  // generic error UI immediately after an admin clicked Deactivate
+  // (the post-write invalidate re-fetched and tripped the throw),
+  // even though the deactivate had actually succeeded.
+  return ref.watch(productRepositoryProvider).getById(id);
 });
 
 final _productSellerProvider =
@@ -83,6 +87,15 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
     return productAsync.when(
       data: (product) {
+        // Customers (and owner-preview) viewing an inactive product
+        // get a friendly "no longer available" placeholder instead of
+        // the full listing — the merchant or an admin has hidden it.
+        // Admin mode SKIPS this gate because the whole point of
+        // ?mode=admin is to review + un-hide / delete the product.
+        if (!product.isActive && !isAdminView) {
+          return _UnavailableProductScreen();
+        }
+
         final businessAsync =
             ref.watch(_productSellerProvider(product.businessId));
 
@@ -454,6 +467,70 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 }
 
+/// Friendly placeholder shown when a non-admin opens a product whose
+/// `isActive` flag is false — i.e. the merchant or an admin has
+/// hidden the listing. Replaces the harsh `throw` that used to live
+/// inside [_productDetailProvider] and paint the generic error
+/// screen even right after an admin successfully deactivated.
+class _UnavailableProductScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bgSection,
+      appBar: AppBar(
+        backgroundColor: AppColors.bgSection,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/home'),
+        ),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.shopping_bag_outlined,
+                size: 56,
+                color: AppColors.text4,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'This product is no longer available',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.nunito(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.text1,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "The seller has hidden or removed this listing. "
+                'Browse other products from Pettah businesses below.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.dmSans(
+                  fontSize: 13,
+                  color: AppColors.text3,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: () => context.go('/home'),
+                icon: const Icon(Icons.home_rounded, size: 18),
+                label: const Text('Back to home'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SellerCard extends StatelessWidget {
   final Business business;
   final String productTitle;
@@ -499,7 +576,18 @@ class _SellerCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           InkWell(
-            onTap: () => context.push('/home/business/${business.id}'),
+            // ADMIN MODE: do NOT push /home/business/:id — that's a
+            // customer-shell route, and pushing it from the admin
+            // shell triggers a cross-shell mount that re-registers
+            // the customer shell's GlobalKey while the admin shell
+            // still owns it → "GlobalKey used multiple times" +
+            // navigator assertion crash. The admin already came from
+            // /admin/businesses/review/:id; pop is the right gesture.
+            // Owner mode also has nothing meaningful to navigate to,
+            // so we no-op there too.
+            onTap: (isAdminView || isOwnerView)
+                ? null
+                : () => context.push('/home/business/${business.id}'),
             borderRadius: BorderRadius.circular(8),
             child: Row(
           children: [
