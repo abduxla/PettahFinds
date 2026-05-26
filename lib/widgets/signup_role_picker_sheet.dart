@@ -4,14 +4,39 @@ import '../core/theme/app_colors.dart';
 
 /// Bottom sheet shown to a NEW OAuth user (Google / Apple) on the
 /// sign-up screen to capture their role before /users/{uid} is
-/// seeded. Returns `'user'` or `'business'` (null if dismissed).
+/// seeded. Returns `'user'` or `'business'`.
 ///
-/// Mirrors the look of the SegmentedButton role picker on the email
-/// signup form so OAuth signups land at the same mental model.
-Future<String?> showSignupRolePickerSheet(BuildContext context) {
+/// NOT DISMISSIBLE. By the time this sheet opens, Firebase Auth has
+/// already created the user — if the caller could dismiss without
+/// picking, we'd strand an authenticated session with no /users/{uid}
+/// doc, which left earlier builds in a permanent loading loop with no
+/// way to sign out. The sheet must end in a role choice OR an explicit
+/// Cancel that triggers a clean signOut.
+Future<String?> showSignupRolePickerSheet(
+  BuildContext context, {
+  /// Defaults to true and should almost always stay true.
+  /// Exposed so callers can be explicit about their intent at the
+  /// OAuth call-site (see sign_up_screen / sign_in_screen
+  /// _continueWithOAuth) and so a regression that drops the root
+  /// navigator can be caught by a passing test.
+  bool useRootNavigator = true,
+}) {
   return showModalBottomSheet<String>(
     context: context,
-    isDismissible: true,
+    // CRITICAL: see header comment. Tapping the scrim must NOT dismiss
+    // and the user must NOT be able to swipe the sheet away — both
+    // paths historically stranded auth state.
+    isDismissible: false,
+    enableDrag: false,
+    // CRITICAL: pin the sheet to the ROOT Navigator, not whichever
+    // GoRoute happens to be on top when we open it. Without this, any
+    // mid-OAuth route rebuild (e.g. router reacting to the appUser
+    // stream emitting the new doc) tore down the sheet's host
+    // Navigator and the await resolved with `null` — leaving an
+    // authed Firebase user with no /users doc and tripping the
+    // "Something went wrong" timeout downstream. Root-navigator
+    // hosting survives every nested route swap.
+    useRootNavigator: useRootNavigator,
     backgroundColor: Colors.white,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -59,7 +84,51 @@ Future<String?> showSignupRolePickerSheet(BuildContext context) {
               subtitle: 'List your shop + products. Approved by admin.',
               onTap: () => Navigator.of(sheetCtx).pop('business'),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.orange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: AppColors.orange.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.info_outline,
+                      color: AppColors.orange, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Business accounts take 24-48 hours to review. While you wait, you can set up your profile and upload products. Once approved, your shop goes live for all customers!',
+                      style: GoogleFonts.dmSans(
+                        fontSize: 12.5,
+                        color: AppColors.text2,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Explicit Cancel — the only escape hatch now that the
+            // sheet is non-dismissible. Returning null tells the
+            // caller to sign the orphan Firebase Auth session out.
+            TextButton(
+              onPressed: () => Navigator.of(sheetCtx).pop(),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.dmSans(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.text3,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
           ],
         ),
       ),

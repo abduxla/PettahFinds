@@ -244,7 +244,7 @@ class _BusinessResultCard extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => context.go('/home/business/${business.id}'),
+        onTap: () => context.push('/home/business/${business.id}'),
         borderRadius: BorderRadius.circular(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

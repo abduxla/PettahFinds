@@ -7,6 +7,7 @@ import '../../features/auth/screens/onboarding_screen.dart';
 import '../../features/auth/screens/sign_in_screen.dart';
 import '../../features/auth/screens/sign_up_screen.dart';
 import '../../features/auth/screens/forgot_password_screen.dart';
+import '../../features/auth/screens/loading_screen.dart';
 import '../../features/customer/screens/customer_shell.dart';
 import '../../features/customer/screens/home_screen.dart';
 import '../../features/customer/screens/map_screen.dart';
@@ -33,9 +34,11 @@ import '../../features/business/screens/business_profile_screen.dart';
 import '../../features/business/screens/edit_business_profile_screen.dart';
 import '../../features/business/screens/business_settings_screen.dart';
 import '../../features/business/screens/business_pending_screen.dart';
+import '../../features/business/screens/business_reviews_screen.dart';
 import '../../features/admin/screens/admin_shell.dart';
 import '../../features/admin/screens/admin_dashboard_screen.dart';
 import '../../features/admin/screens/admin_businesses_screen.dart';
+import '../../features/admin/screens/admin_business_detail_screen.dart';
 import '../../features/admin/screens/admin_products_screen.dart';
 import '../../features/admin/screens/admin_reports_screen.dart';
 import '../../features/legal/legal_document_screen.dart';
@@ -51,21 +54,80 @@ final _customerShellKey = GlobalKey<NavigatorState>(debugLabel: 'customer');
 final _businessShellKey = GlobalKey<NavigatorState>(debugLabel: 'business');
 final _adminShellKey = GlobalKey<NavigatorState>(debugLabel: 'admin');
 
+/// Tiny ChangeNotifier that GoRouter listens to for redirect
+/// re-evaluations. We bridge Riverpod providers into this notifier
+/// via `ref.listen` instead of `ref.watch`, so the [routerProvider]
+/// itself NEVER rebuilds and the GoRouter (with its four
+/// `GlobalKey<NavigatorState>` instances) stays a single object for
+/// the app lifetime.
+///
+/// Previously the routerProvider used `ref.watch` on three providers
+/// (authState, appUser, isHandlingSignIn) and Riverpod re-ran the
+/// create function on every emission — building a fresh GoRouter
+/// while the old one's Navigators were still in the widget tree.
+/// That caused "Duplicate GlobalKey detected" crashes and made the
+/// StatefulShellRoute branches cycle rapidly (the "/home → /favorites
+/// → /profile → /home → /home/product/..." log signature). Single-
+/// instance router + listenable refresh is the standard fix.
+class _RouterRefreshNotifier extends ChangeNotifier {
+  void ping() => notifyListeners();
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
-  final appUser = ref.watch(appUserProvider);
-  final businessStream = ref.watch(currentUserBusinessStreamProvider);
+  final refresh = _RouterRefreshNotifier();
+  // Bridge Riverpod state sources into the notifier WITHOUT re-running
+  // this Provider's create function. ref.listen never triggers a rebuild
+  // of the provider it's called from — the GoRouter instance stays
+  // single for the app lifetime, preventing duplicate-GlobalKey crashes.
+  ref.listen(authStateProvider, (_, __) => refresh.ping());
+  ref.listen(appUserProvider, (_, __) => refresh.ping());
+  ref.listen(isHandlingSignInProvider, (_, __) => refresh.ping());
+  // Ping when the owner's business doc changes (isVerified flip) so the
+  // router auto-exits /business/under-review the moment admin approves.
+  ref.listen(currentUserBusinessStreamProvider, (_, __) => refresh.ping());
+  ref.onDispose(refresh.dispose);
 
   return GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
+    // GoRouter refreshes its redirect evaluation whenever this
+    // listenable fires — but the GoRouter INSTANCE is preserved, so
+    // the rootNavigatorKey + shell GlobalKeys stay attached to the
+    // same Navigator widgets the whole time. No more duplicate-key
+    // crashes during OAuth.
+    refreshListenable: refresh,
     redirect: (context, state) {
+      // Read providers at evaluation time (NOT at provider build
+      // time). ref.read inside a closure is fine — we're not
+      // subscribing, just sampling current values.
+      final authState = ref.read(authStateProvider);
+      final appUser = ref.read(appUserProvider);
+      final isHandlingSignIn = ref.read(isHandlingSignInProvider);
+
       final isAuthLoading = authState.isLoading;
       final isLoggedIn = authState.valueOrNull != null;
       final currentPath = state.uri.path;
 
+      debugPrint(
+          '🔀 ROUTER path=$currentPath loggedIn=$isLoggedIn '
+          'authLoad=$isAuthLoading appUser=${appUser.valueOrNull?.role} '
+          'isHandling=$isHandlingSignIn');
+
+      // MID-OAUTH GUARD. See _continueWithOAuth in sign_up_screen /
+      // sign_in_screen for the rationale.
+      if (isHandlingSignIn) {
+        debugPrint('🔀 ROUTER → suppressed (mid-OAuth)');
+        return null;
+      }
+
       // Allow splash always — it handles its own navigation
       if (currentPath == '/splash') return null;
+
+      // /loading is the post-auth landing pad. It owns its own
+      // routing decisions (polls appUserProvider + has an emergency
+      // sign-out). The redirect must never touch it or we'd race
+      // against its own ref.listen handlers.
+      if (currentPath == '/loading') return null;
 
       // Legal docs are reachable from everywhere (sign-up, settings, product
       // form), regardless of auth state or role.
@@ -81,6 +143,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       // customers can deep-link to it too. Skip the role-shell
       // bounce below so business users aren't kicked to /business.
       if (currentPath.startsWith('/product/')) return null;
+
+      // Top-level /edit-product/:id — opened from the owner-view's
+      // Edit CTA. Lives outside the business shell so the cross-shell
+      // push from /product/:id?mode=owner doesn't fail to mount the
+      // shell (white-screen bug). Same skip-the-shell-bounce treatment
+      // as /product/:id above.
+      if (currentPath.startsWith('/edit-product/')) return null;
 
       // While auth is still initializing, don't redirect — stay put
       if (isAuthLoading) return null;
@@ -103,10 +172,28 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Logged in. We need the AppUser to enforce role-based access.
       final user = appUser.valueOrNull;
-      // AppUser still loading from Firestore — don't redirect yet
-      if (user == null) return null;
+      // CRITICAL stranded-auth guard.
+      //
+      // Firebase Auth has a user but the /users/{uid} doc hasn't
+      // arrived yet — either the stream is still loading, the doc
+      // genuinely doesn't exist (signup interrupted mid-flow), or a
+      // recently-signed-up doc is still propagating. In every case we
+      // route to /loading, which:
+      //   • shows a teal spinner
+      //   • listens for the doc and routes by role when it appears
+      //   • surfaces an emergency Sign Out & Retry after 10s
+      //
+      // EXCEPT on the auth screens themselves — sign-up/sign-in own
+      // their own post-OAuth navigation (role picker bottom sheet,
+      // _routeAfterAuth) and a redirect here would yank the screen
+      // out from under their `await showModalBottomSheet`.
+      if (user == null) {
+        if (authPaths.contains(currentPath)) return null;
+        return '/loading';
+      }
 
       // Snapshot of the owner's business doc (null while loading or no biz).
+      final businessStream = ref.read(currentUserBusinessStreamProvider);
       final biz = businessStream.valueOrNull;
 
       String roleHome() {
@@ -186,6 +273,9 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
+      // Post-auth landing pad — waits for /users/{uid} doc + routes by role.
+      // See LoadingScreen for the rationale (stranded-auth recovery).
+      GoRoute(path: '/loading', builder: (_, __) => const LoadingScreen()),
       GoRoute(path: '/onboarding', builder: (_, __) => const OnboardingScreen()),
       GoRoute(path: '/sign-in', builder: (_, __) => const SignInScreen()),
       GoRoute(path: '/sign-up', builder: (_, __) => const SignUpScreen()),
@@ -238,6 +328,22 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
+      // Top-level edit-product route. Reachable from BOTH:
+      //   • product owner view (/product/:id?mode=owner → Edit Product
+      //     CTA — cross-shell push that used to white-screen against
+      //     the shell-nested route)
+      //   • Manage Products list inside the business shell (still
+      //     pops back to /business/products via the navigator stack)
+      // Single canonical edit screen; the AddEditProductScreen
+      // reads currentUserBusinessProvider so it doesn't need the
+      // business shell wrapper for context.
+      GoRoute(
+        path: '/edit-product/:productId',
+        builder: (_, state) => AddEditProductScreen(
+          productId: state.pathParameters['productId']!,
+        ),
+      ),
+
       // --- Chat (top-level so it can be opened from any shell) ---
       //
       // Nested parent/child structure so go_router treats /chat/:id as
@@ -272,7 +378,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/home',
-                builder: (_, __) => const HomeScreen(),
+                builder: (_, __) => HomeScreen(key: HomeScreen.globalKey),
                 routes: [
                   GoRoute(
                     path: 'businesses',
@@ -377,12 +483,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                     path: 'products/add',
                     builder: (_, __) => const AddEditProductScreen(),
                   ),
-                  GoRoute(
-                    path: 'products/edit/:productId',
-                    builder: (_, state) => AddEditProductScreen(
-                      productId: state.pathParameters['productId'],
-                    ),
-                  ),
+                  // /business/products/edit/:id REMOVED. Edit now lives
+                  // at the top-level /edit-product/:id route (see above)
+                  // so the cross-shell push from the owner-view CTA
+                  // doesn't try to remount the business shell — that
+                  // remount was the white-screen bug.
                   GoRoute(
                     path: 'notifications',
                     builder: (_, __) =>
@@ -422,6 +527,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                   path: 'edit-profile',
                   builder: (_, __) => const EditBusinessProfileScreen(),
                 ),
+                GoRoute(
+                  // /business-settings/reviews — Customer Reviews screen.
+                  // Nested under the settings branch so pop returns to
+                  // settings cleanly and the bottom-nav stays on the
+                  // Settings tab while the merchant browses reviews.
+                  path: 'reviews',
+                  builder: (_, __) => const BusinessReviewsScreen(),
+                ),
               ],
             ),
           ]),
@@ -446,6 +559,19 @@ final routerProvider = Provider<GoRouter>((ref) {
             GoRoute(
               path: '/admin/businesses',
               builder: (_, __) => const AdminBusinessesScreen(),
+              routes: [
+                // /admin/businesses/review/:businessId — admin moderation
+                // surface for one business. Nested inside the admin
+                // Businesses branch so pop returns to the list and the
+                // admin bottom nav stays on the Businesses tab while
+                // reviewing.
+                GoRoute(
+                  path: 'review/:businessId',
+                  builder: (_, state) => AdminBusinessDetailScreen(
+                    businessId: state.pathParameters['businessId']!,
+                  ),
+                ),
+              ],
             ),
           ]),
           StatefulShellBranch(routes: [

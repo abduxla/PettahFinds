@@ -22,6 +22,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _currentPage = 0;
   bool _accepted = false;
   bool _finishing = false;
+  String? _finishingRole;
 
   static const _totalPages = 3;
 
@@ -40,13 +41,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
-  Future<void> _finish() async {
+  Future<void> _finishAs(String role) async {
     if (_finishing) return;
-    setState(() => _finishing = true);
+    setState(() {
+      _finishing = true;
+      _finishingRole = role;
+    });
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(onboardingCompletedKey, true);
     if (!mounted) return;
-    context.go('/home');
+    if (role == 'business') {
+      context.go('/sign-in');
+    } else {
+      context.go('/home');
+    }
   }
 
   Future<void> _skip() async {
@@ -143,41 +151,104 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               // ---- CTA ----
               Padding(
                 padding: const EdgeInsets.fromLTRB(28, 0, 28, 24),
-                child: SizedBox(
-                  height: 56,
-                  width: double.infinity,
-                  child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.orange,
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor:
-                          AppColors.orange.withValues(alpha: 0.4),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(28),
-                      ),
-                      elevation: 0,
-                    ),
-                    onPressed: _currentPage == _totalPages - 1
-                        ? ((_accepted && !_finishing) ? _finish : null)
-                        : _next,
-                    child: _finishing
-                        ? const SizedBox(
-                            height: 22,
-                            width: 22,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2.4, color: Colors.white))
-                        : Text(
-                            _currentPage == _totalPages - 1
-                                ? 'I Agree & Continue'
-                                : 'Continue  →',
+                child: _currentPage == _totalPages - 1
+                    ? Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            height: 54,
+                            width: double.infinity,
+                            child: FilledButton(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.white.withValues(alpha: 0.15),
+                                foregroundColor: Colors.white,
+                                disabledBackgroundColor:
+                                    Colors.white.withValues(alpha: 0.05),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(28),
+                                ),
+                                elevation: 0,
+                              ),
+                              onPressed: (_accepted && !_finishing)
+                                  ? () => _finishAs('user')
+                                  : null,
+                              child: _finishing && _finishingRole == 'user'
+                                  ? const SizedBox(
+                                      height: 22,
+                                      width: 22,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2.4,
+                                          color: Colors.white))
+                                  : Text(
+                                      'Continue as Customer',
+                                      style: GoogleFonts.nunito(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -0.2,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 54,
+                            width: double.infinity,
+                            child: FilledButton(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppColors.orange,
+                                foregroundColor: Colors.white,
+                                disabledBackgroundColor:
+                                    AppColors.orange.withValues(alpha: 0.4),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(28),
+                                ),
+                                elevation: 0,
+                              ),
+                              onPressed: (_accepted && !_finishing)
+                                  ? () => _finishAs('business')
+                                  : null,
+                              child: _finishing && _finishingRole == 'business'
+                                  ? const SizedBox(
+                                      height: 22,
+                                      width: 22,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2.4,
+                                          color: Colors.white))
+                                  : Text(
+                                      'Continue as Business',
+                                      style: GoogleFonts.nunito(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -0.2,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : SizedBox(
+                        height: 56,
+                        width: double.infinity,
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.orange,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(28),
+                            ),
+                            elevation: 0,
+                          ),
+                          onPressed: _next,
+                          child: Text(
+                            'Continue  →',
                             style: GoogleFonts.nunito(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
                               letterSpacing: -0.2,
                             ),
                           ),
-                  ),
-                ),
+                        ),
+                      ),
               ),
             ],
           ),

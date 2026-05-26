@@ -875,7 +875,7 @@ class _BusinessPreviewCard extends StatelessWidget {
                             minimumSize: const Size.fromHeight(44),
                           ),
                           onPressed: () =>
-                              context.go('/home/business/${business.id}'),
+                              context.push('/home/business/${business.id}'),
                           child: const Text('View Business'),
                         ),
                       ),

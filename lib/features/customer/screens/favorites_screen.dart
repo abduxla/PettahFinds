@@ -198,7 +198,7 @@ class _ProductFavTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _BaseTile(
-      onTap: () => context.go('/home/product/${product.id}'),
+      onTap: () => context.push('/home/product/${product.id}'),
       onRemove: onRemove,
       leadingImage: product.image1Url,
       fallbackIcon: Icons.shopping_bag_outlined,
@@ -220,7 +220,7 @@ class _BusinessFavTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _BaseTile(
-      onTap: () => context.go('/home/business/${business.id}'),
+      onTap: () => context.push('/home/business/${business.id}'),
       onRemove: onRemove,
       leadingImage: business.logoUrl,
       fallbackIcon: Icons.store_outlined,

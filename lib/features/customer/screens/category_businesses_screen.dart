@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../utils/price_format.dart';
-import '../../../widgets/cached_image.dart';
-import '../../../widgets/error_widget.dart';
 import '../../../widgets/empty_state_widget.dart';
+import '../../../widgets/error_widget.dart';
+import '../../../widgets/product_card.dart';
 import '../../../widgets/shimmer_loading.dart';
 
 /// Category landing — renders PRODUCTS in the given category (per the
@@ -48,93 +46,35 @@ class CategoryBusinessesScreen extends ConsumerWidget {
               )
             : GridView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+                // Larger cells to match the Temu / Daraz reference. The
+                // canonical ProductCard takes imageHeight=140 here (vs.
+                // 108 on home's "for you" rail) so the photo dominates
+                // the card like the reference. mainAxisExtent=250 leaves
+                // ~7px of slack below the address pin so it never gets
+                // clipped on dense font metrics.
                 gridDelegate:
                     const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  childAspectRatio: 0.68,
+                  mainAxisExtent: 250,
                   mainAxisSpacing: 14,
                   crossAxisSpacing: 14,
                 ),
                 itemCount: products.length,
-                itemBuilder: (_, i) {
-                  final p = products[i];
-                  return InkWell(
-                    onTap: () => context.go('/home/product/${p.id}'),
-                    borderRadius: BorderRadius.circular(18),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.white,
-                        borderRadius: BorderRadius.circular(18),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withAlpha(10),
-                            blurRadius: 14,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: CachedImage(
-                              imageUrl: p.image1Url,
-                              width: double.infinity,
-                              placeholderIcon: Icons.shopping_bag_outlined,
-                            ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    p.title,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.dmSans(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.text1,
-                                      height: 1.3,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Text(
-                                    'LKR ${formatLkr(p.priceLkr)}',
-                                    style: GoogleFonts.nunito(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w800,
-                                      color: AppColors.teal,
-                                      letterSpacing: -0.3,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+                itemBuilder: (_, i) => ProductCard(
+                  product: products[i],
+                  imageHeight: 140,
+                ),
               ),
         loading: () => GridView.builder(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
-            childAspectRatio: 0.68,
+            mainAxisExtent: 250,
             mainAxisSpacing: 14,
             crossAxisSpacing: 14,
           ),
           itemCount: 4,
-          itemBuilder: (_, _) => const ShimmerBox(height: 220, radius: 18),
+          itemBuilder: (_, _) => const ShimmerBox(height: 250, radius: 18),
         ),
         error: (e, _) => AppErrorWidget(
           message: e.toString(),

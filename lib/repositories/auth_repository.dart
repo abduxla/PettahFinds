@@ -149,20 +149,25 @@ class AuthRepository {
   /// signs in to Firebase Auth, returns the Firebase [User]. Does NOT
   /// touch /users/{uid}.
   ///
-  /// Use this when the caller needs to decide what to do BEFORE the
-  /// app-user doc is seeded — e.g. the signup screen prompts the new
-  /// user to pick a role before writing the doc. For ordinary sign-in
-  /// use [signInWithGoogle] which composes this + [seedAppUserIfMissing]
-  /// with the default 'user' role.
+  /// Use this from BOTH the Sign-Up and Sign-In screens. Caller is
+  /// responsible for the post-OAuth flow: check if /users/{uid}
+  /// exists, show the role picker for first-time users, and call
+  /// [seedAppUserIfMissing] with the chosen role. The Sign-Up and
+  /// Sign-In screens share this exact sequence (see their
+  /// _continueWithOAuth methods).
   Future<User> authenticateWithGoogle() async {
-    // Web and native are two completely different flows. See the
-    // comment on signInWithGoogle below for the why.
+    debugPrint('🟣 [auth] authenticateWithGoogle: start (web=$kIsWeb)');
+    // Web and native are two completely different flows. Both branches
+    // converge on the same Firebase Auth credential — only how the
+    // credential is obtained differs.
     final UserCredential cred;
     try {
       if (kIsWeb) {
         cred = await _auth.signInWithPopup(GoogleAuthProvider());
       } else {
         final googleUser = await GoogleSignIn().signIn();
+        debugPrint(
+            '🟣 [auth] GoogleSignIn.signIn returned ${googleUser?.email ?? "null"}');
         if (googleUser == null) {
           throw Exception('Google sign-in cancelled.');
         }
@@ -173,8 +178,10 @@ class AuthRepository {
         );
         cred = await _auth.signInWithCredential(credential);
       }
+      debugPrint(
+          '🟢 [auth] authenticateWithGoogle: signed in uid=${cred.user?.uid}');
     } catch (e) {
-      if (kDebugMode) debugPrint('[auth] Google Sign-In error: $e');
+      debugPrint('🔴 [auth] Google Sign-In error: $e');
       final s = e.toString();
       if (s.contains('popup-closed-by-user') ||
           s.contains('cancelled')) {
@@ -203,11 +210,35 @@ class AuthRepository {
     required User firebaseUser,
     required String role,
   }) async {
+    final uid = firebaseUser.uid;
     final userDoc = _firestore
         .collection(AppConstants.usersCollection)
-        .doc(firebaseUser.uid);
-    final snap = await userDoc.get();
+        .doc(uid);
+
+    // -- Pre-read: does the doc already exist? --
+    // Wrapped so a permission/network error here surfaces with its
+    // real code instead of being swallowed by the caller's
+    // `catch (_) => existing = null` and silently treated as
+    // "new user".
+    debugPrint('🟣 [auth] seedAppUserIfMissing: GET /users/$uid');
+    final DocumentSnapshot<Map<String, dynamic>> snap;
+    try {
+      snap = await userDoc.get();
+    } on FirebaseException catch (e) {
+      debugPrint('🔴 [auth] seed pre-read FIREBASE ERROR');
+      debugPrint('🔴   code=${e.code}');
+      debugPrint('🔴   message=${e.message}');
+      debugPrint('🔴   plugin=${e.plugin}');
+      rethrow;
+    } catch (e, st) {
+      debugPrint('🔴 [auth] seed pre-read UNKNOWN ERROR: $e');
+      debugPrint('🔴 [auth] stack: $st');
+      rethrow;
+    }
     if (snap.exists) {
+      debugPrint(
+          '🟣 [auth] seedAppUserIfMissing: doc already exists for $uid '
+          '— returning stored role=${snap.data()?['role']}');
       return AppUser.fromFirestore(snap);
     }
 
@@ -215,7 +246,7 @@ class AuthRepository {
         _allowedSignupRoles.contains(role) ? role : 'user';
 
     final appUser = AppUser(
-      uid: firebaseUser.uid,
+      uid: uid,
       email: firebaseUser.email ?? '',
       displayName:
           (firebaseUser.displayName ?? 'PetaFinds user').trim(),
@@ -223,7 +254,32 @@ class AuthRepository {
       photoUrl: firebaseUser.photoURL ?? '',
       createdAt: DateTime.now(),
     );
-    await userDoc.set(appUser.toMap());
+
+    // -- The actual write. --
+    // Detailed catch on the .set() so any rule rejection /
+    // network failure / type mismatch lands in the logs with its
+    // real Firestore error code instead of a generic "Something
+    // went wrong" downstream. Re-thrown so the OAuth caller's outer
+    // catch still runs (snackbar + signOut + flag release).
+    final payload = appUser.toMap();
+    debugPrint(
+        '🟣 [auth] seedAppUserIfMissing: SET /users/$uid '
+        'role=$safeRole keys=${payload.keys.toList()}');
+    try {
+      await userDoc.set(payload);
+      debugPrint('✅ USER DOC WRITTEN: $uid role=$safeRole');
+    } on FirebaseException catch (e) {
+      debugPrint('🔴 FIREBASE ERROR on /users/$uid SET');
+      debugPrint('🔴   code=${e.code}');
+      debugPrint('🔴   message=${e.message}');
+      debugPrint('🔴   plugin=${e.plugin}');
+      debugPrint('🔴   payload=$payload');
+      rethrow;
+    } catch (e, st) {
+      debugPrint('🔴 UNKNOWN ERROR on /users/$uid SET: $e');
+      debugPrint('🔴 stack: $st');
+      rethrow;
+    }
 
     // Best-effort welcome notification. Same pattern as email signup.
     try {
@@ -240,27 +296,22 @@ class AuthRepository {
     return appUser;
   }
 
-  Future<AppUser> signInWithGoogle() async {
-    // Web and native are two completely different flows:
-    //
-    //   - Native (iOS / Android / macOS): google_sign_in plugin
-    //     drives the native account picker, hands back tokens, we
-    //     build a Firebase credential and signInWithCredential.
-    //
-    //   - Web: google_sign_in 6.x's .signIn() is deprecated and
-    //     throws ("api is not supported on this platform"). The
-    //     supported web path is Firebase Auth's signInWithPopup with
-    //     a GoogleAuthProvider — that opens Google's OAuth popup and
-    //     signs in to Firebase in one call.
-    //
-    // Both branches converge on the same /users/{uid} seeding logic
-    // below. Returning users have their existing role; first-time
-    // sign-ins through THIS method get role='user'. (Sign-up screen
-    // uses the lower-level authenticateWithGoogle + role picker for
-    // first-timers who want to be businesses.)
-    final user = await authenticateWithGoogle();
-    return seedAppUserIfMissing(firebaseUser: user, role: 'user');
-  }
+  // signInWithGoogle() (the convenience wrapper that called
+  // seedAppUserIfMissing with role:'user') was REMOVED. It silently
+  // registered first-time Google users as customers without ever
+  // showing the role picker — a critical bug for anyone intending to
+  // sign up as a business via the Sign-In screen.
+  //
+  // The Sign-In and Sign-Up screens BOTH now use the lower-level
+  // [authenticateWithGoogle] + role-picker + [seedAppUserIfMissing]
+  // pattern, so role assignment requires an explicit user choice on
+  // first-time OAuth. There is no longer any code path in the app
+  // that writes `role: 'user'` without the user picking it.
+  //
+  // Returning Google users hit [authenticateWithGoogle] +
+  // [getAppUser] in the screen, which returns the existing doc with
+  // its stored role; the picker only renders when /users/{uid} is
+  // genuinely missing.
 
   /// Sign in with Apple (iOS native).
   ///
@@ -285,10 +336,11 @@ class AuthRepository {
   /// OAuth ONLY — drives Apple's native sheet, exchanges tokens,
   /// signs in to Firebase Auth, and caches the first-sign-in name
   /// onto the Firebase user's displayName. Does NOT touch
-  /// /users/{uid}. Use this when the caller wants to seed the doc
-  /// itself (e.g. signup screen with a role picker). For ordinary
-  /// sign-in use [signInWithApple].
+  /// /users/{uid}. Used by BOTH Sign-Up and Sign-In screens; the
+  /// caller is responsible for the role-picker + seed sequence (see
+  /// [authenticateWithGoogle]'s docstring for the shared pattern).
   Future<User> authenticateWithApple() async {
+    debugPrint('🟣 [auth] authenticateWithApple: start');
     final appleCredential = await SignInWithApple.getAppleIDCredential(
       scopes: const [
         AppleIDAuthorizationScopes.email,
@@ -303,6 +355,7 @@ class AuthRepository {
 
     final cred = await _auth.signInWithCredential(oauthCredential);
     final user = cred.user!;
+    debugPrint('🟢 [auth] authenticateWithApple: signed in uid=${user.uid}');
 
     // FIRST-SIGN-IN NAME QUIRK. Apple's privacy model only sends
     // givenName+familyName when the user authorizes the app for the
@@ -324,24 +377,46 @@ class AuthRepository {
     return user;
   }
 
-  Future<AppUser> signInWithApple() async {
-    // Returning users keep their existing role; first-timers through
-    // THIS method default to 'user'. The signup screen uses the
-    // lower-level authenticateWithApple + role picker to let new
-    // users sign up as businesses.
-    final user = await authenticateWithApple();
-    return seedAppUserIfMissing(firebaseUser: user, role: 'user');
-  }
+  // signInWithApple() was REMOVED for the same reason as
+  // signInWithGoogle above — hardcoded role:'user' bypassed the
+  // role picker for first-time Apple sign-ups, so anyone intending
+  // to sign up as a business via the Sign-In screen was silently
+  // locked into a customer account. Callers now use
+  // [authenticateWithApple] + role picker + [seedAppUserIfMissing]
+  // explicitly. See the comment above the deleted signInWithGoogle
+  // block for the full rationale.
 
   Future<AppUser> getAppUser(String uid) async {
-    final doc = await _firestore
-        .collection(AppConstants.usersCollection)
-        .doc(uid)
-        .get();
-    if (!doc.exists) {
-      throw Exception('User document not found');
+    debugPrint('🟣 [auth] getAppUser: GET /users/$uid');
+    try {
+      final doc = await _firestore
+          .collection(AppConstants.usersCollection)
+          .doc(uid)
+          .get();
+      debugPrint(
+          '🟣 [auth] getAppUser: GET ok exists=${doc.exists} '
+          'role=${doc.data()?['role']}');
+      if (!doc.exists) {
+        throw Exception('User document not found');
+      }
+      return AppUser.fromFirestore(doc);
+    } on FirebaseException catch (e) {
+      // Surface the EXACT Firestore failure so callers (and the
+      // bare `catch (_)` in _continueWithOAuth) can no longer treat
+      // a permission-denied / unavailable / failed-precondition as
+      // "doc just doesn't exist yet". Mis-classifying a rule
+      // rejection as the new-user signal is what let the OAuth flow
+      // fall through to the picker and then crash on the seed.
+      debugPrint('🔴 [auth] getAppUser FIREBASE ERROR');
+      debugPrint('🔴   code=${e.code}');
+      debugPrint('🔴   message=${e.message}');
+      debugPrint('🔴   plugin=${e.plugin}');
+      rethrow;
+    } catch (e, st) {
+      debugPrint('🔴 [auth] getAppUser UNKNOWN ERROR: $e');
+      debugPrint('🔴 [auth] stack: $st');
+      rethrow;
     }
-    return AppUser.fromFirestore(doc);
   }
 
   /// Updates only the self-mutable profile fields. role / email / createdAt

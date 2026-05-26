@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show MaxLengthEnforcement;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -479,7 +480,20 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
               controller: _titleCtrl,
               label: 'Product Title',
               icon: Icons.shopping_bag_outlined,
-              validator: (v) => Validators.required(v, 'Title'),
+              helperText: 'Keep it short and clear (max 60 characters)',
+              // 60 covers every real title we've seen and keeps the
+              // product card title from blowing past 2 lines on the
+              // 2-col grid. MaxLengthEnforcement.enforced (set inside
+              // _buildField when maxLength is non-null) prevents input
+              // past the cap so the validator's length check is only
+              // a defensive backstop, never the user-facing wall.
+              maxLength: 60,
+              validator: (v) {
+                final t = (v ?? '').trim();
+                if (t.isEmpty) return 'Title is required';
+                if (t.length < 3) return 'Title is too short';
+                return null;
+              },
             ),
             const SizedBox(height: 16),
             _buildField(
@@ -612,8 +626,10 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     required String label,
     required IconData icon,
     String? hint,
+    String? helperText,
     String? prefixText,
     int maxLines = 1,
+    int? maxLength,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
   }) {
@@ -622,14 +638,25 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
+        helperText: helperText,
         prefixText: prefixText,
         prefixIcon: Padding(
           padding: const EdgeInsets.only(left: 14, right: 10),
           child: Icon(icon, size: 20),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
+        counterStyle: GoogleFonts.dmSans(
+          fontSize: 11,
+          color: AppColors.text4,
+        ),
       ),
       maxLines: maxLines,
+      maxLength: maxLength,
+      // Hard cap — the platform input itself stops the user at maxLength
+      // instead of accepting more and then erroring on submit. Keeps the
+      // grid card from overflowing, which was the source bug.
+      maxLengthEnforcement:
+          maxLength == null ? null : MaxLengthEnforcement.enforced,
       keyboardType: keyboardType,
       validator: validator,
     );

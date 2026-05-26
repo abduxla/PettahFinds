@@ -675,6 +675,10 @@ class _MerchantProductCard extends StatelessWidget {
                               imageUrl: product.image1Url,
                               width: double.infinity,
                               height: 108,
+                              // contain so the merchant sees the same
+                              // un-cropped photo a customer will see on
+                              // the listing — keeps the preview honest.
+                              fit: BoxFit.contain,
                               placeholderIcon:
                                   Icons.shopping_bag_outlined,
                             ),

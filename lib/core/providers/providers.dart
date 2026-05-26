@@ -14,12 +14,14 @@ import '../../services/account_deletion_service.dart';
 import '../../services/chat_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/recently_viewed_service.dart';
+import '../../services/interest_service.dart';
 import '../../models/business.dart';
 import '../../models/chat_message.dart';
 import '../../models/conversation.dart';
 import '../../models/product.dart';
 import '../../models/product_review.dart';
 import '../../models/report.dart';
+import '../../models/review.dart';
 
 // --- Repositories ---
 final authRepositoryProvider = Provider((ref) => AuthRepository());
@@ -41,6 +43,7 @@ final recentlyViewedServiceProvider =
 final chatServiceProvider = Provider((ref) => ChatService());
 final accountDeletionServiceProvider =
     Provider((ref) => AccountDeletionService());
+final interestServiceProvider = Provider((ref) => InterestService());
 
 // --- Chat streams ---
 final conversationStreamProvider = StreamProvider.autoDispose
@@ -139,6 +142,57 @@ final productReviewsProvider = StreamProvider.autoDispose
   return ref
       .watch(productReviewRepositoryProvider)
       .streamByProduct(productId);
+});
+
+/// Live shop-level reviews for the given business. Backs the Shop
+/// Reviews tab on the merchant Customer Reviews screen.
+final businessReviewsProvider = StreamProvider.autoDispose
+    .family<List<Review>, String>((ref, businessId) {
+  if (businessId.isEmpty) return Stream.value(const []);
+  return ref.watch(reviewRepositoryProvider).streamByBusiness(businessId);
+});
+
+/// Live product reviews across every product owned by the given
+/// business. Backs the Product Reviews tab on the merchant Customer
+/// Reviews screen. Uses the denormalized `businessId` on each
+/// productReview doc — no two-step query through /products needed.
+final businessProductReviewsProvider = StreamProvider.autoDispose
+    .family<List<ProductReview>, String>((ref, businessId) {
+  if (businessId.isEmpty) return Stream.value(const []);
+  return ref
+      .watch(productReviewRepositoryProvider)
+      .streamByBusiness(businessId);
+});
+
+/// Single-product lookup by id. autoDispose family so review tiles
+/// that need to show the parent product's title can subscribe per-id
+/// without leaking subscriptions when the review scrolls off.
+final productByIdProvider =
+    FutureProvider.autoDispose.family<Product?, String>((ref, id) async {
+  if (id.isEmpty) return null;
+  try {
+    return await ref.watch(productRepositoryProvider).getById(id);
+  } catch (_) {
+    return null;
+  }
+});
+
+/// Single-user lookup by uid. Returns null on missing / permission-
+/// denied so admin surfaces can degrade to "Unknown" instead of
+/// crashing the row. autoDispose family keyed on uid.
+///
+/// Used by the admin Businesses list to render the owner's display
+/// name + email instead of the raw Firebase UID. The Firestore rule
+/// on /users/{uid} read is `isOwner(uid) || isAdmin()`, so this
+/// query only succeeds for the calling admin.
+final userByIdProvider =
+    FutureProvider.autoDispose.family<AppUser?, String>((ref, uid) async {
+  if (uid.isEmpty) return null;
+  try {
+    return await ref.read(authRepositoryProvider).getAppUser(uid);
+  } catch (_) {
+    return null;
+  }
 });
 
 /// All products (active + inactive) for a specific business. Used by the
@@ -299,6 +353,28 @@ final recentlyViewedProductsProvider =
 final authStateProvider = StreamProvider<User?>((ref) {
   return ref.watch(authRepositoryProvider).authStateChanges;
 });
+
+/// True while an OAuth sign-up flow is mid-handshake — the moment we
+/// kick off Google/Apple OAuth on the Sign-Up or Sign-In screen, until
+/// we have either written /users/{uid} with the picked role OR signed
+/// the user back out on cancellation.
+///
+/// The router's redirect reads this flag and returns null (no
+/// redirect) whenever it's true. Without it, the appUserProvider's
+/// first emission after `seedAppUserIfMissing` writes the doc would
+/// race the picker await: the router sees `isLoggedIn=true` +
+/// `user.isBusiness` + `currentPath=/sign-up` (an auth path) and
+/// instantly redirects to roleHome → unmounting the screen that owns
+/// the picker → the post-picker `if (!mounted) return;` short-circuits
+/// the doc-write code path → /loading screen sits empty for 10s →
+/// "Something went wrong".
+///
+/// Lives in a separate StateProvider so the router rebuilds when it
+/// flips (Riverpod's reactivity does the work — no manual refresh
+/// needed). Scoped to the OAuth flow only; password sign-in writes
+/// the doc inside [AuthRepository.signUp] synchronously before any
+/// state change reaches the router, so it doesn't need the guard.
+final isHandlingSignInProvider = StateProvider<bool>((ref) => false);
 
 // --- Current AppUser ---
 final appUserProvider = StreamProvider<AppUser?>((ref) {

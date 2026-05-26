@@ -82,6 +82,12 @@ class ProductCard extends ConsumerWidget {
                           imageUrl: product.image1Url,
                           width: double.infinity,
                           height: imageHeight,
+                          // BoxFit.contain (not cover) — shows the WHOLE
+                          // product photo without cropping the sides or
+                          // top/bottom. Tile tint behind fills any
+                          // letterbox gap so the card still looks solid.
+                          // Cover was eating logos / off-center subjects.
+                          fit: BoxFit.contain,
                           placeholderIcon: Icons.shopping_bag_outlined,
                         ),
                       )
@@ -136,7 +142,11 @@ class ProductCard extends ConsumerWidget {
     );
 
     final tappable = _TapScale(
-      onTap: () => context.go('/home/product/${product.id}'),
+      // PUSH so the back stack preserves the entry screen.
+      // .go would rebuild to [/home, /home/product/:id], dropping
+      // any intermediate screen the user drilled through (search
+      // results, businesses list, favorites, etc.).
+      onTap: () => context.push('/home/product/${product.id}'),
       child: card,
     );
 

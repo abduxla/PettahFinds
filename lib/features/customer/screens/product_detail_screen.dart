@@ -20,11 +20,15 @@ import '../../../widgets/sign_in_required.dart';
 final _productDetailProvider =
     FutureProvider.autoDispose.family<Product, String>((ref, id) async {
   if (id.isEmpty) throw Exception('Invalid product');
-  final product = await ref.watch(productRepositoryProvider).getById(id);
-  if (!product.isActive) {
-    throw Exception('This product is no longer available');
-  }
-  return product;
+  // Returns whether-active-or-not. The customer-facing branch of the
+  // screen still gates on `product.isActive` and renders a "no
+  // longer available" placeholder; the admin-mode branch needs to
+  // load inactive products so it can review them and re-activate /
+  // delete. The previous `throw if !isActive` here painted the
+  // generic error UI immediately after an admin clicked Deactivate
+  // (the post-write invalidate re-fetched and tripped the throw),
+  // even though the deactivate had actually succeeded.
+  return ref.watch(productRepositoryProvider).getById(id);
 });
 
 final _productSellerProvider =
@@ -59,6 +63,23 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         .then((_) {
       if (mounted) ref.invalidate(recentlyViewedProductsProvider);
     }).catchError((_) {});
+    // Record category interest for personalised home feed ordering.
+    // Runs async after the product loads so we have the category string.
+    _recordInterest();
+  }
+
+  Future<void> _recordInterest() async {
+    try {
+      final product = await ref
+          .read(productRepositoryProvider)
+          .getById(widget.productId);
+      if (!mounted) return;
+      await ref
+          .read(interestServiceProvider)
+          .recordCategoryInterest(product.category);
+    } catch (_) {
+      // Best-effort — don't block the detail screen on interest tracking.
+    }
   }
 
   @override
@@ -66,16 +87,32 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final productAsync =
         ref.watch(_productDetailProvider(widget.productId));
     final appUser = ref.watch(appUserProvider).valueOrNull;
-    // Read `?mode=owner` from the route. The top-level /product/:id
-    // entry passes it from the business dashboard so the screen
-    // swaps the "Chat Seller" CTA for an "Edit Product" CTA. Any
-    // other route (e.g. /home/product/:id from the customer shell)
-    // leaves the param empty and renders the standard customer view.
+    // Read `?mode=` from the route. Three variants currently:
+    //   • mode=owner — business owner previewing their OWN listing
+    //     from the merchant dashboard. Swaps "Chat Seller" → "Edit
+    //     Product".
+    //   • mode=admin — admin reviewing a product from the admin
+    //     business review screen. Swaps "Chat Seller" → Activate/
+    //     Deactivate + Delete actions. Server-side enforced by the
+    //     isAdmin() Firestore rule, but we also gate the UI on the
+    //     signed-in AppUser's role so a curious non-admin can't see
+    //     admin controls by editing the URL.
+    //   • no mode — standard customer view.
     final mode = GoRouterState.of(context).uri.queryParameters['mode'];
     final isOwnerView = mode == 'owner';
+    final isAdminView = mode == 'admin' && (appUser?.isAdmin ?? false);
 
     return productAsync.when(
       data: (product) {
+        // Customers (and owner-preview) viewing an inactive product
+        // get a friendly "no longer available" placeholder instead of
+        // the full listing — the merchant or an admin has hidden it.
+        // Admin mode SKIPS this gate because the whole point of
+        // ?mode=admin is to review + un-hide / delete the product.
+        if (!product.isActive && !isAdminView) {
+          return _UnavailableProductScreen();
+        }
+
         final businessAsync =
             ref.watch(_productSellerProvider(product.businessId));
 
@@ -88,13 +125,21 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         return Scaffold(
           backgroundColor: AppColors.bgSection,
           body: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
-            ),
+            // ClampingScrollPhysics (not Bouncing). Bouncing on a pinned
+            // SliverAppBar with FlexibleSpaceBar lets the user overscroll
+            // past the hero, which separates the pinned header from the
+            // sliver body and leaves a visible whitespace gap in the
+            // middle of the screen. Clamping pins the top so the hero
+            // and body stay flush at all times.
+            physics: const ClampingScrollPhysics(),
             slivers: [
               SliverAppBar(
                 expandedHeight: 340,
                 pinned: true,
+                // stretch:false + an empty stretchModes list on the
+                // FlexibleSpaceBar below stops the hero from stretching
+                // on overscroll, which was another source of the gap.
+                stretch: false,
                 backgroundColor: AppColors.white,
                 surfaceTintColor: Colors.transparent,
                 leading: Padding(
@@ -153,10 +198,19 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                   ),
                 ],
                 flexibleSpace: FlexibleSpaceBar(
+                  // Empty stretchModes — matches stretch:false on the
+                  // SliverAppBar so an overscroll bounce can't stretch
+                  // the hero away from the body sliver.
+                  stretchModes: const [],
                   background: product.imageUrls.isNotEmpty
                       ? Stack(
                           fit: StackFit.expand,
                           children: [
+                            // Light backdrop behind contained image so
+                            // tall portrait shots have a clean frame
+                            // instead of falling onto the transparent
+                            // app background.
+                            Container(color: const Color(0xFFF5F5F5)),
                             PageView.builder(
                               itemCount: product.imageUrls.length,
                               onPageChanged: (i) =>
@@ -165,6 +219,11 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                 imageUrl: product.imageUrls[i],
                                 width: double.infinity,
                                 height: 340,
+                                // BoxFit.contain — show the whole hero
+                                // image, never crop. Same call as the
+                                // grid card so listing vs. detail can't
+                                // disagree on what the user is buying.
+                                fit: BoxFit.contain,
                               ),
                             ),
                             if (product.imageUrls.length > 1)
@@ -324,7 +383,9 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             business: business,
                             productTitle: product.title,
                             isOwnerView: isOwnerView,
+                            isAdminView: isAdminView,
                             productId: product.id,
+                            product: product,
                           ),
                           loading: () =>
                               const ShimmerBox(height: 80, radius: 12),
@@ -423,6 +484,70 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   }
 }
 
+/// Friendly placeholder shown when a non-admin opens a product whose
+/// `isActive` flag is false — i.e. the merchant or an admin has
+/// hidden the listing. Replaces the harsh `throw` that used to live
+/// inside [_productDetailProvider] and paint the generic error
+/// screen even right after an admin successfully deactivated.
+class _UnavailableProductScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.bgSection,
+      appBar: AppBar(
+        backgroundColor: AppColors.bgSection,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/home'),
+        ),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.shopping_bag_outlined,
+                size: 56,
+                color: AppColors.text4,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'This product is no longer available',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.nunito(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.text1,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "The seller has hidden or removed this listing. "
+                'Browse other products from Pettah businesses below.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.dmSans(
+                  fontSize: 13,
+                  color: AppColors.text3,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: () => context.go('/home'),
+                icon: const Icon(Icons.home_rounded, size: 18),
+                label: const Text('Back to home'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _SellerCard extends StatelessWidget {
   final Business business;
   final String productTitle;
@@ -433,15 +558,26 @@ class _SellerCard extends StatelessWidget {
   /// affordance (owners don't need to "view their own shop" from
   /// here).
   final bool isOwnerView;
+  /// True when the screen was opened with `?mode=admin` AND the
+  /// signed-in user actually has role=admin. Swaps the "Chat Seller"
+  /// CTA for a row of admin actions (Activate/Deactivate + Delete).
+  /// Set by the admin business review screen when an admin taps a
+  /// product tile.
+  final bool isAdminView;
   /// Product id needed by the Edit CTA when [isOwnerView] is true so
   /// it can deep-link into the existing /business/products/edit/:id
-  /// form.
+  /// form. Also passed to the admin actions widget.
   final String productId;
+  /// Full product, only consumed by the admin actions widget so it
+  /// can show the current active/inactive state on its toggle.
+  final Product? product;
   const _SellerCard({
     required this.business,
     required this.productTitle,
     this.isOwnerView = false,
+    this.isAdminView = false,
     this.productId = '',
+    this.product,
   });
 
   @override
@@ -457,7 +593,18 @@ class _SellerCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           InkWell(
-            onTap: () => context.go('/home/business/${business.id}'),
+            // ADMIN MODE: do NOT push /home/business/:id — that's a
+            // customer-shell route, and pushing it from the admin
+            // shell triggers a cross-shell mount that re-registers
+            // the customer shell's GlobalKey while the admin shell
+            // still owns it → "GlobalKey used multiple times" +
+            // navigator assertion crash. The admin already came from
+            // /admin/businesses/review/:id; pop is the right gesture.
+            // Owner mode also has nothing meaningful to navigate to,
+            // so we no-op there too.
+            onTap: (isAdminView || isOwnerView)
+                ? null
+                : () => context.push('/home/business/${business.id}'),
             borderRadius: BorderRadius.circular(8),
             child: Row(
           children: [
@@ -540,14 +687,205 @@ class _SellerCard extends StatelessWidget {
         ),
           ),
           const SizedBox(height: 10),
-          // Owner-mode swaps the Chat Seller CTA for Edit Product.
-          // Two distinct screens visually share the bottom slot.
-          if (isOwnerView)
+          // Three-way bottom-slot swap. Admin > Owner > Customer
+          // since an admin viewing the product takes precedence over
+          // the owner-edit CTA (admins reviewing a merchant's own
+          // listing should never see the merchant's Edit button).
+          if (isAdminView && product != null)
+            _AdminProductActions(product: product!)
+          else if (isOwnerView)
             _EditProductButton(productId: productId)
           else
             _ChatSellerButton(business: business),
         ],
       ),
+    );
+  }
+}
+
+/// Admin-mode action row shown at the bottom of the seller card when
+/// the screen was opened with `?mode=admin` AND the viewer's
+/// AppUser.isAdmin is true. Both actions are server-enforced by the
+/// `isAdmin()` Firestore rule on /products, so the UI gate is purely
+/// for UX (don't surface controls a non-admin can't use anyway).
+class _AdminProductActions extends ConsumerStatefulWidget {
+  final Product product;
+  const _AdminProductActions({required this.product});
+
+  @override
+  ConsumerState<_AdminProductActions> createState() =>
+      _AdminProductActionsState();
+}
+
+class _AdminProductActionsState
+    extends ConsumerState<_AdminProductActions> {
+  bool _busy = false;
+
+  Future<void> _toggleActive() async {
+    final p = widget.product;
+    setState(() => _busy = true);
+    try {
+      await ref
+          .read(productRepositoryProvider)
+          .update(p.copyWith(isActive: !p.isActive));
+      // Force the detail provider to re-fetch so the screen reflects
+      // the new active state immediately (the in-stream rebuilds
+      // covering the admin business detail list are a separate path).
+      ref.invalidate(_productDetailProvider(p.id));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(p.isActive
+              ? 'Product deactivated — hidden from customers'
+              : 'Product activated — visible to customers'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not update: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _confirmDelete() async {
+    final p = widget.product;
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete this product?'),
+        content: Text(
+          '"${p.title}" will be permanently removed from this business\'s '
+          'listings. The merchant will not be notified. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (go != true) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(productRepositoryProvider).hardDelete(p.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Product deleted')),
+      );
+      // Pop back to the admin business review screen; the products
+      // stream there auto-reflects the removal.
+      if (context.canPop()) context.pop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Delete failed: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.product;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Status pill — quick visual cue on whether the product is
+        // currently visible to customers.
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: p.isActive
+                ? AppColors.tealLight
+                : AppColors.red.withAlpha(30),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                p.isActive
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
+                size: 14,
+                color: p.isActive ? AppColors.teal : AppColors.red,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                p.isActive
+                    ? 'Active — visible to customers'
+                    : 'Inactive — hidden from customers',
+                style: GoogleFonts.dmSans(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: p.isActive ? AppColors.teal : AppColors.red,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            // Activate / Deactivate
+            Expanded(
+              child: SizedBox(
+                height: 46,
+                child: OutlinedButton.icon(
+                  onPressed: _busy ? null : _toggleActive,
+                  icon: Icon(
+                    p.isActive
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    size: 18,
+                  ),
+                  label: Text(p.isActive ? 'Deactivate' : 'Activate'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.teal,
+                    side: const BorderSide(color: AppColors.teal),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Hard delete
+            Expanded(
+              child: SizedBox(
+                height: 46,
+                child: FilledButton.icon(
+                  onPressed: _busy ? null : _confirmDelete,
+                  icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                  label: const Text('Delete'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (_busy) ...[
+          const SizedBox(height: 10),
+          const Center(
+            child: SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -566,8 +904,7 @@ class _EditProductButton extends StatelessWidget {
       child: FilledButton.icon(
         onPressed: productId.isEmpty
             ? null
-            : () => context
-                .push('/business/products/edit/$productId'),
+            : () => context.push('/edit-product/$productId'),
         icon: const Icon(Icons.edit_outlined, size: 18),
         label: const Text('Edit Product'),
         style: FilledButton.styleFrom(
@@ -630,7 +967,11 @@ class _ChatSellerButtonState extends ConsumerState<_ChatSellerButton> {
             customerName: appUser.displayName,
           );
       if (!context.mounted) return;
-      context.go('/chat/${conv.id}');
+      // PUSH not GO so the user pops back to the product detail
+      // (where they tapped Chat Seller) instead of being dumped on
+      // the top-level inbox. See chat_list_screen tile for the
+      // shell-stack rationale.
+      context.push('/chat/${conv.id}');
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1212,6 +1553,12 @@ class _ProductReviewsSectionState
               children: [
                 for (final r in reviews)
                   _ProductReviewTile(review: r),
+                // Sign-in nudge after the list when the visitor is
+                // signed out. Previously only shown when reviews were
+                // empty — meaning a guest reading reviews had no path
+                // to leave one of their own. Always-on prompt below
+                // the list closes that gap.
+                if (appUser == null) const _SignInToReviewPrompt(),
               ],
             );
           },
@@ -1298,6 +1645,62 @@ class _ProductReviewTile extends StatelessWidget {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Inline sign-in nudge appended below an EXISTING reviews list when
+/// the visitor is signed out. Distinct from [_ReviewsEmptyState] which
+/// replaces the list entirely; this one supplements it so a guest
+/// reading reviews still sees a clear path to leaving one of their own.
+class _SignInToReviewPrompt extends StatelessWidget {
+  const _SignInToReviewPrompt();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.rate_review_outlined,
+            size: 28,
+            color: Color(0xFF9E9E9E),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Sign in to leave a review',
+            style: GoogleFonts.dmSans(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+              color: AppColors.text2,
+            ),
+          ),
+          const SizedBox(height: 4),
+          TextButton(
+            onPressed: () => context.push('/sign-in'),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.teal,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 6),
+            ),
+            child: Text(
+              'Sign In',
+              style: GoogleFonts.dmSans(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.teal,
+              ),
+            ),
+          ),
         ],
       ),
     );
