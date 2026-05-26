@@ -403,6 +403,37 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     onSelectionChanged: (sel) =>
                         setState(() => _selectedRole = sel.first),
                   ),
+                  if (_selectedRole == 'business') ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.orange.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppColors.orange.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.info_outline,
+                              color: AppColors.orange, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Business accounts take 24-48 hours to review. While you wait, you can set up your profile and upload products. Once approved, your shop goes live for all customers!',
+                              style: GoogleFonts.dmSans(
+                                fontSize: 13,
+                                color: AppColors.text2,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   _LegalAcceptRow(
                     accepted: _acceptedTerms,

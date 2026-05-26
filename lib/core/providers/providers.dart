@@ -14,6 +14,7 @@ import '../../services/account_deletion_service.dart';
 import '../../services/chat_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/recently_viewed_service.dart';
+import '../../services/interest_service.dart';
 import '../../models/business.dart';
 import '../../models/chat_message.dart';
 import '../../models/conversation.dart';
@@ -42,6 +43,7 @@ final recentlyViewedServiceProvider =
 final chatServiceProvider = Provider((ref) => ChatService());
 final accountDeletionServiceProvider =
     Provider((ref) => AccountDeletionService());
+final interestServiceProvider = Provider((ref) => InterestService());
 
 // --- Chat streams ---
 final conversationStreamProvider = StreamProvider.autoDispose

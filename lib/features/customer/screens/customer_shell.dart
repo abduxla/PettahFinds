@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../widgets/unread_badge.dart';
+import 'home_screen.dart';
 
 class CustomerShell extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
@@ -34,6 +35,11 @@ class CustomerShell extends StatelessWidget {
       bottomNavigationBar: _PremiumBottomNav(
         currentIndex: navigationShell.currentIndex,
         onTap: (i) {
+          if (i == 0 && navigationShell.currentIndex == 0) {
+            // Already on Home — scroll to top instead of re-navigating.
+            HomeScreen.globalKey.currentState?.scrollToTop();
+            return;
+          }
           if (i == 4) {
             // Profile tab — always reset to /profile so we don't pop into
             // a nested page (e.g. /profile/notifications) the user opened

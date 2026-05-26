@@ -352,7 +352,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/home',
-                builder: (_, __) => const HomeScreen(),
+                builder: (_, __) => HomeScreen(key: HomeScreen.globalKey),
                 routes: [
                   GoRoute(
                     path: 'businesses',

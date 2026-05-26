@@ -84,11 +84,106 @@ const List<Color> _tileTints = [
 // =========================================================================
 // HOME SCREEN
 // =========================================================================
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
+  /// Global key so [CustomerShell] can call [scrollToTop] when the Home
+  /// tab is re-tapped without needing a provider or callback channel.
+  static final globalKey = GlobalKey<HomeScreenState>();
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  HomeScreenState createState() => HomeScreenState();
+}
+
+class HomeScreenState extends ConsumerState<HomeScreen> {
+  final ScrollController _scrollController = ScrollController();
+
+  /// Cached future for interest-based sections so FutureBuilder doesn't
+  /// re-trigger on every rebuild. Reset when the upstream product list
+  /// object changes (identity, not deep equality — Riverpod streams
+  /// emit new list instances on each snapshot).
+  Future<List<_CategoryBucket>>? _interestFuture;
+  List<Product>? _lastProducts;
+
+  /// Smooth-scroll to the top of the home feed. Called by the bottom
+  /// nav bar when the user taps Home while already on Home.
+  void scrollToTop() {
+    if (!_scrollController.hasClients) return;
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  /// Reorder [products] within each category bucket so that:
+  ///  1. Categories the user has shown interest in (via product views)
+  ///     appear first.
+  ///  2. Within each category, products NOT previously shown on the
+  ///     home feed appear before already-shown ones.
+  ///  3. Each sub-group is shuffled so the same refresh doesn't
+  ///     produce the same order twice.
+  List<_CategoryBucket> _buildInterestSections(
+    List<Product> products,
+    List<String> rankedCategories,
+    Set<String> shownIds,
+  ) {
+    if (products.isEmpty) return const [];
+    final byCategory = <String, List<Product>>{};
+    for (final p in products) {
+      final key = AppCategories.normalize(p.category);
+      byCategory.putIfAbsent(key, () => <Product>[]).add(p);
+    }
+
+    // Build a merged ordering: interested categories first (ranked),
+    // then remaining categories in the spec-preferred order.
+    final orderedKeys = <String>[];
+    for (final cat in rankedCategories) {
+      final key = AppCategories.normalize(cat);
+      if (byCategory.containsKey(key) && !orderedKeys.contains(key)) {
+        orderedKeys.add(key);
+      }
+    }
+    for (final name in _preferredOrder) {
+      if (byCategory.containsKey(name) && !orderedKeys.contains(name)) {
+        orderedKeys.add(name);
+      }
+    }
+
+    final ordered = <_CategoryBucket>[];
+    for (final key in orderedKeys) {
+      final bucket = byCategory[key];
+      if (bucket == null || bucket.isEmpty) continue;
+
+      // Split into unseen vs. already-shown, shuffle each group,
+      // then concatenate so fresh products appear first.
+      final unseen = bucket.where((p) => !shownIds.contains(p.id)).toList()
+        ..shuffle();
+      final seen = bucket.where((p) => shownIds.contains(p.id)).toList()
+        ..shuffle();
+      ordered.add(_CategoryBucket(key, [...unseen, ...seen]));
+    }
+    return ordered;
+  }
+
+  /// Returns a cached future for the given products list. Resets the
+  /// cache when the list object identity changes (i.e. after a refresh).
+  Future<List<_CategoryBucket>> _getInterestFuture(List<Product> products) {
+    if (!identical(products, _lastProducts)) {
+      _lastProducts = products;
+      _interestFuture = _loadInterestSections(products);
+    }
+    return _interestFuture!;
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // Customer-visible — products from verified businesses only.
     // Unverified sellers' products are hidden until an admin approves.
     final productsAsync = ref.watch(customerVisibleProductsProvider);
@@ -111,6 +206,7 @@ class HomeScreen extends ConsumerWidget {
               ref.invalidate(recentlyViewedProductsProvider);
             },
             child: CustomScrollView(
+              controller: _scrollController,
               physics: const AlwaysScrollableScrollPhysics(
                 parent: BouncingScrollPhysics(),
               ),
@@ -139,23 +235,29 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ),
 
-                // ---- Category Sections ----
+                // ---- Category Sections (interest-ordered) ----
                 productsAsync.when(
                   data: (products) {
-                    final sections = _buildCategorySections(products);
-                    if (sections.isEmpty) {
-                      return const SliverToBoxAdapter(
-                        child: _EmptyProductsState(),
-                      );
-                    }
-                    return SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (_, i) => _CategorySection(
-                          categoryName: sections[i].name,
-                          products: sections[i].products,
-                        ),
-                        childCount: sections.length,
-                      ),
+                    return FutureBuilder<List<_CategoryBucket>>(
+                      future: _getInterestFuture(products),
+                      builder: (context, snap) {
+                        final sections = snap.data ??
+                            _buildCategorySectionsDefault(products);
+                        if (sections.isEmpty) {
+                          return const SliverToBoxAdapter(
+                            child: _EmptyProductsState(),
+                          );
+                        }
+                        return SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (_, i) => _CategorySection(
+                              categoryName: sections[i].name,
+                              products: sections[i].products,
+                            ),
+                            childCount: sections.length,
+                          ),
+                        );
+                      },
                     );
                   },
                   loading: () => const SliverToBoxAdapter(
@@ -190,6 +292,27 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
+  /// Async helper that fetches interest data and builds sections.
+  Future<List<_CategoryBucket>> _loadInterestSections(
+      List<Product> products) async {
+    final service = ref.read(interestServiceProvider);
+    final ranked = await service.rankedCategories();
+    final shown = await service.shownProductIds();
+    final sections = _buildInterestSections(products, ranked, shown);
+    // Mark the first few products of each section as "shown" so the
+    // NEXT refresh will de-prioritise them.
+    final toMark = <String>[];
+    for (final s in sections) {
+      // Mark up to 6 per category (roughly what fits in the horizontal
+      // scroll without the user manually scrolling).
+      for (var i = 0; i < s.products.length && i < 6; i++) {
+        toMark.add(s.products[i].id);
+      }
+    }
+    service.markShown(toMark);
+    return sections;
+  }
+
   /// Preferred category order from the spec.
   static const List<String> _preferredOrder = [
     'Electronics',
@@ -208,7 +331,10 @@ class HomeScreen extends ConsumerWidget {
     'Other',
   ];
 
-  static List<_CategoryBucket> _buildCategorySections(List<Product> products) {
+  /// Default section builder (no interest data) — keeps the preferred
+  /// category order from the spec.
+  static List<_CategoryBucket> _buildCategorySectionsDefault(
+      List<Product> products) {
     if (products.isEmpty) return const [];
     final byCategory = <String, List<Product>>{};
     for (final p in products) {
@@ -225,6 +351,7 @@ class HomeScreen extends ConsumerWidget {
     return ordered;
   }
 }
+
 
 class _CategoryBucket {
   final String name;

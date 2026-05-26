@@ -63,6 +63,23 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
         .then((_) {
       if (mounted) ref.invalidate(recentlyViewedProductsProvider);
     }).catchError((_) {});
+    // Record category interest for personalised home feed ordering.
+    // Runs async after the product loads so we have the category string.
+    _recordInterest();
+  }
+
+  Future<void> _recordInterest() async {
+    try {
+      final product = await ref
+          .read(productRepositoryProvider)
+          .getById(widget.productId);
+      if (!mounted) return;
+      await ref
+          .read(interestServiceProvider)
+          .recordCategoryInterest(product.category);
+    } catch (_) {
+      // Best-effort — don't block the detail screen on interest tracking.
+    }
   }
 
   @override

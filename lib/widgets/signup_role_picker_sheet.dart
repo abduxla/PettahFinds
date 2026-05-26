@@ -85,6 +85,35 @@ Future<String?> showSignupRolePickerSheet(
               onTap: () => Navigator.of(sheetCtx).pop('business'),
             ),
             const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.orange.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: AppColors.orange.withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.info_outline,
+                      color: AppColors.orange, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Business accounts take 24-48 hours to review. While you wait, you can set up your profile and upload products. Once approved, your shop goes live for all customers!',
+                      style: GoogleFonts.dmSans(
+                        fontSize: 12.5,
+                        color: AppColors.text2,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
             // Explicit Cancel — the only escape hatch now that the
             // sheet is non-dismissible. Returning null tells the
             // caller to sign the orphan Firebase Auth session out.
