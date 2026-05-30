@@ -59,24 +59,24 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyACy0k9Q3ZRJj5PUQB68nC5FyAvFgbIU88',
-    appId: '1:263905072020:ios:866f9c8043f5aa2e7c3581',
+    appId: '1:263905072020:ios:ce1b4a5f141ccc767c3581',
     messagingSenderId: '263905072020',
     projectId: 'pettahfinds-75075',
     storageBucket: 'pettahfinds-75075.firebasestorage.app',
     androidClientId: '263905072020-v7lqqisasukaaj48k1g1rp7i4v93secd.apps.googleusercontent.com',
-    iosClientId: '263905072020-rhmdc4qm4f2gqe27hmcmjqaogbgk5qp5.apps.googleusercontent.com',
-    iosBundleId: 'com.petafinds.petafinds',
+    iosClientId: '263905072020-3vrduttu6reqo6tt72q20drilvgsbkqp.apps.googleusercontent.com',
+    iosBundleId: 'com.petafinds.app',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyACy0k9Q3ZRJj5PUQB68nC5FyAvFgbIU88',
-    appId: '1:263905072020:ios:866f9c8043f5aa2e7c3581',
+    appId: '1:263905072020:ios:ce1b4a5f141ccc767c3581',
     messagingSenderId: '263905072020',
     projectId: 'pettahfinds-75075',
     storageBucket: 'pettahfinds-75075.firebasestorage.app',
     androidClientId: '263905072020-v7lqqisasukaaj48k1g1rp7i4v93secd.apps.googleusercontent.com',
-    iosClientId: '263905072020-rhmdc4qm4f2gqe27hmcmjqaogbgk5qp5.apps.googleusercontent.com',
-    iosBundleId: 'com.petafinds.petafinds',
+    iosClientId: '263905072020-3vrduttu6reqo6tt72q20drilvgsbkqp.apps.googleusercontent.com',
+    iosBundleId: 'com.petafinds.app',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

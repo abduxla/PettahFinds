@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>263905072020-rhmdc4qm4f2gqe27hmcmjqaogbgk5qp5.apps.googleusercontent.com</string>
+	<string>263905072020-3vrduttu6reqo6tt72q20drilvgsbkqp.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.263905072020-rhmdc4qm4f2gqe27hmcmjqaogbgk5qp5</string>
+	<string>com.googleusercontent.apps.263905072020-3vrduttu6reqo6tt72q20drilvgsbkqp</string>
 	<key>ANDROID_CLIENT_ID</key>
 	<string>263905072020-5q9slh96g3lt91tlm28rnbf8id2v3f8m.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
@@ -15,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.petafinds.petafinds</string>
+	<string>com.petafinds.app</string>
 	<key>PROJECT_ID</key>
 	<string>pettahfinds-75075</string>
 	<key>STORAGE_BUCKET</key>
@@ -31,6 +31,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:263905072020:ios:866f9c8043f5aa2e7c3581</string>
+	<string>1:263905072020:ios:ce1b4a5f141ccc767c3581</string>
 </dict>
 </plist>

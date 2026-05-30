@@ -68,7 +68,7 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.263905072020-rhmdc4qm4f2gqe27hmcmjqaogbgk5qp5</string>
+				<string>com.googleusercontent.apps.263905072020-3vrduttu6reqo6tt72q20drilvgsbkqp</string>
 			</array>
 		</dict>
 	</array>
@@ -83,7 +83,7 @@
 		sync if Firebase regenerates the iOS OAuth client.
 	-->
 	<key>GIDClientID</key>
-	<string>263905072020-rhmdc4qm4f2gqe27hmcmjqaogbgk5qp5.apps.googleusercontent.com</string>
+	<string>263905072020-3vrduttu6reqo6tt72q20drilvgsbkqp.apps.googleusercontent.com</string>
 	<!--
 		Privacy purpose strings.
 
