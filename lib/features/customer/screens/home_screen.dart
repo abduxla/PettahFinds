@@ -582,9 +582,7 @@ class _FeaturedCarouselState extends State<_FeaturedCarousel>
   final PageController _controller = PageController();
   int _page = 0;
   Timer? _autoTimer;
-  Timer? _clockTimer;
   late final AnimationController _floatController;
-  Duration _countdown = const Duration(hours: 8);
 
   @override
   void initState() {
@@ -603,83 +601,57 @@ class _FeaturedCarouselState extends State<_FeaturedCarousel>
         curve: Curves.easeOutCubic,
       );
     });
-
-    _updateCountdown();
-    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-      _updateCountdown();
-    });
-  }
-
-  void _updateCountdown() {
-    final now = DateTime.now();
-    final eod = DateTime(now.year, now.month, now.day, 23, 59, 59);
-    setState(() {
-      _countdown = eod.difference(now);
-      if (_countdown.isNegative) _countdown = Duration.zero;
-    });
-  }
-
-  String _fmt(Duration d) {
-    final h = d.inHours.toString().padLeft(2, '0');
-    final m = (d.inMinutes % 60).toString().padLeft(2, '0');
-    final s = (d.inSeconds % 60).toString().padLeft(2, '0');
-    return '$h:$m:$s';
   }
 
   @override
   void dispose() {
     _autoTimer?.cancel();
-    _clockTimer?.cancel();
     _floatController.dispose();
     _controller.dispose();
     super.dispose();
   }
 
-  List<_SlideData> get _slides => [
-        _SlideData(
-          eyebrow: 'TODAY ONLY',
-          title: 'Up to 40%\nOFF Spices',
-          sub: '4th Cross Street · Bulk wholesale',
-          cta: 'Browse deals',
-          emoji: '🌶️',
-          tagText: 'Flash Sale · ${_fmt(_countdown)}',
-          dotColor: const Color(0xFF6EE7B7),
-          gradient: const [
-            Color(0xFF0A4A4A),
-            Color(0xFF0D6E6E),
-            Color(0xFF1A9696),
-          ],
-        ),
-        const _SlideData(
-          eyebrow: 'SEA STREET',
-          title: 'Gold &\nJewellery',
-          sub: '200+ verified jewellers listed',
-          cta: 'Explore now',
-          emoji: '💎',
-          tagText: 'New Arrivals',
-          dotColor: Color(0xFFFBBF24),
-          gradient: [
-            Color(0xFF6B2D00),
-            Color(0xFFC25A00),
-            Color(0xFFE8821A),
-          ],
-        ),
-        const _SlideData(
-          eyebrow: '4TH CROSS STREET',
-          title: 'Textiles &\nFabrics',
-          sub: 'Wholesale fabric from LKR 500/m',
-          cta: 'See listings',
-          emoji: '🧵',
-          tagText: 'Featured',
-          dotColor: Color(0xFF93C5FD),
-          gradient: [
-            Color(0xFF1A2C5E),
-            Color(0xFF2D4A9A),
-            Color(0xFF4A6CC8),
-          ],
-        ),
-      ];
+  static const List<_SlideData> _slides = [
+    _SlideData(
+      eyebrow: 'DISCOVER PETTAH',
+      title: 'Pettah, Now\nDigital',
+      sub: 'Find shops, products, and suppliers across Pettah — from your phone.',
+      cta: 'Search Products',
+      icon: Icons.storefront,
+      gradient: [
+        Color(0xFF0A4A4A),
+        Color(0xFF0D6E6E),
+        Color(0xFF1A9696),
+      ],
+      route: '/search',
+    ),
+    _SlideData(
+      eyebrow: 'SEARCH',
+      title: 'Find Anything\nin Pettah',
+      sub: 'Search hundreds of shops and compare prices before you visit.',
+      cta: 'Start Searching',
+      icon: Icons.search,
+      gradient: [
+        Color(0xFF1A2C5E),
+        Color(0xFF2D4A9A),
+        Color(0xFF4A6CC8),
+      ],
+      route: '/search',
+    ),
+    _SlideData(
+      eyebrow: 'EXPLORE',
+      title: 'Every Shop\non the Map',
+      sub: 'Browse by street, get directions, and locate any business in Pettah.',
+      cta: 'Find Businesses',
+      icon: Icons.place,
+      gradient: [
+        Color(0xFF6B2D00),
+        Color(0xFFC25A00),
+        Color(0xFFE8821A),
+      ],
+      route: '/map',
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -729,19 +701,17 @@ class _SlideData {
   final String title;
   final String sub;
   final String cta;
-  final String emoji;
-  final String tagText;
-  final Color dotColor;
+  final IconData icon;
   final List<Color> gradient;
+  final String route;
   const _SlideData({
     required this.eyebrow,
     required this.title,
     required this.sub,
     required this.cta,
-    required this.emoji,
-    required this.tagText,
-    required this.dotColor,
+    required this.icon,
     required this.gradient,
+    required this.route,
   });
 }
 
@@ -755,174 +725,198 @@ class _FeaturedSlide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Layer 1 — gradient
-          DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                stops: const [0.0, 0.55, 1.0],
-                colors: data.gradient,
-              ),
-            ),
-          ),
-          // Layer 2 — orb 1
-          Positioned(
-            top: -50,
-            right: -30,
-            child: Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.07),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          // Layer 3 — orb 2
-          Positioned(
-            bottom: -40,
-            right: 60,
-            child: Container(
-              width: 110,
-              height: 110,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          // Layer 4 — tag badge
-          Positioned(
-            top: 14,
-            left: 14,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: data.dotColor,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    data.tagText,
-                    style: GoogleFonts.dmSans(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          // Layer 5 — floating emoji
-          Positioned(
-            right: 22,
-            top: 0,
-            bottom: 0,
-            child: AnimatedBuilder(
-              animation: floatController,
-              builder: (_, __) {
-                final offset = (floatController.value * 2 - 1) * 6;
-                return Transform.translate(
-                  offset: Offset(0, offset),
-                  child: Center(
-                    child: Text(
-                      data.emoji,
-                      style: const TextStyle(fontSize: 72),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          // Layer 6 — content
-          Positioned(
-            left: 20,
-            right: 120,
-            bottom: 20,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  data.eyebrow,
-                  style: GoogleFonts.dmSans(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white.withValues(alpha: 0.6),
-                    letterSpacing: 1.5,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final isMobile = w < 430;
+        // Mobile: shrink illustration, widen text column
+        final illustSize = isMobile ? 62.0 : 78.0;
+        final illustRight = isMobile ? 12.0 : 18.0;
+        final contentRight = isMobile ? 84.0 : 108.0;
+        final titleSize = isMobile ? 20.0 : 22.0;
+
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Layer 1 — gradient background
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    stops: const [0.0, 0.5, 1.0],
+                    colors: data.gradient,
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  data.title,
-                  style: GoogleFonts.nunito(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                    letterSpacing: -0.5,
-                    height: 1.1,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  data.sub,
-                  style: GoogleFonts.dmSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: Colors.white.withValues(alpha: 0.6),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 7),
+              ),
+              // Layer 2 — large soft orb (top-right, decorative)
+              Positioned(
+                top: -55,
+                right: -35,
+                child: Container(
+                  width: 190,
+                  height: 190,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.18),
-                    border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.28)),
-                    borderRadius: BorderRadius.circular(20),
+                    color: Colors.white.withValues(alpha: 0.06),
+                    shape: BoxShape.circle,
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        data.cta,
-                        style: GoogleFonts.dmSans(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                ),
+              ),
+              // Layer 3 — smaller orb (bottom-right)
+              Positioned(
+                bottom: -30,
+                right: 50,
+                child: Container(
+                  width: 90,
+                  height: 90,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.04),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+              // Layer 4 — icon illustration (right side, animated float)
+              Positioned(
+                right: illustRight,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: _SlideIllustration(
+                    icon: data.icon,
+                    controller: floatController,
+                    size: illustSize,
+                  ),
+                ),
+              ),
+              // Layer 5 — text + CTA (left column)
+              Positioned(
+                left: 18,
+                right: contentRight,
+                bottom: 20,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      data.eyebrow,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.dmSans(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white.withValues(alpha: 0.55),
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      data.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.nunito(
+                        fontSize: titleSize,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: -0.5,
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      data.sub,
+                      maxLines: isMobile ? 2 : 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.dmSans(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.white.withValues(alpha: 0.65),
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 11),
+                    GestureDetector(
+                      onTap: () => context.go(data.route),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.3)),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                data.cta,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.dmSans(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.arrow_forward,
+                                color: Colors.white, size: 11),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 5),
-                      const Icon(Icons.arrow_forward,
-                          color: Colors.white, size: 12),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SlideIllustration extends StatelessWidget {
+  final IconData icon;
+  final AnimationController controller;
+  final double size;
+  const _SlideIllustration({
+    required this.icon,
+    required this.controller,
+    required this.size,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (_, _) {
+        final offset = (controller.value * 2 - 1) * 5;
+        return Transform.translate(
+          offset: Offset(0, offset),
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.10),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.15),
+                width: 1.0,
+              ),
+            ),
+            child: Icon(
+              icon,
+              color: Colors.white.withValues(alpha: 0.88),
+              size: size * 0.44,
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

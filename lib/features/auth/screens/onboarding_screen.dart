@@ -271,7 +271,7 @@ class _SlideOne extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 8),
-          // Map mock card
+          // Map mock card — flex-based so it shrinks on small screens
           Expanded(
             flex: 5,
             child: Center(
@@ -281,41 +281,49 @@ class _SlideOne extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 12),
           _OrangePill(text: '📍  PETTAH · COLOMBO 11'),
-          const SizedBox(height: 18),
-          Text(
-            'Thousands of shops in\nPettah.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.nunito(
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
-              letterSpacing: -0.6,
-              height: 1.15,
+          const SizedBox(height: 12),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              'Thousands of shops in\nPettah.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.nunito(
+                fontSize: 26,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+                letterSpacing: -0.6,
+                height: 1.15,
+              ),
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            'No way to find them.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.nunito(
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-              color: AppColors.orange,
-              letterSpacing: -0.6,
-              height: 1.15,
-              fontStyle: FontStyle.italic,
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              'No way to find them.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.nunito(
+                fontSize: 26,
+                fontWeight: FontWeight.w900,
+                color: AppColors.orange,
+                letterSpacing: -0.6,
+                height: 1.15,
+                fontStyle: FontStyle.italic,
+              ),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           Text(
             'Street by street. Shop by shop. Sound familiar?',
             textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.dmSans(
               fontSize: 13.5,
               color: Colors.white.withValues(alpha: 0.65),
-              height: 1.5,
+              height: 1.45,
               fontStyle: FontStyle.italic,
             ),
           ),
@@ -569,40 +577,48 @@ class _SlideTwo extends StatelessWidget {
         children: [
           const SizedBox(height: 8),
           Expanded(flex: 5, child: _SearchMockCard()),
-          const SizedBox(height: 18),
+          const SizedBox(height: 12),
           _OrangePill(text: '+ THE PETAFINDS WAY'),
-          const SizedBox(height: 18),
-          Text(
-            'Every shop in\nPettah.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.nunito(
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
-              letterSpacing: -0.6,
-              height: 1.15,
+          const SizedBox(height: 12),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              'Every shop in\nPettah.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.nunito(
+                fontSize: 26,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+                letterSpacing: -0.6,
+                height: 1.15,
+              ),
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            'One search.',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.nunito(
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-              color: AppColors.orange,
-              letterSpacing: -0.6,
-              height: 1.15,
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              'One search.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.nunito(
+                fontSize: 26,
+                fontWeight: FontWeight.w900,
+                color: AppColors.orange,
+                letterSpacing: -0.6,
+                height: 1.15,
+              ),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           Text(
-            'Photos, prices, and the exact street —\nbefore you leave home.',
+            'Photos, prices, and the exact street — before you leave home.',
             textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.dmSans(
               fontSize: 13.5,
               color: Colors.white.withValues(alpha: 0.7),
-              height: 1.5,
+              height: 1.45,
             ),
           ),
           const SizedBox(height: 8),
@@ -639,7 +655,7 @@ class _SearchMockCard extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.75)),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text('coconut oil |',
+                  child: Text('iphone charger |',
                       style: GoogleFonts.dmSans(
                         fontSize: 13,
                         color: Colors.white.withValues(alpha: 0.95),
@@ -675,21 +691,21 @@ class _SearchMockCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _SellerRow(
-              emoji: '🥥',
-              name: 'Coco Lanka Trading',
-              price: 'LKR 550,000',
+              emoji: '📱',
+              name: 'Mobile Centre',
+              price: 'LKR 1,900',
               tag: '3rd Cross'),
           const SizedBox(height: 6),
           _SellerRow(
-              emoji: '🌿',
-              name: 'Pettah Coconut Hub',
-              price: 'LKR 480,000',
+              emoji: '⚡',
+              name: 'Charger House Pettah',
+              price: 'LKR 2,500',
               tag: 'Sea Street'),
           const SizedBox(height: 6),
           _SellerRow(
-              emoji: '🍌',
-              name: 'Island Fresh Exports',
-              price: 'LKR 510,000',
+              emoji: '🔌',
+              name: 'Tech Lanka Trading',
+              price: 'LKR 3,200',
               tag: 'Front St.'),
         ],
       ),
@@ -776,7 +792,7 @@ class _SlideThree extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(28, 8, 28, 0),
       child: Column(
         children: [
@@ -859,7 +875,7 @@ class _SlideThree extends StatelessWidget {
                 fontSize: 13,
                 color: Colors.white.withValues(alpha: 0.6),
               )),
-          const SizedBox(height: 22),
+          const SizedBox(height: 16),
 
           // Benefits card
           Container(
@@ -877,17 +893,17 @@ class _SlideThree extends StatelessWidget {
                   title: 'Search any product',
                   subtitle: 'Find it across all of Pettah instantly',
                 ),
-                SizedBox(height: 12),
+                SizedBox(height: 10),
                 Divider(color: Color(0x1AFFFFFF), height: 1),
-                SizedBox(height: 12),
+                SizedBox(height: 10),
                 _BenefitRow(
                   icon: Icons.storefront_outlined,
                   title: 'See every seller',
                   subtitle: 'Compare prices before you visit',
                 ),
-                SizedBox(height: 12),
+                SizedBox(height: 10),
                 Divider(color: Color(0x1AFFFFFF), height: 1),
-                SizedBox(height: 12),
+                SizedBox(height: 10),
                 _BenefitRow(
                   icon: Icons.location_on_outlined,
                   title: 'Know the exact street',
@@ -896,6 +912,7 @@ class _SlideThree extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: 8),
         ],
       ),
     );
