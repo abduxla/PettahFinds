@@ -1,7 +1,7 @@
 name: petafinds
 description: "PetaFinds - Discover local businesses, products, and deals."
 publish_to: 'none'
-version: 1.0.0+10
+version: 1.0.0+11
 
 environment:
   sdk: ^3.10.7
@@ -46,6 +46,7 @@ dependencies:
   firebase_app_check: ^0.4.1
   google_sign_in: ^6.2.2
   sign_in_with_apple: ^6.1.4
+  crypto: ^3.0.3
   # firebase_messaging already declared above (^16.1.3).
   # Local-notifications shows the foreground push as a system banner.
   flutter_local_notifications: ^17.2.4

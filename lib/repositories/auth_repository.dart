@@ -1,4 +1,8 @@
+import 'dart:convert';
+import 'dart:math';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -248,8 +252,7 @@ class AuthRepository {
     final appUser = AppUser(
       uid: uid,
       email: firebaseUser.email ?? '',
-      displayName:
-          (firebaseUser.displayName ?? 'PetaFinds user').trim(),
+      displayName: (firebaseUser.displayName ?? 'PetaFinds user').trim(),
       role: safeRole,
       photoUrl: firebaseUser.photoURL ?? '',
       createdAt: DateTime.now(),
@@ -313,6 +316,20 @@ class AuthRepository {
   // its stored role; the picker only renders when /users/{uid} is
   // genuinely missing.
 
+  String _generateNonce([int length = 32]) {
+    const charset =
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    final random = Random.secure();
+    return List.generate(length, (_) => charset[random.nextInt(charset.length)])
+        .join();
+  }
+
+  String _sha256ofString(String input) {
+    final bytes = utf8.encode(input);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
+  }
+
   /// Sign in with Apple (iOS native).
   ///
   /// Flow:
@@ -341,19 +358,71 @@ class AuthRepository {
   /// [authenticateWithGoogle]'s docstring for the shared pattern).
   Future<User> authenticateWithApple() async {
     debugPrint('🟣 [auth] authenticateWithApple: start');
-    final appleCredential = await SignInWithApple.getAppleIDCredential(
-      scopes: const [
-        AppleIDAuthorizationScopes.email,
-        AppleIDAuthorizationScopes.fullName,
-      ],
-    );
+
+    // Runtime availability check. getAppleIDCredential() throws immediately
+    // without showing any native sheet when this returns false — manifests as
+    // a button tap with no visible response. Common causes: user not signed
+    // into iCloud, parental controls blocking Sign In with Apple, iOS < 13.
+    final available = await SignInWithApple.isAvailable();
+    debugPrint('🟣 [auth] SignInWithApple.isAvailable() = $available');
+    if (!available) {
+      throw Exception(
+        'Sign In with Apple is not available on this device. '
+        'Make sure you are signed into iCloud with an Apple ID.',
+      );
+    }
+
+    final rawNonce = _generateNonce();
+    final hashedNonce = _sha256ofString(rawNonce);
+    debugPrint('🟣 [auth] nonce ready — calling getAppleIDCredential');
+
+    final AuthorizationCredentialAppleID appleCredential;
+    try {
+      appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: const [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: hashedNonce,
+      );
+      debugPrint(
+        '🟢 [auth] Apple credential obtained '
+        'email=${appleCredential.email} '
+        'identityToken=${appleCredential.identityToken != null ? "present" : "NULL"} '
+        'authCode=${appleCredential.authorizationCode.isNotEmpty ? "present" : "EMPTY"}',
+      );
+    } catch (e) {
+      debugPrint('🔴 [auth] getAppleIDCredential THREW: ${e.runtimeType}');
+      if (e is SignInWithAppleAuthorizationException) {
+        debugPrint('🔴 [auth] Apple auth error code: ${e.code}');
+        debugPrint('🔴 [auth] Apple auth error message: ${e.message}');
+      } else if (e is SignInWithAppleNotSupportedException) {
+        debugPrint('🔴 [auth] Apple Sign-In not supported on this device');
+      } else {
+        debugPrint('🔴 [auth] unexpected Apple error: $e');
+      }
+      rethrow;
+    }
 
     final oauthCredential = OAuthProvider('apple.com').credential(
       idToken: appleCredential.identityToken,
       accessToken: appleCredential.authorizationCode,
+      rawNonce: rawNonce,
     );
+    debugPrint('🟣 [auth] OAuthCredential built — signing into Firebase Auth');
 
-    final cred = await _auth.signInWithCredential(oauthCredential);
+    final UserCredential cred;
+    try {
+      cred = await _auth.signInWithCredential(oauthCredential);
+    } catch (e) {
+      debugPrint('🔴 [auth] Firebase signInWithCredential THREW: ${e.runtimeType}');
+      if (e is FirebaseAuthException) {
+        debugPrint('🔴 [auth] Firebase error code: ${e.code}');
+        debugPrint('🔴 [auth] Firebase error message: ${e.message}');
+      }
+      rethrow;
+    }
+
     final user = cred.user!;
     debugPrint('🟢 [auth] authenticateWithApple: signed in uid=${user.uid}');
 

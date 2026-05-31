@@ -216,8 +216,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
       if (!mounted) return;
       _routeAfterAuth(appUser);
     } catch (e, stack) {
-      debugPrint('🔴 [signup] _continueWithOAuth CRASHED: $e');
+      debugPrint('🔴 [signup] _continueWithOAuth CRASHED: ${e.runtimeType}: $e');
       debugPrint('🔴 [signup] stack: $stack');
+      if (e is SignInWithAppleAuthorizationException) {
+        debugPrint('🔴 [signup] Apple error code: ${e.code}');
+        debugPrint('🔴 [signup] Apple error message: ${e.message}');
+      }
       // Release guard FIRST so the router can route the user back to
       // /sign-in cleanly once we sign out below.
       releaseGuards();
@@ -225,13 +229,20 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         await ref.read(authRepositoryProvider).signOut();
       } catch (_) {}
       if (!mounted) return;
+      final String snackMsg;
+      if (e is SignInWithAppleAuthorizationException) {
+        snackMsg = e.code == AuthorizationErrorCode.canceled
+            ? 'Sign-in cancelled.'
+            : 'Apple Sign-In error: ${e.message}';
+      } else {
+        final s = e.toString();
+        snackMsg = (s.contains('cancelled') || s.contains('canceled'))
+            ? 'Sign-in cancelled.'
+            : 'Sign-in failed. Please try again.';
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            e.toString().contains('cancelled')
-                ? 'Sign-in cancelled.'
-                : 'Sign-in failed. Please try again.',
-          ),
+          content: Text(snackMsg),
           backgroundColor: Colors.red[700],
         ),
       );
@@ -370,8 +381,9 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       labelText: 'Password',
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
-                        icon: Icon(
-                            _obscure ? Icons.visibility_off : Icons.visibility),
+                        icon: Icon(_obscure
+                            ? Icons.visibility_off
+                            : Icons.visibility),
                         onPressed: () =>
                             setState(() => _obscure = !_obscure),
                       ),

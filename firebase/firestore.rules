@@ -54,7 +54,8 @@ service cloud.firestore {
     // Fields a business owner is allowed to edit on their own business doc
     // (excludes isVerified, membershipTier, ratingAvg, ratingCount, ownerUid).
     function businessOwnerMutableFields() {
-      return ['businessName', 'location', 'description', 'phone', 'email',
+      return ['businessName', 'ownerName', 'ownerPhone',
+              'location', 'description', 'phone', 'email',
               'whatsappNumber', 'category', 'logoUrl', 'bannerUrl',
               'latitude', 'longitude'];
     }

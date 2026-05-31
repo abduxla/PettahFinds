@@ -24,7 +24,8 @@ import '../../features/customer/screens/notifications_screen.dart';
 import '../../features/customer/screens/settings_screen.dart';
 import '../../features/customer/screens/edit_customer_profile_screen.dart';
 import '../../features/customer/screens/change_password_screen.dart';
-import '../../features/customer/screens/support_screen.dart';
+import '../../features/customer/screens/support_screen.dart'
+    show SupportScreen, ContactUsScreen;
 import '../../features/business/screens/business_shell.dart';
 import '../../features/business/screens/business_dashboard_screen.dart';
 import '../../features/business/screens/business_setup_screen.dart';
@@ -449,6 +450,9 @@ final routerProvider = Provider<GoRouter>((ref) {
                 GoRoute(
                     path: 'support',
                     builder: (_, __) => const SupportScreen()),
+                GoRoute(
+                    path: 'contact',
+                    builder: (_, __) => const ContactUsScreen()),
               ],
             ),
           ]),

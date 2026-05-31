@@ -164,20 +164,31 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       if (!mounted) return;
       _routeAfterSignIn(appUser);
     } catch (e, stack) {
-      debugPrint('🔴 [signin] _continueWithOAuth CRASHED: $e');
+      debugPrint('🔴 [signin] _continueWithOAuth CRASHED: ${e.runtimeType}: $e');
       debugPrint('🔴 [signin] stack: $stack');
+      if (e is SignInWithAppleAuthorizationException) {
+        debugPrint('🔴 [signin] Apple error code: ${e.code}');
+        debugPrint('🔴 [signin] Apple error message: ${e.message}');
+      }
       releaseGuards();
       try {
         await ref.read(authRepositoryProvider).signOut();
       } catch (_) {}
       if (!mounted) return;
+      final String snackMsg;
+      if (e is SignInWithAppleAuthorizationException) {
+        snackMsg = e.code == AuthorizationErrorCode.canceled
+            ? 'Sign-in cancelled.'
+            : 'Apple Sign-In error: ${e.message}';
+      } else {
+        final s = e.toString();
+        snackMsg = (s.contains('cancelled') || s.contains('canceled'))
+            ? 'Sign-in cancelled.'
+            : 'Sign-in failed. Please try again.';
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            e.toString().contains('cancelled')
-                ? 'Sign-in cancelled.'
-                : 'Sign-in failed. Please try again.',
-          ),
+          content: Text(snackMsg),
           backgroundColor: Colors.red[700],
         ),
       );
@@ -298,8 +309,9 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       labelText: 'Password',
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
-                        icon: Icon(
-                            _obscure ? Icons.visibility_off : Icons.visibility),
+                        icon: Icon(_obscure
+                            ? Icons.visibility_off
+                            : Icons.visibility),
                         onPressed: () =>
                             setState(() => _obscure = !_obscure),
                       ),

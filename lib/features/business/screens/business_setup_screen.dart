@@ -8,6 +8,7 @@ import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/business.dart';
+import '../../../utils/phone_sri_lanka.dart';
 import '../../../utils/validators.dart';
 import 'location_picker_screen.dart';
 
@@ -22,6 +23,8 @@ class BusinessSetupScreen extends ConsumerStatefulWidget {
 class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
+  final _ownerNameCtrl = TextEditingController();
+  final _ownerPhoneCtrl = TextEditingController();
   final _locationCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
@@ -43,8 +46,25 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
       _acceptedProhibitedPolicy;
 
   @override
+  void initState() {
+    super.initState();
+    // Pre-fill owner fields from the authenticated user's profile so
+    // the merchant doesn't have to retype info they already provided.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final appUser = ref.read(appUserProvider).valueOrNull;
+      if (appUser == null) return;
+      _ownerNameCtrl.text = appUser.displayName;
+      if (appUser.phoneNumber != null && appUser.phoneNumber!.isNotEmpty) {
+        _ownerPhoneCtrl.text = appUser.phoneNumber!;
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _nameCtrl.dispose();
+    _ownerNameCtrl.dispose();
+    _ownerPhoneCtrl.dispose();
     _locationCtrl.dispose();
     _descCtrl.dispose();
     _phoneCtrl.dispose();
@@ -73,11 +93,14 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
       final appUser = ref.read(appUserProvider).valueOrNull;
       if (appUser == null) throw Exception('Not authenticated');
 
+      final rawOwnerPhone = _ownerPhoneCtrl.text.trim();
       final business = await ref.read(businessRepositoryProvider).create(
             Business(
               id: '',
               businessName: _nameCtrl.text.trim(),
               ownerUid: appUser.uid,
+              ownerName: _ownerNameCtrl.text.trim(),
+              ownerPhone: SriLankaPhone.toE164(rawOwnerPhone) ?? rawOwnerPhone,
               location: _locationCtrl.text.trim(),
               description: _descCtrl.text.trim(),
               phone: _phoneCtrl.text.trim(),
@@ -191,6 +214,26 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                     labelText: 'Business Name',
                     prefixIcon: Icon(Icons.business)),
                 validator: (v) => Validators.required(v, 'Business name'),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _ownerNameCtrl,
+                decoration: const InputDecoration(
+                    labelText: 'Owner Full Name',
+                    prefixIcon: Icon(Icons.person_outline)),
+                textInputAction: TextInputAction.next,
+                validator: (v) => Validators.required(v, 'Owner name'),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _ownerPhoneCtrl,
+                decoration: const InputDecoration(
+                    labelText: 'Owner Phone',
+                    hintText: '077 123 4567',
+                    prefixIcon: Icon(Icons.phone_outlined)),
+                keyboardType: TextInputType.phone,
+                textInputAction: TextInputAction.next,
+                validator: Validators.slPhone,
               ),
               const SizedBox(height: 16),
               // Dropdown — values come from AppCategories.all which is

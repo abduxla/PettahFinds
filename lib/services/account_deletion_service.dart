@@ -1,7 +1,12 @@
+import 'dart:convert';
+import 'dart:math';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../core/constants/app_constants.dart';
 
 /// Thrown when Firebase Auth requires a fresh sign-in before allowing
@@ -52,27 +57,34 @@ class AccountDeletionService {
     }
     final uid = user.uid;
 
-    // 1) Firestore data first. If the Auth delete fails for whatever
-    //    reason (network, requires-recent-login) the user is left
-    //    without Firestore data — that's acceptable because the
-    //    re-auth + retry path completes the Auth step.
-    await _wipeFirestoreData(uid);
+    // 1) Firestore data first. Best-effort: a Firestore failure here
+    //    must NOT abort the Auth deletion. The Auth record being gone
+    //    is what frees the email for re-registration; orphaned Firestore
+    //    data with no Auth session is blocked by security rules anyway.
+    try {
+      await _wipeFirestoreData(uid);
+    } catch (e) {
+      debugPrint('[delete] Firestore wipe partial failure (continuing to Auth delete): $e');
+    }
 
-    // 2) Auth identity.
+    // 2) Auth identity — the authoritative deletion step.
     try {
       await user.delete();
     } on FirebaseAuthException catch (e) {
       if (e.code == 'requires-recent-login') {
-        // Firestore is already gone; signing out keeps the app in a
-        // consistent state until the caller re-auths.
-        await _signOutQuietly();
+        // Do NOT sign out here. The caller's re-auth UI needs
+        // _auth.currentUser to remain non-null so
+        // reauthenticateWithCredential() can execute. Signing out
+        // before re-auth was the root cause of the "same email can't
+        // be re-registered" bug: Auth account was never deleted because
+        // re-auth always failed with "Not signed in."
         throw const RequiresRecentLoginException();
       }
       rethrow;
     }
 
-    // Some platforms cache the Google session even after a Firebase
-    // Auth user delete; nuke it so the next sign-in shows the picker.
+    // Only sign out after successful deletion so the Google session
+    // cache is cleared and the next sign-in shows the account picker.
     await _signOutQuietly();
   }
 
@@ -97,6 +109,46 @@ class AccountDeletionService {
     if (user == null) return false;
     return user.providerData
         .any((p) => p.providerId == GoogleAuthProvider.PROVIDER_ID);
+  }
+
+  String _generateNonce([int length = 32]) {
+    const charset =
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    final random = Random.secure();
+    return List.generate(length, (_) => charset[random.nextInt(charset.length)])
+        .join();
+  }
+
+  String _sha256ofString(String input) {
+    final bytes = utf8.encode(input);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
+  }
+
+  /// True if the currently signed-in user authenticated via Apple.
+  bool get currentUserIsApple {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    return user.providerData.any((p) => p.providerId == 'apple.com');
+  }
+
+  /// Re-authenticate an Apple user by requesting a fresh Apple credential.
+  /// Required before account deletion when Firebase raises requires-recent-login.
+  Future<void> reauthenticateWithApple() async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('Not signed in.');
+    final rawNonce = _generateNonce();
+    final hashedNonce = _sha256ofString(rawNonce);
+    final appleCredential = await SignInWithApple.getAppleIDCredential(
+      scopes: const [AppleIDAuthorizationScopes.email],
+      nonce: hashedNonce,
+    );
+    final oauthCredential = OAuthProvider('apple.com').credential(
+      idToken: appleCredential.identityToken,
+      accessToken: appleCredential.authorizationCode,
+      rawNonce: rawNonce,
+    );
+    await user.reauthenticateWithCredential(oauthCredential);
   }
 
   /// Re-authenticate an email/password user with their password.
@@ -207,14 +259,15 @@ class AccountDeletionService {
     await _deleteConversationsAndMessages(uid);
 
     // -- Finally the user doc --------------------------------------------
+    // Not re-thrown: deleteSelf() wraps the whole wipe in try/catch so
+    // user.delete() always runs regardless of Firestore failures here.
     try {
       await _firestore
           .collection(AppConstants.usersCollection)
           .doc(uid)
           .delete();
     } catch (e) {
-      debugPrint('[delete] user doc delete failed: $e');
-      rethrow;
+      debugPrint('[delete] user doc delete failed (non-fatal): $e');
     }
   }
 

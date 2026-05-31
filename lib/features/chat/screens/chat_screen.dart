@@ -179,12 +179,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       ),
                       if (conv.productId.isNotEmpty)
                         IconButton(
-                          // PUSH so pop returns to this chat thread.
-                          // .go would rebuild to [/home, /home/product/:id]
-                          // and pop would dump the user on /home instead
-                          // of back into the conversation.
+                          // Use the top-level /product/:id route (role-agnostic,
+                          // lives outside every shell). /home/product/:id is
+                          // nested inside the customer StatefulShellRoute and
+                          // would mount the shell scaffold around the detail
+                          // screen, showing a blank customer shell instead of
+                          // the product. push() keeps the chat thread on the
+                          // Navigator stack so the back button pops cleanly
+                          // back here.
                           onPressed: () =>
-                              context.push('/home/product/${conv.productId}'),
+                              context.push('/product/${conv.productId}'),
                           icon: const Icon(Icons.arrow_outward_rounded,
                               size: 18, color: AppColors.teal),
                           tooltip: 'View product',

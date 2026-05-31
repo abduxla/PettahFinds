@@ -1,3 +1,5 @@
+import 'phone_sri_lanka.dart';
+
 abstract class Validators {
   static String? email(String? value) {
     if (value == null || value.trim().isEmpty) return 'Email is required';
@@ -37,4 +39,11 @@ abstract class Validators {
     if (value.trim().length > 50) return 'Name must be under 50 characters';
     return null;
   }
+
+  // Sri Lanka phone — required.
+  static String? slPhone(String? value) => SriLankaPhone.validate(value);
+
+  // Sri Lanka phone — optional (blank accepted).
+  static String? slPhoneOptional(String? value) =>
+      SriLankaPhone.validateOptional(value);
 }

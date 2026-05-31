@@ -4,6 +4,8 @@ class Business {
   final String id;
   final String businessName;
   final String ownerUid;
+  final String ownerName;
+  final String ownerPhone;
   final String location;
   final String description;
   final String phone;
@@ -29,6 +31,8 @@ class Business {
     required this.id,
     required this.businessName,
     required this.ownerUid,
+    this.ownerName = '',
+    this.ownerPhone = '',
     required this.location,
     required this.description,
     required this.phone,
@@ -54,6 +58,8 @@ class Business {
       id: doc.id,
       businessName: data['businessName'] ?? '',
       ownerUid: data['ownerUid'] ?? '',
+      ownerName: data['ownerName'] ?? '',
+      ownerPhone: data['ownerPhone'] ?? '',
       location: data['location'] ?? '',
       description: data['description'] ?? '',
       phone: data['phone'] ?? '',
@@ -76,6 +82,8 @@ class Business {
   Map<String, dynamic> toMap() => {
         'businessName': businessName,
         'ownerUid': ownerUid,
+        'ownerName': ownerName,
+        'ownerPhone': ownerPhone,
         'location': location,
         'description': description,
         'phone': phone,
@@ -95,6 +103,8 @@ class Business {
 
   Business copyWith({
     String? businessName,
+    String? ownerName,
+    String? ownerPhone,
     String? location,
     String? description,
     String? phone,
@@ -113,6 +123,8 @@ class Business {
         id: id,
         businessName: businessName ?? this.businessName,
         ownerUid: ownerUid,
+        ownerName: ownerName ?? this.ownerName,
+        ownerPhone: ownerPhone ?? this.ownerPhone,
         location: location ?? this.location,
         description: description ?? this.description,
         phone: phone ?? this.phone,

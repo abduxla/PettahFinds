@@ -200,7 +200,7 @@ class ProfileScreen extends ConsumerWidget {
                       _MenuItem(
                         icon: Icons.mail_outline_rounded,
                         label: 'Contact Us',
-                        onTap: () => context.go('/profile/support'),
+                        onTap: () => context.go('/profile/contact'),
                       ),
                     ],
                   ),

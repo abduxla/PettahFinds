@@ -74,6 +74,36 @@ Future<void> _runDeleteWithReauth(
 Future<bool> _runReauth(BuildContext context, WidgetRef ref) async {
   final service = ref.read(accountDeletionServiceProvider);
 
+  if (service.currentUserIsApple) {
+    final go = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm with Apple'),
+        content: const Text(
+            'Firebase needs you to sign in with Apple one more time to '
+            'confirm this destructive action. Continue?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Continue')),
+        ],
+      ),
+    );
+    if (go != true) return false;
+    if (!context.mounted) return false;
+    try {
+      await service.reauthenticateWithApple();
+      return true;
+    } catch (e) {
+      if (context.mounted) context.showErrorSnackBar(e);
+      return false;
+    }
+  }
+
   if (service.currentUserIsGoogle) {
     // Google flow: a single explainer dialog, then trigger the picker.
     final go = await showDialog<bool>(
