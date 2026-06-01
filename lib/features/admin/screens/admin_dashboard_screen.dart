@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/providers/providers.dart';
 import '../../../widgets/loading_widget.dart';
 import 'admin_onboard_business_screen.dart';
+import 'admin_reports_screen.dart' show AdminReportTile;
 
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
@@ -199,19 +200,14 @@ class AdminDashboardScreen extends ConsumerWidget {
                   ),
                 );
               }
+              // Reuse the same row widget as the Reports tab so the
+              // dashboard preview taps into the same admin review
+              // surfaces (product → /product/:id?mode=admin,
+              // business → /admin/businesses/review/:id) and shows
+              // resolved product / business names instead of UIDs.
               return Column(
                 children: recent
-                    .map((r) => Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: ListTile(
-                            leading: Icon(Icons.flag,
-                                color: r.status == 'pending'
-                                    ? theme.colorScheme.error
-                                    : theme.colorScheme.outline),
-                            title: Text(r.reason, maxLines: 1),
-                            subtitle: Text(r.status.toUpperCase()),
-                          ),
-                        ))
+                    .map((r) => AdminReportTile(report: r))
                     .toList(),
               );
             },
