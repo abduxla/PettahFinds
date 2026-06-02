@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/app_user.dart';
@@ -22,6 +23,24 @@ import '../../models/product.dart';
 import '../../models/product_review.dart';
 import '../../models/report.dart';
 import '../../models/review.dart';
+
+// --- Cache Extension ---
+extension AutoDisposeRefCache on Ref {
+  /// Keeps the provider alive for [duration] after the last listener unsubs.
+  /// Prevents massive Firestore re-reads when users quickly navigate between tabs.
+  void keepAliveFor(Duration duration) {
+    final link = keepAlive();
+    Timer? timer;
+
+    onDispose(() => timer?.cancel());
+
+    onCancel(() {
+      timer = Timer(duration, () => link.close());
+    });
+
+    onResume(() => timer?.cancel());
+  }
+}
 
 // --- Repositories ---
 final authRepositoryProvider = Provider((ref) => AuthRepository());
@@ -138,6 +157,7 @@ final customerVisibleProductsProvider =
 /// `productReviews` collection — see [ProductReviewRepository].
 final productReviewsProvider = StreamProvider.autoDispose
     .family<List<ProductReview>, String>((ref, productId) {
+  ref.keepAliveFor(const Duration(minutes: 5));
   if (productId.isEmpty) return Stream.value(const []);
   return ref
       .watch(productReviewRepositoryProvider)
@@ -169,6 +189,7 @@ final businessProductReviewsProvider = StreamProvider.autoDispose
 /// without leaking subscriptions when the review scrolls off.
 final productByIdProvider =
     FutureProvider.autoDispose.family<Product?, String>((ref, id) async {
+  ref.keepAliveFor(const Duration(minutes: 5));
   if (id.isEmpty) return null;
   try {
     return await ref.watch(productRepositoryProvider).getById(id);
@@ -218,6 +239,7 @@ final businessActiveProductsProvider =
 /// fetch the parent business for street-pin / counterparty display.
 final businessByIdProvider =
     FutureProvider.autoDispose.family<Business?, String>((ref, id) async {
+  ref.keepAliveFor(const Duration(minutes: 5));
   if (id.isEmpty) return null;
   try {
     return await ref.watch(businessRepositoryProvider).getById(id);
@@ -253,9 +275,20 @@ final allBusinessesProvider = StreamProvider<List<Business>>((ref) {
 
 /// Admin-only stream of every business, verified or not. The Firestore
 /// rule rejects non-admin readers when an unverified doc is in the
-/// result set, so this provider will surface a permission-denied error
-/// if accidentally watched from a non-admin context.
+/// result set, so this provider:
+///   1. ref.watches appUserProvider so it re-subscribes whenever the
+///      auth state flips (sign-out → sign-in within the same app
+///      session). Without this dependency the underlying Firestore
+///      subscription stays poisoned with the permission-denied error
+///      it hit during the brief unauthenticated window between the
+///      two events, and the admin dashboard kept showing "err" until
+///      a full app restart cleared the cache.
+///   2. Short-circuits to an empty stream when the viewer isn't an
+///      admin, so a non-admin can't even trigger the permission-
+///      denied that poisons the cache.
 final allBusinessesAdminProvider = StreamProvider<List<Business>>((ref) {
+  final me = ref.watch(appUserProvider).valueOrNull;
+  if (me == null || !me.isAdmin) return Stream.value(const []);
   return ref
       .watch(businessRepositoryProvider)
       .streamAllIncludingPending();
@@ -263,12 +296,20 @@ final allBusinessesAdminProvider = StreamProvider<List<Business>>((ref) {
 
 /// Admin-only stream of businesses awaiting review (isVerified == false).
 /// Drives the Pending tab in the admin Businesses screen and the
-/// "pending review" count on the dashboard.
+/// "pending review" count on the dashboard. Same auth-flip rationale
+/// as [allBusinessesAdminProvider] above.
 final pendingBusinessesProvider = StreamProvider<List<Business>>((ref) {
+  final me = ref.watch(appUserProvider).valueOrNull;
+  if (me == null || !me.isAdmin) return Stream.value(const []);
   return ref.watch(businessRepositoryProvider).streamPending();
 });
 
+/// Admin-only feed of every user-submitted report. Gated on
+/// appUserProvider for the same re-subscribe-on-auth-flip reason as
+/// the business admin streams above.
 final allReportsProvider = StreamProvider<List<Report>>((ref) {
+  final me = ref.watch(appUserProvider).valueOrNull;
+  if (me == null || !me.isAdmin) return Stream.value(const []);
   return ref.watch(reportRepositoryProvider).streamAll();
 });
 
@@ -292,6 +333,7 @@ final searchSortProvider =
 /// a fresh provider per `build()`.
 final businessesByCategoryProvider = StreamProvider.autoDispose
     .family<List<Business>, String>((ref, category) {
+  ref.keepAliveFor(const Duration(minutes: 5));
   if (category.isEmpty) return Stream.value(const []);
   return ref.watch(businessRepositoryProvider).streamByCategory(category);
 });
@@ -301,6 +343,7 @@ final businessesByCategoryProvider = StreamProvider.autoDispose
 /// [customerVisibleProductsByCategoryProvider] instead.
 final productsByCategoryProvider = StreamProvider.autoDispose
     .family<List<Product>, String>((ref, category) {
+  ref.keepAliveFor(const Duration(minutes: 5));
   if (category.isEmpty) return Stream.value(const []);
   return ref.watch(productRepositoryProvider).streamByCategory(category);
 });
@@ -309,6 +352,7 @@ final productsByCategoryProvider = StreamProvider.autoDispose
 /// verified-business join as [customerVisibleProductsProvider].
 final customerVisibleProductsByCategoryProvider = Provider.autoDispose
     .family<AsyncValue<List<Product>>, String>((ref, category) {
+  ref.keepAliveFor(const Duration(minutes: 5));
   if (category.isEmpty) return const AsyncValue.data(<Product>[]);
   final products = ref.watch(productsByCategoryProvider(category));
   final businesses = ref.watch(allBusinessesProvider);
