@@ -11,6 +11,7 @@ import '../../repositories/product_review_repository.dart';
 import '../../repositories/favorite_repository.dart';
 import '../../repositories/report_repository.dart';
 import '../../repositories/notification_repository.dart';
+import '../../repositories/block_repository.dart';
 import '../../services/account_deletion_service.dart';
 import '../../services/chat_service.dart';
 import '../../services/storage_service.dart';
@@ -54,6 +55,7 @@ final favoriteRepositoryProvider = Provider((ref) => FavoriteRepository());
 final reportRepositoryProvider = Provider((ref) => ReportRepository());
 final notificationRepositoryProvider =
     Provider((ref) => NotificationRepository());
+final blockRepositoryProvider = Provider((ref) => BlockRepository());
 
 // --- Services ---
 final storageServiceProvider = Provider((ref) => StorageService());
@@ -396,6 +398,16 @@ final recentlyViewedProductsProvider =
 // --- Auth State ---
 final authStateProvider = StreamProvider<User?>((ref) {
   return ref.watch(authRepositoryProvider).authStateChanges;
+});
+
+/// Live set of UIDs the signed-in user has blocked. Customer/seller
+/// chat lists, review lists, and any UGC feed subtract this set so a
+/// blocked user's content disappears the instant they're blocked
+/// (App Store Guideline 1.2). Empty for guests.
+final blockedUidsProvider = StreamProvider<Set<String>>((ref) {
+  final uid = ref.watch(authStateProvider).valueOrNull?.uid;
+  if (uid == null || uid.isEmpty) return Stream.value(const <String>{});
+  return ref.watch(blockRepositoryProvider).streamBlockedUids(uid);
 });
 
 /// True while an OAuth sign-up flow is mid-handshake — the moment we

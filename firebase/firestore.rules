@@ -458,6 +458,33 @@ service cloud.firestore {
       }
     }
 
+    // ---------- Blocks (App Store Guideline 1.2 user safety) ----------
+    // One doc per (blocker, blocked) pair, id = "${blockerUid}_${blockedUid}".
+    // A user may only create, read, and delete their OWN block records
+    // (where they are the blocker). This powers the blockedUidsProvider
+    // stream that filters a blocked user's content out of the blocker's
+    // feed instantly.
+    match /blocks/{blockId} {
+      // Read is used by the query where('blockerUid', '==', auth.uid),
+      // so each returned doc must belong to the caller.
+      allow read: if isSignedIn()
+                  && resource.data.blockerUid == request.auth.uid;
+
+      // Create your own block. Caller must stamp themselves as the
+      // blocker and cannot block themselves.
+      allow create: if isSignedIn()
+                    && request.resource.data.blockerUid == request.auth.uid
+                    && request.resource.data.blockedUid is string
+                    && request.resource.data.blockedUid != request.auth.uid;
+
+      // No edits — a block is created or deleted, never mutated.
+      allow update: if false;
+
+      // Unblock — only the blocker may remove their own block.
+      allow delete: if isSignedIn()
+                    && resource.data.blockerUid == request.auth.uid;
+    }
+
     // ---------- Notifications ----------
     match /notifications/{notificationId} {
       // Users can only read their own notifications.

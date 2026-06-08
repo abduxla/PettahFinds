@@ -653,7 +653,13 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
             // Reviews list
             reviewsAsync.when(
               data: (liveReviews) {
-                final reviews = [...liveReviews, ..._olderReviews];
+                // Hide reviews from blocked users (Guideline 1.2).
+                final blocked =
+                    ref.watch(blockedUidsProvider).valueOrNull ??
+                        const <String>{};
+                final reviews = [...liveReviews, ..._olderReviews]
+                    .where((r) => !blocked.contains(r.userId))
+                    .toList();
                 return reviews.isEmpty
                   ? SliverToBoxAdapter(
                       child: Padding(

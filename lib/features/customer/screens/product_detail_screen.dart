@@ -15,6 +15,7 @@ import '../../../utils/price_format.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
+import '../../../widgets/block_user_sheet.dart';
 import '../../../widgets/sign_in_required.dart';
 
 final _productDetailProvider =
@@ -1538,7 +1539,15 @@ class _ProductReviewsSectionState
 
         // Reviews list (newest 100 via the live stream).
         reviewsAsync.when(
-          data: (reviews) {
+          data: (allReviews) {
+            // Hide reviews from users the viewer has blocked (App Store
+            // Guideline 1.2 — blocked content removed from the feed
+            // instantly across surfaces, not just chat).
+            final blocked = ref.watch(blockedUidsProvider).valueOrNull ??
+                const <String>{};
+            final reviews = allReviews
+                .where((r) => !blocked.contains(r.userId))
+                .toList();
             if (reviews.isEmpty) {
               // Two empty states depending on auth:
               //   - signed-out: prompt the visitor to sign in so they
@@ -1583,12 +1592,16 @@ class _ProductReviewsSectionState
   }
 }
 
-class _ProductReviewTile extends StatelessWidget {
+class _ProductReviewTile extends ConsumerWidget {
   final ProductReview review;
   const _ProductReviewTile({required this.review});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final me = ref.watch(appUserProvider).valueOrNull;
+    // Show the safety menu only to a signed-in viewer who isn't the
+    // review's author (you can't block yourself).
+    final canModerate = me != null && me.uid != review.userId;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -1632,6 +1645,42 @@ class _ProductReviewTile extends StatelessWidget {
                   color: Colors.amber[800],
                 ),
               ),
+              const Spacer(),
+              // Block & report the reviewer (App Store Guideline 1.2).
+              if (canModerate)
+                SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: PopupMenuButton<String>(
+                    padding: EdgeInsets.zero,
+                    icon: const Icon(Icons.more_horiz_rounded,
+                        size: 18, color: AppColors.text4),
+                    onSelected: (value) {
+                      if (value == 'block') {
+                        showBlockUserDialog(
+                          context,
+                          ref,
+                          blockedUid: review.userId,
+                          context_: 'Product review ${review.id}',
+                        );
+                      }
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(
+                        value: 'block',
+                        child: Row(
+                          children: [
+                            Icon(Icons.block_rounded,
+                                color: AppColors.red, size: 18),
+                            SizedBox(width: 8),
+                            Text('Block & Report',
+                                style: TextStyle(color: AppColors.red)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
           if (review.comment.isNotEmpty) ...[

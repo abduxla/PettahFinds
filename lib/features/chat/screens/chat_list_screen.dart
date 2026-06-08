@@ -163,10 +163,17 @@ class _CustomerListState extends ConsumerState<_CustomerList> {
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(customerConversationsProvider(widget.uid));
+    // Blocked-user filter (App Store Guideline 1.2): drop threads whose
+    // other party (the seller) the viewer has blocked. The set updates
+    // live, so a blocked thread vanishes from the inbox instantly.
+    final blocked =
+        ref.watch(blockedUidsProvider).valueOrNull ?? const <String>{};
     return async.when(
       data: (items) {
         _watchdog?.cancel();
-        return _renderList(context, items, viewerIsSeller: false);
+        final visible =
+            items.where((c) => !blocked.contains(c.sellerId)).toList();
+        return _renderList(context, visible, viewerIsSeller: false);
       },
       loading: () => _stuck
           ? _StuckRetry(
@@ -222,10 +229,16 @@ class _SellerListState extends ConsumerState<_SellerList> {
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(sellerConversationsProvider(widget.uid));
+    // Blocked-user filter (App Store Guideline 1.2): drop threads whose
+    // other party (the customer) the viewer has blocked.
+    final blocked =
+        ref.watch(blockedUidsProvider).valueOrNull ?? const <String>{};
     return async.when(
       data: (items) {
         _watchdog?.cancel();
-        return _renderList(context, items, viewerIsSeller: true);
+        final visible =
+            items.where((c) => !blocked.contains(c.customerId)).toList();
+        return _renderList(context, visible, viewerIsSeller: true);
       },
       loading: () => _stuck
           ? _StuckRetry(

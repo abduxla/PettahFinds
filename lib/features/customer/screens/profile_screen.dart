@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../models/app_user.dart';
 import '../../../widgets/delete_account_dialog.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/sign_in_required.dart';
@@ -188,6 +191,20 @@ class ProfileScreen extends ConsumerWidget {
 
                   const SizedBox(height: 18),
 
+                  // ---- PRIVACY & SAFETY ----
+                  _SectionCard(
+                    label: 'PRIVACY & SAFETY',
+                    items: [
+                      _MenuItem(
+                        icon: Icons.block_rounded,
+                        label: 'Blocked Users',
+                        onTap: () => context.go('/profile/blocked'),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 18),
+
                   // ---- SUPPORT ----
                   _SectionCard(
                     label: 'SUPPORT',
@@ -276,63 +293,193 @@ class ProfileScreen extends ConsumerWidget {
 // =========================================================================
 // Profile Header — Avatar with edit badge + name + location
 // =========================================================================
-class _ProfileHeader extends StatelessWidget {
-  final dynamic appUser;
+class _ProfileHeader extends ConsumerStatefulWidget {
+  final AppUser appUser;
   const _ProfileHeader({required this.appUser});
 
   @override
+  ConsumerState<_ProfileHeader> createState() => _ProfileHeaderState();
+}
+
+class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
+  bool _uploading = false;
+
+  AppUser get appUser => widget.appUser;
+
+  /// Tapping the avatar / camera badge opens a chooser, picks a photo,
+  /// uploads it to Storage, and writes the URL back onto the user doc.
+  ///
+  /// This was the App Review 2.1(a) rejection: the camera badge was a
+  /// decorative icon with NO tap handler, so on iPad it looked like a
+  /// button but did nothing ("camera button is unresponsive"). It is
+  /// now a working profile-photo picker.
+  Future<void> _changePhoto() async {
+    if (_uploading) return;
+
+    // Source chooser. showModalBottomSheet presents correctly on both
+    // iPhone and iPad (the reviewer hit this on an iPad Air), and the
+    // image_picker plugin internally anchors the native gallery/camera
+    // UI, so no manual popover sourceRect is needed.
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.black.withAlpha(28),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_rounded,
+                  color: AppColors.teal),
+              title: Text('Take Photo',
+                  style: GoogleFonts.dmSans(fontWeight: FontWeight.w600)),
+              onTap: () => Navigator.of(sheetCtx).pop(ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded,
+                  color: AppColors.teal),
+              title: Text('Choose from Library',
+                  style: GoogleFonts.dmSans(fontWeight: FontWeight.w600)),
+              onTap: () => Navigator.of(sheetCtx).pop(ImageSource.gallery),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+    if (source == null) return; // sheet dismissed
+
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: source,
+        imageQuality: 70,
+        maxWidth: 512,
+        maxHeight: 512,
+      );
+      if (picked == null) return; // user cancelled the camera/library
+      if (!mounted) return;
+
+      setState(() => _uploading = true);
+
+      final bytes = await picked.readAsBytes();
+      final storage = ref.read(storageServiceProvider);
+      final repo = ref.read(authRepositoryProvider);
+
+      // Overwrite a single deterministic path so we don't accumulate
+      // orphaned avatars in Storage on every change. Path is under
+      // users/{uid}/ to match the existing Storage rule that allows
+      // a signed-in user to write their own profile photos.
+      final url = await storage.uploadBytes(
+        path: 'users/${appUser.uid}/avatar.jpg',
+        bytes: bytes,
+        contentType: 'image/jpeg',
+      );
+
+      await repo.updateUser(appUser.copyWith(photoUrl: url));
+      // Refresh so the new avatar shows immediately.
+      ref.invalidate(appUserProvider);
+
+      if (mounted) {
+        context.showSuccessSnackBar('Profile photo updated');
+      }
+    } catch (e) {
+      if (mounted) context.showErrorSnackBar(e);
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final hasPhoto =
+        appUser.photoUrl != null && appUser.photoUrl!.isNotEmpty;
     return Column(
       children: [
-        // Avatar with edit badge
-        Stack(
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                    color: AppColors.teal.withAlpha(40), width: 3),
-              ),
-              child: CircleAvatar(
-                radius: 48,
-                backgroundColor: AppColors.tealLight,
-                backgroundImage: appUser.photoUrl != null &&
-                        appUser.photoUrl!.isNotEmpty
-                    ? NetworkImage(appUser.photoUrl!)
-                    : null,
-                child: (appUser.photoUrl == null ||
-                        appUser.photoUrl!.isEmpty)
-                    ? Text(
-                        appUser.displayName.isNotEmpty
-                            ? appUser.displayName[0].toUpperCase()
-                            : '?',
-                        style: GoogleFonts.nunito(
-                          fontSize: 36,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.teal,
-                        ))
-                    : null,
-              ),
-            ),
-            Positioned(
-              bottom: 2,
-              right: 2,
-              child: Container(
-                width: 28,
-                height: 28,
+        // Tappable avatar with camera badge.
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _uploading ? null : _changePhoto,
+          child: Stack(
+            children: [
+              Container(
                 decoration: BoxDecoration(
-                  color: AppColors.teal,
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.bgSection, width: 2.5),
+                  border: Border.all(
+                      color: AppColors.teal.withAlpha(40), width: 3),
                 ),
-                child: const Icon(
-                  Icons.camera_alt_rounded,
-                  color: Colors.white,
-                  size: 14,
+                child: CircleAvatar(
+                  radius: 48,
+                  backgroundColor: AppColors.tealLight,
+                  backgroundImage:
+                      hasPhoto ? NetworkImage(appUser.photoUrl!) : null,
+                  child: !hasPhoto
+                      ? Text(
+                          appUser.displayName.isNotEmpty
+                              ? appUser.displayName[0].toUpperCase()
+                              : '?',
+                          style: GoogleFonts.nunito(
+                            fontSize: 36,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.teal,
+                          ))
+                      : null,
                 ),
               ),
-            ),
-          ],
+              // Spinner overlay while uploading.
+              if (_uploading)
+                Positioned.fill(
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.black38,
+                    ),
+                    child: const Center(
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2.5, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+              Positioned(
+                bottom: 2,
+                right: 2,
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: AppColors.teal,
+                    shape: BoxShape.circle,
+                    border:
+                        Border.all(color: AppColors.bgSection, width: 2.5),
+                  ),
+                  child: const Icon(
+                    Icons.camera_alt_rounded,
+                    color: Colors.white,
+                    size: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
 
         const SizedBox(height: 14),

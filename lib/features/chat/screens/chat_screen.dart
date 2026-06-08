@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../widgets/block_user_sheet.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../widgets/message_bubble.dart';
@@ -109,6 +110,64 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           loading: () => Text('Chat', style: _titleStyle()),
           error: (_, _) => Text('Chat', style: _titleStyle()),
         ),
+        actions: [
+          // Safety menu (App Store Guideline 1.2). Lets the viewer
+          // block + report the OTHER party in this thread. Blocking
+          // removes the thread from the inbox instantly and files a
+          // report so the team is notified.
+          convAsync.maybeWhen(
+            data: (c) {
+              if (c == null || appUser == null) {
+                return const SizedBox.shrink();
+              }
+              final viewerIsSeller = appUser.uid == c.sellerId;
+              final otherUid =
+                  viewerIsSeller ? c.customerId : c.sellerId;
+              final otherName = viewerIsSeller
+                  ? (c.customerName.isNotEmpty ? c.customerName : 'Customer')
+                  : (c.businessName.isNotEmpty ? c.businessName : 'Business');
+              if (otherUid.isEmpty || otherUid == appUser.uid) {
+                return const SizedBox.shrink();
+              }
+              return PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert_rounded,
+                    color: AppColors.text1),
+                onSelected: (value) async {
+                  if (value == 'block') {
+                    final blocked = await showBlockUserDialog(
+                      context,
+                      ref,
+                      blockedUid: otherUid,
+                      blockedName: otherName,
+                      context_: 'Chat thread ${widget.conversationId}',
+                    );
+                    if (blocked && context.mounted) {
+                      // Leave the thread — it's now filtered from the inbox.
+                      context.canPop()
+                          ? context.pop()
+                          : context.go('/chat');
+                    }
+                  }
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: 'block',
+                    child: Row(
+                      children: [
+                        Icon(Icons.block_rounded,
+                            color: AppColors.red, size: 18),
+                        SizedBox(width: 8),
+                        Text('Block & Report',
+                            style: TextStyle(color: AppColors.red)),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+            orElse: () => const SizedBox.shrink(),
+          ),
+        ],
       ),
       body: SafeArea(
         top: false,

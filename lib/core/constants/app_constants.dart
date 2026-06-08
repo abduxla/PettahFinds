@@ -12,6 +12,7 @@ abstract class AppConstants {
   static const String favoritesCollection = 'favorites';
   static const String reportsCollection = 'reports';
   static const String notificationsCollection = 'notifications';
+  static const String blocksCollection = 'blocks';
 
   // Roles
   static const String roleUser = 'user';
