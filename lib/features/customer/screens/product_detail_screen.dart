@@ -1071,6 +1071,11 @@ void _openReportSheet(BuildContext context, WidgetRef ref, String productId) {
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    // CRITICAL: present on the ROOT navigator so the sheet sits ABOVE
+    // the customer shell's floating bottom nav. Without this the sheet
+    // mounts inside the shell navigator and the nav bar renders on top,
+    // hiding the Submit Report button behind it.
+    useRootNavigator: true,
     backgroundColor: AppColors.white,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -1152,9 +1157,14 @@ class _ReportProductSheetState extends ConsumerState<_ReportProductSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final inset = MediaQuery.of(context).viewInsets.bottom;
+    // viewInsets.bottom = keyboard height (push content up when typing).
+    // viewPadding.bottom = the home-indicator safe area so the Submit
+    // button never sits under the gesture bar on a notched device.
+    final mq = MediaQuery.of(context);
+    final inset = mq.viewInsets.bottom;
+    final safe = mq.viewPadding.bottom;
     return Padding(
-      padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + inset),
+      padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + inset + safe),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
