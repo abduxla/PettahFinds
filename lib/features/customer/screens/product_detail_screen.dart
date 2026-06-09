@@ -1667,11 +1667,16 @@ class _ProductReviewTile extends ConsumerWidget {
                         size: 18, color: AppColors.text4),
                     onSelected: (value) {
                       if (value == 'block') {
+                        final comment = review.comment.trim().isNotEmpty
+                            ? review.comment.trim()
+                            : '(no text)';
                         showBlockUserDialog(
                           context,
                           ref,
                           blockedUid: review.userId,
-                          context_: 'Product review ${review.id}',
+                          context_:
+                              'Blocked from a ${review.rating.toStringAsFixed(0)}-star '
+                              'product review. Review text: "$comment"',
                         );
                       }
                     },

@@ -134,12 +134,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     color: AppColors.text1),
                 onSelected: (value) async {
                   if (value == 'block') {
+                    // Human-readable moderation context for the admin
+                    // Reports screen: which chat, the product it's about,
+                    // and the last message — so the team can review WHY
+                    // the block happened, not just see a raw thread id.
+                    final lastMsg = c.lastMessage.trim().isNotEmpty
+                        ? c.lastMessage.trim()
+                        : '(no messages yet)';
+                    final product = c.productTitle.trim().isNotEmpty
+                        ? c.productTitle.trim()
+                        : 'a product';
                     final blocked = await showBlockUserDialog(
                       context,
                       ref,
                       blockedUid: otherUid,
                       blockedName: otherName,
-                      context_: 'Chat thread ${widget.conversationId}',
+                      context_:
+                          'Blocked from a chat about "$product". '
+                          'Last message: "$lastMsg"',
                     );
                     if (blocked && context.mounted) {
                       // Leave the thread — it's now filtered from the inbox.

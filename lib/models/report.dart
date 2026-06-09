@@ -2,10 +2,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Report {
   final String id;
+  /// The user who FILED the report (the reporter / blocker).
   final String userId;
   final String? businessId;
   final String? productId;
-  final String? targetType; // 'product' | 'business'
+  /// For `targetType == 'user'` reports (e.g. a block), the uid of the
+  /// user who was reported / blocked. Lets the admin moderation screen
+  /// resolve who-blocked-whom and review the context.
+  final String? reportedUserId;
+  final String? targetType; // 'product' | 'business' | 'user'
   final String reason;
   final String? details;
   final String status; // 'pending', 'reviewed', 'resolved'
@@ -16,6 +21,7 @@ class Report {
     required this.userId,
     this.businessId,
     this.productId,
+    this.reportedUserId,
     this.targetType,
     required this.reason,
     this.details,
@@ -30,6 +36,7 @@ class Report {
       userId: data['userId'] ?? '',
       businessId: data['businessId'],
       productId: data['productId'],
+      reportedUserId: data['reportedUserId'],
       targetType: data['targetType'],
       reason: data['reason'] ?? '',
       details: data['details'],
@@ -43,6 +50,7 @@ class Report {
         'userId': userId,
         'businessId': businessId,
         'productId': productId,
+        'reportedUserId': reportedUserId,
         'targetType': targetType,
         'reason': reason,
         'details': details,
