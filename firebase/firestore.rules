@@ -362,15 +362,27 @@ service cloud.firestore {
 
       // `details` is user-supplied free text — cap to keep a single report
       // from blowing up storage / read cost.
+      //
+      // NOTE: each optional-field clause must also allow `== null`.
+      // The client writes `details: null` (and `reason: null`) when the
+      // user submits a report without a note. In Firestore rules a null
+      // field still counts as present (`'details' in keys()` is true),
+      // but `null is string` is false — so without the explicit null
+      // allowance the rule rejected every no-note report with
+      // "caller does not have permission." Reports with a note passed
+      // because the value was a string. Adding `== null` fixes the
+      // no-note path.
       allow create: if isSignedIn()
                     && request.resource.data.userId == request.auth.uid
                     && (
                       !('details' in request.resource.data.keys())
+                      || request.resource.data.details == null
                       || (request.resource.data.details is string
                           && request.resource.data.details.size() <= 2000)
                     )
                     && (
                       !('reason' in request.resource.data.keys())
+                      || request.resource.data.reason == null
                       || (request.resource.data.reason is string
                           && request.resource.data.reason.size() <= 200)
                     );
