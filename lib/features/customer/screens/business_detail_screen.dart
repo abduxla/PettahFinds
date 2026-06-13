@@ -59,6 +59,19 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
   bool _moreExhausted = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Engagement: count a shop profile view, skipping the owner's own
+    // visits (AppUser.businessId matches the shop being viewed).
+    final appUser = ref.read(appUserProvider).valueOrNull;
+    if (appUser?.businessId != widget.businessId) {
+      ref
+          .read(analyticsRepositoryProvider)
+          .recordProfileView(widget.businessId);
+    }
+  }
+
+  @override
   void dispose() {
     _commentCtrl.dispose();
     super.dispose();

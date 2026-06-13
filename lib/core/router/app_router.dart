@@ -38,6 +38,7 @@ import '../../features/business/screens/business_settings_screen.dart';
 import '../../features/business/screens/business_pending_screen.dart';
 import '../../features/business/screens/business_reviews_screen.dart';
 import '../../features/business/screens/membership_level_screen.dart';
+import '../../features/business/screens/business_analytics_screen.dart';
 import '../../features/admin/screens/admin_shell.dart';
 import '../../features/admin/screens/admin_dashboard_screen.dart';
 import '../../features/admin/screens/admin_businesses_screen.dart';
@@ -353,6 +354,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/business-membership',
         builder: (_, __) => const MembershipLevelScreen(),
+      ),
+
+      // Seller analytics — gated inside the screen to Prime/Elite.
+      GoRoute(
+        path: '/business-analytics',
+        builder: (_, __) => const BusinessAnalyticsScreen(),
       ),
 
       // --- Chat (top-level so it can be opened from any shell) ---

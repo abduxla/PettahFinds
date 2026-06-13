@@ -12,6 +12,8 @@ import '../../repositories/favorite_repository.dart';
 import '../../repositories/report_repository.dart';
 import '../../repositories/notification_repository.dart';
 import '../../repositories/block_repository.dart';
+import '../../repositories/analytics_repository.dart';
+import '../../models/business_stats.dart';
 import '../../services/account_deletion_service.dart';
 import '../../services/chat_service.dart';
 import '../../services/storage_service.dart';
@@ -56,6 +58,13 @@ final reportRepositoryProvider = Provider((ref) => ReportRepository());
 final notificationRepositoryProvider =
     Provider((ref) => NotificationRepository());
 final blockRepositoryProvider = Provider((ref) => BlockRepository());
+final analyticsRepositoryProvider = Provider((ref) => AnalyticsRepository());
+
+/// Live engagement totals for a business (seller analytics screen).
+final businessStatsProvider =
+    StreamProvider.family<BusinessStats, String>((ref, businessId) {
+  return ref.watch(analyticsRepositoryProvider).streamStats(businessId);
+});
 
 // --- Services ---
 final storageServiceProvider = Provider((ref) => StorageService());

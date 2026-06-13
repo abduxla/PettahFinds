@@ -112,7 +112,6 @@ enum BusinessTier {
           'Up to 20 active listings',
           'Priority placement in your category',
           'Spotlight badge on your shop',
-          'Basic performance insights',
         ];
       case BusinessTier.prime:
         return const [

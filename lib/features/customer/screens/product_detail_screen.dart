@@ -76,6 +76,14 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
           .read(productRepositoryProvider)
           .getById(widget.productId);
       if (!mounted) return;
+      // Engagement: count a product view, skipping the shop's own owner
+      // (AppUser.businessId matches the product's seller).
+      final appUser = ref.read(appUserProvider).valueOrNull;
+      if (appUser?.businessId != product.businessId) {
+        ref
+            .read(analyticsRepositoryProvider)
+            .recordProductView(product.businessId);
+      }
       await ref
           .read(interestServiceProvider)
           .recordCategoryInterest(product.category);
@@ -972,6 +980,8 @@ class _ChatSellerButtonState extends ConsumerState<_ChatSellerButton> {
             // can show "Alice" instead of the product title.
             customerName: appUser.displayName,
           );
+      // Engagement: count the seller's chat (best-effort, fire-and-forget).
+      ref.read(analyticsRepositoryProvider).recordChatStarted(widget.business.id);
       if (!context.mounted) return;
       // PUSH not GO so the user pops back to the product detail
       // (where they tapped Chat Seller) instead of being dumped on

@@ -393,6 +393,24 @@ service cloud.firestore {
                     || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
 
+    // ---------- Business engagement stats (analytics) ----------
+    match /business_stats/{businessId} {
+      // Only the owning business (or an admin) may read its numbers.
+      allow read: if isAdmin() || ownsBusiness(businessId);
+
+      // Any signed-in user may bump the engagement counters (best-effort
+      // view/chat/save tracking). Restricted to the known counter fields so
+      // the doc can't be repurposed. These are vanity metrics, never used
+      // for placement, so the relaxed bound is acceptable — proper bounded
+      // aggregation would move to a Cloud Function later.
+      allow create, update: if isSignedIn()
+                            && request.resource.data.keys().hasOnly(
+                                 ['profileViews', 'productViews',
+                                  'chatsStarted', 'saves', 'updatedAt']);
+
+      allow delete: if isAdmin();
+    }
+
     // ---------- Conversations (in-app chat) ----------
     match /conversations/{conversationId} {
       // Only the customer or the seller listed on the doc can read/update.
