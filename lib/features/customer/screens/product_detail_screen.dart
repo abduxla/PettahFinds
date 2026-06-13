@@ -17,6 +17,7 @@ import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/block_user_sheet.dart';
 import '../../../widgets/sign_in_required.dart';
+import '../../../widgets/tier_badge.dart';
 
 final _productDetailProvider =
     FutureProvider.autoDispose.family<Product, String>((ref, id) async {
@@ -647,7 +648,11 @@ class _SellerCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      // VERIFIED BADGE — shown only on business own profile per spec.
+                      // Membership level badge (nothing for Listed).
+                      if (business.effectiveTier.hasBadge) ...[
+                        const SizedBox(width: 6),
+                        TierBadge(tier: business.effectiveTier),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 2),

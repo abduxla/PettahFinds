@@ -57,7 +57,33 @@ class ManageProductsScreen extends ConsumerWidget {
                 )),
           ),
           floatingActionButton: FloatingActionButton.extended(
-            onPressed: () => context.go('/business/products/add'),
+            onPressed: () {
+              final tier = business.effectiveTier;
+              final active = (productsAsync.valueOrNull ?? const <Product>[])
+                  .where((p) => p.isActive)
+                  .length;
+              if (active >= tier.listingCap) {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Listing limit reached'),
+                    content: Text(
+                      'Your ${tier.label} level includes up to '
+                      '${tier.listingCap} active listings. Deactivate or '
+                      'remove a product to add a new one.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('OK'),
+                      ),
+                    ],
+                  ),
+                );
+                return;
+              }
+              context.go('/business/products/add');
+            },
             icon: const Icon(Icons.add_rounded),
             label: const Text('Add Product'),
             backgroundColor: AppColors.teal,

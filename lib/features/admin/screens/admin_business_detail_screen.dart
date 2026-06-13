@@ -7,11 +7,13 @@ import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/business.dart';
+import '../../../models/business_tier.dart';
 import '../../../models/product.dart';
 import '../../../utils/price_format.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/loading_widget.dart';
+import '../../../widgets/tier_badge.dart';
 
 /// Admin moderation surface for a single business.
 ///
@@ -131,6 +133,7 @@ class _AdminBusinessDetailBody extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(0, 0, 0, 120),
         children: [
           _HeaderCard(business: business),
+          _MembershipCard(business: business),
           _DetailsCard(business: business, owner: ownerAsync.valueOrNull),
           _ProductsSection(
             businessId: business.id,
@@ -263,6 +266,282 @@ class _HeaderCard extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// =========================================================================
+// Membership level — assign a tier + expiry (admin-only at rules layer)
+// =========================================================================
+class _MembershipCard extends ConsumerStatefulWidget {
+  final Business business;
+  const _MembershipCard({required this.business});
+
+  @override
+  ConsumerState<_MembershipCard> createState() => _MembershipCardState();
+}
+
+class _MembershipCardState extends ConsumerState<_MembershipCard> {
+  late BusinessTier _selected;
+  DateTime? _validUntil;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.business.assignedTier;
+    _validUntil = widget.business.tierValidUntil;
+  }
+
+  bool get _dirty =>
+      _selected != widget.business.assignedTier ||
+      _validUntil != widget.business.tierValidUntil;
+
+  /// Last day of the current month, end of day — the default lapse date so
+  /// an unpaid month rolls the business back to Listed.
+  DateTime _defaultValidUntil() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month + 1, 0, 23, 59);
+  }
+
+  String _fmt(DateTime d) =>
+      MaterialLocalizations.of(context).formatShortDate(d);
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _validUntil ?? _defaultValidUntil(),
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: DateTime(now.year + 2),
+    );
+    if (picked != null) {
+      setState(() =>
+          _validUntil = DateTime(picked.year, picked.month, picked.day, 23, 59));
+    }
+  }
+
+  Future<void> _save() async {
+    final validUntil =
+        _selected.isPaid ? (_validUntil ?? _defaultValidUntil()) : null;
+    setState(() => _busy = true);
+    try {
+      await ref.read(businessRepositoryProvider).setTier(
+            widget.business.id,
+            _selected,
+            validUntil: validUntil,
+          );
+      ref.invalidate(businessByIdProvider(widget.business.id));
+      ref.invalidate(allBusinessesAdminProvider);
+      if (mounted) {
+        context.showSuccessSnackBar(_selected.isPaid
+            ? '${widget.business.businessName} → ${_selected.label} until ${_fmt(validUntil!)}'
+            : '${widget.business.businessName} reset to Listed');
+        setState(() => _validUntil = validUntil);
+      }
+    } catch (e) {
+      if (mounted) context.showErrorSnackBar(e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final b = widget.business;
+    final effective = b.effectiveTier;
+    final assigned = b.assignedTier;
+    final expired = assigned.isPaid && effective != assigned;
+
+    final statusLine = expired
+        ? 'Assigned ${assigned.label} — expired, now showing as Listed'
+        : (effective.isPaid && b.tierValidUntil != null)
+            ? 'Active until ${_fmt(b.tierValidUntil!)}'
+            : 'Free floor level';
+
+    return Container(
+      color: AppColors.white,
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'Membership level',
+                style: GoogleFonts.nunito(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.text1,
+                ),
+              ),
+              const Spacer(),
+              TierBadge(tier: effective),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            statusLine,
+            style: GoogleFonts.dmSans(
+              fontSize: 12,
+              color: expired ? AppColors.orange : AppColors.text3,
+              fontWeight: expired ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          // Level selector
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final t in BusinessTier.values)
+                _LevelChip(
+                  tier: t,
+                  selected: _selected == t,
+                  onTap: () => setState(() {
+                    _selected = t;
+                    if (t.isPaid && _validUntil == null) {
+                      _validUntil = _defaultValidUntil();
+                    }
+                  }),
+                ),
+            ],
+          ),
+
+          // Perks of the selected level
+          const SizedBox(height: 14),
+          for (final perk in _selected.perks)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.check_circle,
+                      size: 15, color: _selected.badgeColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(perk,
+                        style: GoogleFonts.dmSans(
+                          fontSize: 13,
+                          color: AppColors.text2,
+                        )),
+                  ),
+                ],
+              ),
+            ),
+
+          // Expiry (paid levels only)
+          if (_selected.isPaid) ...[
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: _pickDate,
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.bgSection,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.event_outlined,
+                        size: 18, color: AppColors.text3),
+                    const SizedBox(width: 10),
+                    Text('Valid until',
+                        style: GoogleFonts.dmSans(
+                          fontSize: 13,
+                          color: AppColors.text2,
+                          fontWeight: FontWeight.w600,
+                        )),
+                    const Spacer(),
+                    Text(
+                      _validUntil != null ? _fmt(_validUntil!) : 'Pick a date',
+                      style: GoogleFonts.dmSans(
+                        fontSize: 13,
+                        color: AppColors.text1,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.chevron_right, size: 18, color: AppColors.text3),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'When this date passes, perks revert to Listed automatically.',
+              style: GoogleFonts.dmSans(fontSize: 11.5, color: AppColors.text3),
+            ),
+          ],
+
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: FilledButton(
+              onPressed: (_dirty && !_busy) ? _save : null,
+              child: _busy
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2.2, color: Colors.white))
+                  : const Text('Save level'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LevelChip extends StatelessWidget {
+  final BusinessTier tier;
+  final bool selected;
+  final VoidCallback onTap;
+  const _LevelChip({
+    required this.tier,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = tier.badgeColor;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? color.withValues(alpha: 0.12) : AppColors.bgSection,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? color : AppColors.border,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(tier.badgeIcon,
+                size: 15, color: selected ? color : AppColors.text3),
+            const SizedBox(width: 6),
+            Text(
+              tier.label,
+              style: GoogleFonts.dmSans(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: selected ? color : AppColors.text2,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

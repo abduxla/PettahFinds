@@ -37,6 +37,7 @@ import '../../features/business/screens/edit_business_profile_screen.dart';
 import '../../features/business/screens/business_settings_screen.dart';
 import '../../features/business/screens/business_pending_screen.dart';
 import '../../features/business/screens/business_reviews_screen.dart';
+import '../../features/business/screens/membership_level_screen.dart';
 import '../../features/admin/screens/admin_shell.dart';
 import '../../features/admin/screens/admin_dashboard_screen.dart';
 import '../../features/admin/screens/admin_businesses_screen.dart';
@@ -344,6 +345,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => AddEditProductScreen(
           productId: state.pathParameters['productId']!,
         ),
+      ),
+
+      // Seller "Your level" screen. Top-level (like edit-product) so it
+      // pushes over whichever business surface opened it. The `/business`
+      // prefix keeps it behind the business-role redirect guard.
+      GoRoute(
+        path: '/business-membership',
+        builder: (_, __) => const MembershipLevelScreen(),
       ),
 
       // --- Chat (top-level so it can be opened from any shell) ---

@@ -46,6 +46,11 @@ class BusinessSettingsScreen extends ConsumerWidget {
                 onTap: () => context.go('/business/products'),
               ),
               _MenuItem(
+                icon: Icons.workspace_premium_outlined,
+                label: 'Your level',
+                onTap: () => context.push('/business-membership'),
+              ),
+              _MenuItem(
                 icon: Icons.forum_outlined,
                 label: 'Messages',
                 // push() instead of go() so /business-settings stays on

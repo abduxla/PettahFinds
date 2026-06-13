@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/constants/app_constants.dart';
 import '../models/business.dart';
+import '../models/business_tier.dart';
 
 class BusinessRepository {
   final FirebaseFirestore _firestore;
@@ -71,6 +72,47 @@ class BusinessRepository {
     await _ref.doc(id).update({'isVerified': verified});
   }
 
+  /// Assign a membership level to a business. Admin-only at the rules
+  /// layer (the owner field allowlist excludes `tier`/`tierValidUntil`,
+  /// so this only succeeds via the `isAdmin()` branch).
+  ///
+  /// [validUntil] is when a *paid* level lapses back to the free floor —
+  /// typically the end of the paid period. For the floor level (or a null
+  /// date) the expiry field is cleared. [Business.effectiveTier] enforces
+  /// the downgrade client-side, so no scheduled job is required.
+  Future<void> setTier(
+    String id,
+    BusinessTier tier, {
+    DateTime? validUntil,
+  }) async {
+    await _ref.doc(id).update({
+      'tier': tier.id,
+      'tierValidUntil': (!tier.isPaid || validUntil == null)
+          ? FieldValue.delete()
+          : Timestamp.fromDate(validUntil),
+    });
+  }
+
+  /// Featured placement: bubble higher membership levels to the top while
+  /// preserving recency within a level. The query already returns docs in
+  /// createdAt-desc order; this stable-sorts by effective tier weight
+  /// first. [Business.effectiveTier] already accounts for expiry, so a
+  /// lapsed level naturally drops back into the normal (weight 0) order.
+  ///
+  /// Caveat: the stream is capped at [_streamLimit] most-recent docs, so a
+  /// featured business older than that window won't surface until paging
+  /// lands. Fine at the current directory size.
+  List<Business> _featuredSort(List<Business> list) {
+    final sorted = [...list];
+    sorted.sort((a, b) {
+      final w = b.effectiveTier.featuredWeight
+          .compareTo(a.effectiveTier.featuredWeight);
+      if (w != 0) return w;
+      return b.createdAt.compareTo(a.createdAt);
+    });
+    return sorted;
+  }
+
   /// Caps the live stream of businesses. Same rationale as
   /// [ProductRepository._streamLimit] — protects cost; pageable later.
   static const _streamLimit = 100;
@@ -89,7 +131,8 @@ class BusinessRepository {
         .orderBy('createdAt', descending: true)
         .limit(_streamLimit)
         .snapshots()
-        .map((snap) => snap.docs.map(Business.fromFirestore).toList());
+        .map((snap) =>
+            _featuredSort(snap.docs.map(Business.fromFirestore).toList()));
   }
 
   /// Admin-only stream of every business doc, verified or not. The
@@ -121,7 +164,8 @@ class BusinessRepository {
         .orderBy('createdAt', descending: true)
         .limit(_streamLimit)
         .snapshots()
-        .map((snap) => snap.docs.map(Business.fromFirestore).toList());
+        .map((snap) =>
+            _featuredSort(snap.docs.map(Business.fromFirestore).toList()));
   }
 
   Stream<List<Business>> streamVerified() {
@@ -130,7 +174,8 @@ class BusinessRepository {
         .orderBy('createdAt', descending: true)
         .limit(_streamLimit)
         .snapshots()
-        .map((snap) => snap.docs.map(Business.fromFirestore).toList());
+        .map((snap) =>
+            _featuredSort(snap.docs.map(Business.fromFirestore).toList()));
   }
 
   /// Substring search over name / category / location.
@@ -150,12 +195,12 @@ class BusinessRepository {
         .orderBy('createdAt', descending: true)
         .limit(_searchScanLimit)
         .get();
-    return snap.docs
+    return _featuredSort(snap.docs
         .map(Business.fromFirestore)
         .where((b) =>
             b.businessName.toLowerCase().contains(lower) ||
             b.category.toLowerCase().contains(lower) ||
             b.location.toLowerCase().contains(lower))
-        .toList();
+        .toList());
   }
 }

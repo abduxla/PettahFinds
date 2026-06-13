@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'business_tier.dart';
 
 class Business {
   final String id;
@@ -27,6 +28,16 @@ class Business {
   /// human-onboarded record never gets confused with a self-signup.
   final String? createdByAdminUid;
 
+  /// Assigned membership level id ('listed' | 'spotlight' | 'prime' |
+  /// 'elite'). Admin-only write (see Firestore rules — owners are blocked
+  /// by the field allowlist). Defaults to the free floor.
+  final String tier;
+
+  /// When the assigned [tier] lapses back to the free floor. Null for the
+  /// floor level (which never expires). [effectiveTier] reads this so
+  /// perks downgrade automatically once the date passes — no cron needed.
+  final DateTime? tierValidUntil;
+
   const Business({
     required this.id,
     required this.businessName,
@@ -48,9 +59,29 @@ class Business {
     this.longitude,
     required this.createdAt,
     this.createdByAdminUid,
+    this.tier = 'listed',
+    this.tierValidUntil,
   });
 
   bool get hasCoordinates => latitude != null && longitude != null;
+
+  /// The level an admin assigned, ignoring expiry. Use this in admin UI
+  /// to show "Prime (expired)"; use [effectiveTier] everywhere perks are
+  /// actually applied.
+  BusinessTier get assignedTier => BusinessTier.fromId(tier);
+
+  /// The level whose perks are *currently* in force. A paid level reverts
+  /// to [BusinessTier.listed] once [tierValidUntil] passes (or if it was
+  /// never set), so listing caps / placement / badges all lapse on their
+  /// own with no background job.
+  BusinessTier get effectiveTier {
+    final assigned = assignedTier;
+    if (!assigned.isPaid) return assigned;
+    if (tierValidUntil == null) return BusinessTier.listed;
+    return DateTime.now().isBefore(tierValidUntil!)
+        ? assigned
+        : BusinessTier.listed;
+  }
 
   factory Business.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -76,6 +107,8 @@ class Business {
       createdAt:
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       createdByAdminUid: data['createdByAdminUid'] as String?,
+      tier: data['tier'] as String? ?? 'listed',
+      tierValidUntil: (data['tierValidUntil'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -99,6 +132,9 @@ class Business {
         if (longitude != null) 'longitude': longitude,
         'createdAt': Timestamp.fromDate(createdAt),
         if (createdByAdminUid != null) 'createdByAdminUid': createdByAdminUid,
+        'tier': tier,
+        if (tierValidUntil != null)
+          'tierValidUntil': Timestamp.fromDate(tierValidUntil!),
       };
 
   Business copyWith({
@@ -118,6 +154,8 @@ class Business {
     int? ratingCount,
     double? latitude,
     double? longitude,
+    String? tier,
+    DateTime? tierValidUntil,
   }) =>
       Business(
         id: id,
@@ -139,5 +177,8 @@ class Business {
         latitude: latitude ?? this.latitude,
         longitude: longitude ?? this.longitude,
         createdAt: createdAt,
+        createdByAdminUid: createdByAdminUid,
+        tier: tier ?? this.tier,
+        tierValidUntil: tierValidUntil ?? this.tierValidUntil,
       );
 }

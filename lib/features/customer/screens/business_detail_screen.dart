@@ -19,6 +19,7 @@ import '../../../core/extensions/context_extensions.dart';
 import '../../../utils/maps_launcher.dart';
 import '../../../utils/whatsapp.dart';
 import '../../../widgets/whatsapp_icon.dart';
+import '../../../widgets/tier_badge.dart';
 
 // Stable family providers — defined top-level so `ref.invalidate` targets
 // the same instance the UI is watching and rebuilds don't re-subscribe.
@@ -202,7 +203,11 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis),
                                     ),
-                                    // VERIFIED BADGE — shown only on business own profile per spec.
+                                    // Membership level badge (nothing for Listed).
+                                    if (business.effectiveTier.hasBadge) ...[
+                                      const SizedBox(width: 8),
+                                      TierBadge(tier: business.effectiveTier),
+                                    ],
                                   ],
                                 ),
                                 const SizedBox(height: 4),

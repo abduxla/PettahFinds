@@ -53,6 +53,18 @@ class ProductRepository {
     return Product.fromFirestore(doc);
   }
 
+  /// Number of *active* listings a business currently has. Uses Firestore's
+  /// server-side count aggregation (one cheap read, no docs transferred) so
+  /// the membership listing cap can be enforced before a create.
+  Future<int> countActiveByBusiness(String businessId) async {
+    final agg = await _ref
+        .where('businessId', isEqualTo: businessId)
+        .where('isActive', isEqualTo: true)
+        .count()
+        .get();
+    return agg.count ?? 0;
+  }
+
   Future<void> update(Product product) async {
     await _ref.doc(product.id).update({
       ...product.toMap(),

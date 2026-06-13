@@ -7,6 +7,7 @@ import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/empty_state_widget.dart';
+import '../../../widgets/tier_badge.dart';
 
 class BusinessesListScreen extends ConsumerWidget {
   const BusinessesListScreen({super.key});
@@ -132,7 +133,11 @@ class _BusinessListCard extends StatelessWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis),
                             ),
-                            // VERIFIED BADGE — shown only on business own profile per spec.
+                            // Membership level badge (nothing for Listed).
+                            if (business.effectiveTier.hasBadge) ...[
+                              const SizedBox(width: 6),
+                              TierBadge(tier: business.effectiveTier),
+                            ],
                           ],
                         ),
                         const SizedBox(height: 3),

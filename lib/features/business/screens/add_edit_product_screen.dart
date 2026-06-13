@@ -286,6 +286,26 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
 
       debugPrint('[product] submit start (editing=$_isEditing) biz=${business.id}');
 
+      // Membership listing cap — enforced on NEW listings only, before any
+      // image upload so we never waste a Storage write on a blocked create.
+      // Status framing only: names the level + its allowance, never an
+      // upgrade/payment prompt. effectiveTier already accounts for expiry.
+      if (!_isEditing) {
+        final tier = business.effectiveTier;
+        final activeCount = await ref
+            .read(productRepositoryProvider)
+            .countActiveByBusiness(business.id);
+        if (activeCount >= tier.listingCap) {
+          if (!mounted) return;
+          setState(() => _saving = false);
+          context.showErrorSnackBar(
+            'Your ${tier.label} level includes up to ${tier.listingCap} '
+            'active listings. Deactivate or remove one to add another.',
+          );
+          return;
+        }
+      }
+
       // Upload any new files first (with a per-file timeout so a hung
       // Storage request can't freeze the save forever).
       final uploaded = await _uploadNewImages(business.id);
