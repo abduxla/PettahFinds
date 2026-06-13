@@ -1,13 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/constants/app_constants.dart';
 import '../models/business_stats.dart';
+import '../models/product_stat.dart';
 
-/// Records customer engagement against a business and streams the totals
-/// back for the seller analytics screen.
+/// Records customer engagement against a business (and its individual
+/// products) and streams the totals back for the seller analytics screen.
 ///
 /// All `record*` methods are **best-effort**: they swallow errors so a
 /// blocked or offline write never disrupts the customer's browsing. Writes
-/// use `set(merge:true)` + `FieldValue.increment` so the stats doc is
+/// use `set(merge:true)` + `FieldValue.increment` so the stat docs are
 /// created on first event and counters accumulate atomically.
 ///
 /// Callers should skip recording when the viewer is the business owner (so
@@ -18,13 +19,16 @@ class AnalyticsRepository {
   AnalyticsRepository({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
 
-  CollectionReference get _ref =>
+  CollectionReference get _stats =>
       _firestore.collection(AppConstants.businessStatsCollection);
 
-  Future<void> _bump(String businessId, String field) async {
+  CollectionReference get _productStats =>
+      _firestore.collection(AppConstants.productStatsCollection);
+
+  Future<void> _bumpBusiness(String businessId, String field) async {
     if (businessId.isEmpty) return;
     try {
-      await _ref.doc(businessId).set({
+      await _stats.doc(businessId).set({
         field: FieldValue.increment(1),
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -33,23 +37,84 @@ class AnalyticsRepository {
     }
   }
 
+  Future<void> _bumpProduct(
+      String productId, String businessId, String field) async {
+    if (productId.isEmpty || businessId.isEmpty) return;
+    try {
+      await _productStats.doc(productId).set({
+        'businessId': businessId,
+        field: FieldValue.increment(1),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (_) {
+      // Best-effort.
+    }
+  }
+
   Future<void> recordProfileView(String businessId) =>
-      _bump(businessId, 'profileViews');
+      _bumpBusiness(businessId, 'profileViews');
 
-  Future<void> recordProductView(String businessId) =>
-      _bump(businessId, 'productViews');
+  /// A product view bumps both the business total and the per-product count
+  /// so the seller can see which listings are actually being browsed.
+  Future<void> recordProductView(String businessId, String productId) async {
+    await Future.wait([
+      _bumpBusiness(businessId, 'productViews'),
+      _bumpProduct(productId, businessId, 'views'),
+    ]);
+  }
 
-  Future<void> recordChatStarted(String businessId) =>
-      _bump(businessId, 'chatsStarted');
+  Future<void> recordChatStarted(String businessId, String productId) async {
+    await Future.wait([
+      _bumpBusiness(businessId, 'chatsStarted'),
+      _bumpProduct(productId, businessId, 'chats'),
+    ]);
+  }
 
-  Future<void> recordSave(String businessId) => _bump(businessId, 'saves');
+  Future<void> recordSave(String businessId) =>
+      _bumpBusiness(businessId, 'saves');
 
   /// Live engagement totals for a business. Emits [BusinessStats.empty]
   /// until the first event lands (the doc won't exist yet).
   Stream<BusinessStats> streamStats(String businessId) {
-    return _ref.doc(businessId).snapshots().map(
-          (doc) =>
-              doc.exists ? BusinessStats.fromFirestore(doc) : BusinessStats.empty,
-        );
+    return _resilient(() => _stats.doc(businessId).snapshots().map(
+          (doc) => doc.exists
+              ? BusinessStats.fromFirestore(doc)
+              : BusinessStats.empty,
+        ));
+  }
+
+  /// Per-product engagement for a business, most-viewed first. Equality
+  /// query only (no composite index needed); sorted client-side.
+  Stream<List<ProductStat>> streamProductStats(String businessId) {
+    return _resilient(() => _productStats
+        .where('businessId', isEqualTo: businessId)
+        .limit(200)
+        .snapshots()
+        .map((snap) {
+      final list = snap.docs.map(ProductStat.fromFirestore).toList();
+      list.sort((a, b) => b.views.compareTo(a.views));
+      return list;
+    }));
+  }
+
+  /// Wraps a Firestore snapshot stream so a transient `permission-denied`
+  /// (auth token not yet propagated to the listen channel on cold start or
+  /// just after sign-in) re-subscribes a few times before surfacing. A
+  /// genuine permission error still bubbles up after the retries.
+  Stream<T> _resilient<T>(Stream<T> Function() build) async* {
+    var attempt = 0;
+    while (true) {
+      try {
+        yield* build();
+        return;
+      } on FirebaseException catch (e) {
+        if (e.code == 'permission-denied' && attempt < 4) {
+          attempt++;
+          await Future<void>.delayed(Duration(milliseconds: 250 * attempt));
+          continue;
+        }
+        rethrow;
+      }
+    }
   }
 }

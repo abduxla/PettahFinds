@@ -82,7 +82,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
       if (appUser?.businessId != product.businessId) {
         ref
             .read(analyticsRepositoryProvider)
-            .recordProductView(product.businessId);
+            .recordProductView(product.businessId, product.id);
       }
       await ref
           .read(interestServiceProvider)
@@ -981,7 +981,9 @@ class _ChatSellerButtonState extends ConsumerState<_ChatSellerButton> {
             customerName: appUser.displayName,
           );
       // Engagement: count the seller's chat (best-effort, fire-and-forget).
-      ref.read(analyticsRepositoryProvider).recordChatStarted(widget.business.id);
+      ref
+          .read(analyticsRepositoryProvider)
+          .recordChatStarted(widget.business.id, product.id);
       if (!context.mounted) return;
       // PUSH not GO so the user pops back to the product detail
       // (where they tapped Chat Seller) instead of being dumped on

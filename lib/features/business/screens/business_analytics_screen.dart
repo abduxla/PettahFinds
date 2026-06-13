@@ -6,11 +6,14 @@ import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/business_stats.dart';
 import '../../../models/business_tier.dart';
+import '../../../models/product.dart';
+import '../../../models/product_stat.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/loading_widget.dart';
 import '../../../widgets/tier_badge.dart';
 
-/// Seller analytics — customer engagement totals for the shop.
+/// Seller analytics — customer engagement totals for the shop, plus a
+/// per-product breakdown so the seller can see which listings are pulling.
 ///
 /// Gated to levels with [BusinessTier.hasAnalytics] (Prime / Elite). Lower
 /// levels see a tasteful locked preview that names which levels include it
@@ -55,23 +58,42 @@ class BusinessAnalyticsScreen extends ConsumerWidget {
               ),
             );
           }
-
           final tier = business.effectiveTier;
-          if (!tier.hasAnalytics) {
-            return const _LockedAnalytics();
-          }
-
-          final statsAsync = ref.watch(businessStatsProvider(business.id));
-          return statsAsync.when(
-            loading: () => const LoadingWidget(),
-            error: (e, _) => AppErrorWidget(
-              message: e.toString(),
-              onRetry: () =>
-                  ref.invalidate(businessStatsProvider(business.id)),
-            ),
-            data: (stats) => _AnalyticsBody(stats: stats, tier: tier),
-          );
+          if (!tier.hasAnalytics) return const _LockedAnalytics();
+          return _LoadedAnalytics(businessId: business.id, tier: tier);
         },
+      ),
+    );
+  }
+}
+
+class _LoadedAnalytics extends ConsumerWidget {
+  final String businessId;
+  final BusinessTier tier;
+  const _LoadedAnalytics({required this.businessId, required this.tier});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final statsAsync = ref.watch(businessStatsProvider(businessId));
+    final productStats =
+        ref.watch(productStatsProvider(businessId)).valueOrNull ??
+            const <ProductStat>[];
+    final products =
+        ref.watch(businessProductsProvider(businessId)).valueOrNull ??
+            const <Product>[];
+    final titles = {for (final p in products) p.id: p.title};
+
+    return statsAsync.when(
+      loading: () => const LoadingWidget(),
+      error: (e, _) => AppErrorWidget(
+        message: e.toString(),
+        onRetry: () => ref.invalidate(businessStatsProvider(businessId)),
+      ),
+      data: (stats) => _AnalyticsBody(
+        stats: stats,
+        tier: tier,
+        productStats: productStats,
+        titles: titles,
       ),
     );
   }
@@ -80,10 +102,19 @@ class BusinessAnalyticsScreen extends ConsumerWidget {
 class _AnalyticsBody extends StatelessWidget {
   final BusinessStats stats;
   final BusinessTier tier;
-  const _AnalyticsBody({required this.stats, required this.tier});
+  final List<ProductStat> productStats;
+  final Map<String, String> titles;
+  const _AnalyticsBody({
+    required this.stats,
+    required this.tier,
+    required this.productStats,
+    required this.titles,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final ranked = productStats.where((p) => p.views > 0 || p.chats > 0).toList();
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
       children: [
@@ -109,6 +140,76 @@ class _AnalyticsBody extends StatelessWidget {
           value: stats.chatsStarted,
           color: const Color(0xFF7C3AED),
         ),
+
+        // Per-product breakdown
+        const SizedBox(height: 22),
+        Row(
+          children: [
+            Text(
+              'Top products',
+              style: GoogleFonts.nunito(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: AppColors.text1,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'by views',
+              style: GoogleFonts.dmSans(
+                fontSize: 12,
+                color: AppColors.text3,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (ranked.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Center(
+              child: Text(
+                'No product activity yet. As customers open your listings, '
+                'your most-viewed products will rank here.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.dmSans(
+                  fontSize: 13,
+                  height: 1.45,
+                  color: AppColors.text3,
+                ),
+              ),
+            ),
+          )
+        else
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              children: [
+                for (var i = 0; i < ranked.length && i < 15; i++) ...[
+                  if (i > 0)
+                    const Divider(
+                        height: 1, indent: 16, endIndent: 16,
+                        color: AppColors.border),
+                  _ProductStatRow(
+                    rank: i + 1,
+                    title: titles[ranked[i].productId] ?? 'Removed product',
+                    views: ranked[i].views,
+                    chats: ranked[i].chats,
+                  ),
+                ],
+              ],
+            ),
+          ),
+
         const SizedBox(height: 18),
         Text(
           'Totals since analytics became available on your shop. Numbers '
@@ -118,6 +219,75 @@ class _AnalyticsBody extends StatelessWidget {
             fontSize: 12,
             height: 1.5,
             color: AppColors.text3,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProductStatRow extends StatelessWidget {
+  final int rank;
+  final String title;
+  final int views;
+  final int chats;
+  const _ProductStatRow({
+    required this.rank,
+    required this.title,
+    required this.views,
+    required this.chats,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 22,
+            child: Text(
+              '$rank',
+              style: GoogleFonts.nunito(
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+                color: AppColors.text4,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.dmSans(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+                color: AppColors.text1,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          _miniStat(Icons.visibility_rounded, views, AppColors.teal),
+          const SizedBox(width: 10),
+          _miniStat(Icons.chat_bubble_rounded, chats, const Color(0xFF7C3AED)),
+        ],
+      ),
+    );
+  }
+
+  Widget _miniStat(IconData icon, int value, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13, color: color),
+        const SizedBox(width: 3),
+        Text(
+          '$value',
+          style: GoogleFonts.dmSans(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            color: AppColors.text2,
           ),
         ),
       ],
@@ -272,7 +442,8 @@ class _LockedAnalytics extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           'Performance analytics is part of the Prime and Elite levels — '
-          'track your shop views, product views, and customer chats over time.',
+          'track your shop views, product views, customer chats, and which '
+          'listings pull the most interest over time.',
           textAlign: TextAlign.center,
           style: GoogleFonts.dmSans(
             fontSize: 13.5,

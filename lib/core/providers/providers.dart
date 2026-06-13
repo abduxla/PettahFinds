@@ -14,6 +14,7 @@ import '../../repositories/notification_repository.dart';
 import '../../repositories/block_repository.dart';
 import '../../repositories/analytics_repository.dart';
 import '../../models/business_stats.dart';
+import '../../models/product_stat.dart';
 import '../../services/account_deletion_service.dart';
 import '../../services/chat_service.dart';
 import '../../services/storage_service.dart';
@@ -64,6 +65,12 @@ final analyticsRepositoryProvider = Provider((ref) => AnalyticsRepository());
 final businessStatsProvider =
     StreamProvider.family<BusinessStats, String>((ref, businessId) {
   return ref.watch(analyticsRepositoryProvider).streamStats(businessId);
+});
+
+/// Per-product engagement for a business, most-viewed first.
+final productStatsProvider =
+    StreamProvider.family<List<ProductStat>, String>((ref, businessId) {
+  return ref.watch(analyticsRepositoryProvider).streamProductStats(businessId);
 });
 
 // --- Services ---

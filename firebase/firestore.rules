@@ -411,6 +411,23 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // ---------- Per-product engagement stats (analytics) ----------
+    match /product_stats/{productId} {
+      // The owning business (derived from the doc's businessId) or an admin
+      // may read. ownsBusiness does a get() on the business doc — fine for
+      // a seller listing their own handful of products.
+      allow read: if isAdmin() || ownsBusiness(resource.data.businessId);
+
+      // Signed-in users bump the counters. Restricted to the known fields;
+      // vanity metrics only (never used for placement), so the relaxed
+      // bound matches the business_stats rationale above.
+      allow create, update: if isSignedIn()
+                            && request.resource.data.keys().hasOnly(
+                                 ['businessId', 'views', 'chats', 'updatedAt']);
+
+      allow delete: if isAdmin();
+    }
+
     // ---------- Conversations (in-app chat) ----------
     match /conversations/{conversationId} {
       // Only the customer or the seller listed on the doc can read/update.
