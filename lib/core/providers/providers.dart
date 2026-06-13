@@ -291,6 +291,12 @@ final allBusinessesProvider = StreamProvider<List<Business>>((ref) {
   return ref.watch(businessRepositoryProvider).streamAll();
 });
 
+/// Verified businesses on a paid membership level, rotated fairly — powers
+/// the home-screen "Featured" strip. Main lists stay by relevance.
+final featuredBusinessesProvider = StreamProvider<List<Business>>((ref) {
+  return ref.watch(businessRepositoryProvider).streamFeatured();
+});
+
 /// Admin-only stream of every business, verified or not. The Firestore
 /// rule rejects non-admin readers when an unverified doc is in the
 /// result set, so this provider:

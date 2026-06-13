@@ -97,35 +97,53 @@ enum BusinessTier {
   /// Whether this is an assigned (non-floor) level that can expire.
   bool get isPaid => this != BusinessTier.listed;
 
-  /// Perks shown on the seller's "Your level" screen. Visibility / status
+  /// Short, benefit-led headline for each level (shown on the seller's
+  /// "Your level" screen). Status framing — never a price.
+  String get tagline {
+    switch (this) {
+      case BusinessTier.listed:
+        return 'Get found';
+      case BusinessTier.spotlight:
+        return 'Stand out';
+      case BusinessTier.prime:
+        return 'Get noticed everywhere';
+      case BusinessTier.elite:
+        return 'Own your category';
+    }
+  }
+
+  /// Perks shown on the seller's "Your level" screen. Benefit-led and
+  /// cumulative (each level reads as a clear step up). Visibility / status
   /// framing only — no money, no "upgrade" language.
   List<String> get perks {
     switch (this) {
       case BusinessTier.listed:
         return const [
           'Up to 5 active listings',
-          'Appears in search & category browsing',
-          'Customer chat & reviews',
+          'Found in search & category browsing',
+          'Direct customer chat & reviews',
+          'Your shop on the Pettah map',
         ];
       case BusinessTier.spotlight:
         return const [
           'Up to 20 active listings',
-          'Priority placement in your category',
-          'Spotlight badge on your shop',
+          'Priority placement above standard shops',
+          'Spotlight badge — a trusted, active shop',
+          'Direct customer chat & reviews',
         ];
       case BusinessTier.prime:
         return const [
           'Up to 50 active listings',
-          'Featured on the home screen',
-          'Prime badge on your shop',
-          'Full performance analytics',
+          'Featured on the home screen where shoppers land',
+          'Prime badge buyers look for',
+          'Full analytics — views, chats & top products',
         ];
       case BusinessTier.elite:
         return const [
           'Unlimited active listings',
-          'Top placement across the app',
-          'Elite badge on your shop',
-          'Full performance analytics',
+          'Top placement across the whole app',
+          'Elite badge — the highest mark of trust',
+          'Full analytics — views, chats & top products',
           'Priority support',
         ];
     }

@@ -93,24 +93,35 @@ class BusinessRepository {
     });
   }
 
-  /// Featured placement: bubble higher membership levels to the top while
-  /// preserving recency within a level. The query already returns docs in
-  /// createdAt-desc order; this stable-sorts by effective tier weight
-  /// first. [Business.effectiveTier] already accounts for expiry, so a
-  /// lapsed level naturally drops back into the normal (weight 0) order.
+  /// Verified businesses on a paid membership level, for the home-screen
+  /// "Featured" strip. The main directory/search lists stay by relevance —
+  /// featuring lives only in this dedicated strip so no single shop ever
+  /// dominates the regular browsing order.
   ///
-  /// Caveat: the stream is capped at [_streamLimit] most-recent docs, so a
-  /// featured business older than that window won't surface until paging
-  /// lands. Fine at the current directory size.
-  List<Business> _featuredSort(List<Business> list) {
-    final sorted = [...list];
-    sorted.sort((a, b) {
-      final w = b.effectiveTier.featuredWeight
-          .compareTo(a.effectiveTier.featuredWeight);
-      if (w != 0) return w;
-      return b.createdAt.compareTo(a.createdAt);
+  /// Rotated by a slowly-advancing time offset (≈1-minute steps) so each
+  /// featured shop cycles through the front fairly rather than the same
+  /// shop always leading. [Business.effectiveTier] accounts for expiry, so
+  /// a lapsed level silently drops out of the strip.
+  ///
+  /// Caveat: capped at [_streamLimit] most-recent docs; a featured shop
+  /// older than that window won't surface until paging lands. Fine at the
+  /// current directory size.
+  Stream<List<Business>> streamFeatured() {
+    return _ref
+        .where('isVerified', isEqualTo: true)
+        .orderBy('createdAt', descending: true)
+        .limit(_streamLimit)
+        .snapshots()
+        .map((snap) {
+      final paid = snap.docs
+          .map(Business.fromFirestore)
+          .where((b) => b.effectiveTier.isPaid)
+          .toList();
+      if (paid.length <= 1) return paid;
+      final offset =
+          (DateTime.now().millisecondsSinceEpoch ~/ 60000) % paid.length;
+      return [...paid.sublist(offset), ...paid.sublist(0, offset)];
     });
-    return sorted;
   }
 
   /// Caps the live stream of businesses. Same rationale as
@@ -131,8 +142,7 @@ class BusinessRepository {
         .orderBy('createdAt', descending: true)
         .limit(_streamLimit)
         .snapshots()
-        .map((snap) =>
-            _featuredSort(snap.docs.map(Business.fromFirestore).toList()));
+        .map((snap) => snap.docs.map(Business.fromFirestore).toList());
   }
 
   /// Admin-only stream of every business doc, verified or not. The
@@ -164,8 +174,7 @@ class BusinessRepository {
         .orderBy('createdAt', descending: true)
         .limit(_streamLimit)
         .snapshots()
-        .map((snap) =>
-            _featuredSort(snap.docs.map(Business.fromFirestore).toList()));
+        .map((snap) => snap.docs.map(Business.fromFirestore).toList());
   }
 
   Stream<List<Business>> streamVerified() {
@@ -174,8 +183,7 @@ class BusinessRepository {
         .orderBy('createdAt', descending: true)
         .limit(_streamLimit)
         .snapshots()
-        .map((snap) =>
-            _featuredSort(snap.docs.map(Business.fromFirestore).toList()));
+        .map((snap) => snap.docs.map(Business.fromFirestore).toList());
   }
 
   /// Substring search over name / category / location.
@@ -195,12 +203,12 @@ class BusinessRepository {
         .orderBy('createdAt', descending: true)
         .limit(_searchScanLimit)
         .get();
-    return _featuredSort(snap.docs
+    return snap.docs
         .map(Business.fromFirestore)
         .where((b) =>
             b.businessName.toLowerCase().contains(lower) ||
             b.category.toLowerCase().contains(lower) ||
             b.location.toLowerCase().contains(lower))
-        .toList());
+        .toList();
   }
 }

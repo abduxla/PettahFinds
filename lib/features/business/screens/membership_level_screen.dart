@@ -142,6 +142,15 @@ class _HeroCard extends StatelessWidget {
               letterSpacing: -0.5,
             ),
           ),
+          const SizedBox(height: 2),
+          Text(
+            tier.tagline,
+            style: GoogleFonts.dmSans(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
           const SizedBox(height: 6),
           Text(
             statusLine,

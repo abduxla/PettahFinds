@@ -15,6 +15,7 @@ import '../../../widgets/error_widget.dart';
 import '../../../widgets/sign_in_required.dart';
 import '../../../widgets/unread_badge.dart';
 import '../../../widgets/verify_email_banner.dart';
+import '../../../widgets/tier_badge.dart';
 
 // ---------- Real-data providers ----------
 final _homeBusinessByIdProvider =
@@ -223,6 +224,9 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
 
                 // ---- Featured Carousel (white section) ----
                 const SliverToBoxAdapter(child: _FeaturedSection()),
+
+                // ---- Featured shops (paid levels, rotated fairly) ----
+                const SliverToBoxAdapter(child: _FeaturedShopsStrip()),
 
                 // ---- Recently Viewed (white section) ----
                 SliverToBoxAdapter(
@@ -558,6 +562,134 @@ class _HeaderIconButton extends StatelessWidget {
 // =========================================================================
 // FEATURED CAROUSEL — 3 static slides with gradients, orbs, floating emoji
 // =========================================================================
+/// Horizontal strip of paid-level shops on the home screen. Hidden
+/// entirely when there are no featured shops. The repository rotates the
+/// order over time so featuring is fair rather than fixed.
+class _FeaturedShopsStrip extends ConsumerWidget {
+  const _FeaturedShopsStrip();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final featured =
+        ref.watch(featuredBusinessesProvider).valueOrNull ?? const <Business>[];
+    if (featured.isEmpty) return const SizedBox.shrink();
+    final shops = featured.take(10).toList();
+
+    return Container(
+      color: AppColors.white,
+      padding: const EdgeInsets.only(top: 4, bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+            child: Row(
+              children: [
+                const Icon(Icons.auto_awesome_rounded,
+                    size: 18, color: AppColors.orange),
+                const SizedBox(width: 6),
+                Text(
+                  'Featured shops',
+                  style: GoogleFonts.nunito(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.text1,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 172,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: shops.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (_, i) => _FeaturedShopCard(business: shops[i]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FeaturedShopCard extends StatelessWidget {
+  final Business business;
+  const _FeaturedShopCard({required this.business});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => context.push('/home/business/${business.id}'),
+      child: Container(
+        width: 156,
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: 80,
+              width: double.infinity,
+              child: business.bannerUrl.isNotEmpty
+                  ? CachedImage(
+                      imageUrl: business.bannerUrl,
+                      height: 80,
+                      width: 156,
+                      fit: BoxFit.cover,
+                      placeholderIcon: Icons.storefront,
+                    )
+                  : Container(
+                      color: AppColors.tealLight,
+                      child: const Icon(Icons.storefront,
+                          color: AppColors.teal, size: 28),
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    business.businessName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.nunito(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.text1,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  TierBadge(tier: business.effectiveTier),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${business.category} • ${business.location}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.dmSans(
+                      fontSize: 10.5,
+                      color: AppColors.text3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _FeaturedSection extends StatelessWidget {
   const _FeaturedSection();
 
