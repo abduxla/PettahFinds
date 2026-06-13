@@ -130,7 +130,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 return const SizedBox.shrink();
               }
               return PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert_rounded,
+                icon: Icon(Icons.more_vert_rounded,
                     color: AppColors.text1),
                 onSelected: (value) async {
                   if (value == 'block') {
@@ -161,7 +161,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     }
                   }
                 },
-                itemBuilder: (_) => const [
+                itemBuilder: (_) => [
                   PopupMenuItem(
                     value: 'block',
                     child: Row(
@@ -260,7 +260,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           // back here.
                           onPressed: () =>
                               context.push('/product/${conv.productId}'),
-                          icon: const Icon(Icons.arrow_outward_rounded,
+                          icon: Icon(Icons.arrow_outward_rounded,
                               size: 18, color: AppColors.teal),
                           tooltip: 'View product',
                         ),

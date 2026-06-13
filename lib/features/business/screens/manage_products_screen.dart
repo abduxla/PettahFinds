@@ -227,7 +227,7 @@ class _ProductTileState extends State<_ProductTile> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : PopupMenuButton(
-                  icon: const Icon(Icons.more_vert_rounded,
+                  icon: Icon(Icons.more_vert_rounded,
                       color: AppColors.text4),
                   itemBuilder: (_) => [
                     const PopupMenuItem(
@@ -254,7 +254,7 @@ class _ProductTileState extends State<_ProductTile> {
                         ],
                       ),
                     ),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'delete',
                       child: Row(
                         children: [

@@ -42,7 +42,7 @@ Future<bool> showBlockUserDialog(
     builder: (ctx) => AlertDialog(
       title: Row(
         children: [
-          const Icon(Icons.block_rounded, color: AppColors.red, size: 22),
+          Icon(Icons.block_rounded, color: AppColors.red, size: 22),
           const SizedBox(width: 8),
           Expanded(
             child: Text('Block $name?',

@@ -177,7 +177,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
+      value: SystemUiOverlayStyle(
         statusBarColor: AppColors.tealDark,
         statusBarIconBrightness: Brightness.light,
         systemNavigationBarColor: AppColors.tealDark,
@@ -210,7 +210,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                       child: Container(
                         width: 10,
                         height: 10,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: AppColors.orange,
                           shape: BoxShape.circle,
                         ),

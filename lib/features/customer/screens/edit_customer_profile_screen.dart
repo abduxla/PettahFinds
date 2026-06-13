@@ -54,7 +54,7 @@ class _EditCustomerProfileScreenState
   Widget build(BuildContext context) {
     final appUser = ref.watch(appUserProvider).valueOrNull;
     if (appUser == null) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(child: CircularProgressIndicator(color: AppColors.teal)),
       );
     }

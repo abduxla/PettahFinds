@@ -323,7 +323,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                           child: Container(
                             width: 7,
                             height: 7,
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               color: AppColors.orange,
                               shape: BoxShape.circle,
                             ),
@@ -429,7 +429,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.info_outline,
+                          Icon(Icons.info_outline,
                               color: AppColors.orange, size: 20),
                           const SizedBox(width: 12),
                           Expanded(
@@ -471,7 +471,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   const SizedBox(height: 20),
                   Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Divider(color: AppColors.border, thickness: 1),
                       ),
                       Padding(
@@ -486,7 +486,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                           ),
                         ),
                       ),
-                      const Expanded(
+                      Expanded(
                         child: Divider(color: AppColors.border, thickness: 1),
                       ),
                     ],
@@ -500,7 +500,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     label: const Text('Continue with Google'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.text1,
-                      side: const BorderSide(color: AppColors.border),
+                      side: BorderSide(color: AppColors.border),
                       padding:
                           const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(

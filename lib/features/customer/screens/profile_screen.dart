@@ -11,6 +11,7 @@ import '../../../widgets/delete_account_dialog.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/sign_in_required.dart';
 import '../../../widgets/sign_out_dialog.dart';
+import '../../../widgets/dark_mode_tile.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -33,11 +34,21 @@ class ProfileScreen extends ConsumerWidget {
                 letterSpacing: -0.5,
               )),
         ),
-        body: const SignInRequired(
-          icon: Icons.person_outline,
-          title: 'Sign in to PetaFinds',
-          subtitle:
-              'Create an account or sign in to save favourites, manage your profile and receive notifications.',
+        body: Column(
+          children: [
+            const Expanded(
+              child: SignInRequired(
+                icon: Icons.person_outline,
+                title: 'Sign in to PetaFinds',
+                subtitle:
+                    'Create an account or sign in to save favourites, manage your profile and receive notifications.',
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 0, 20, 24),
+              child: DarkModeSection(),
+            ),
+          ],
         ),
       );
     }
@@ -73,7 +84,7 @@ class ProfileScreen extends ConsumerWidget {
                   width: 5,
                   height: 5,
                   margin: const EdgeInsets.only(bottom: 8),
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: AppColors.orange,
                     shape: BoxShape.circle,
                   ),
@@ -188,6 +199,11 @@ class ProfileScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
+
+                  const SizedBox(height: 18),
+
+                  // ---- APPEARANCE ----
+                  const DarkModeSection(),
 
                   const SizedBox(height: 18),
 
@@ -342,14 +358,14 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
             ),
             const SizedBox(height: 8),
             ListTile(
-              leading: const Icon(Icons.photo_camera_rounded,
+              leading: Icon(Icons.photo_camera_rounded,
                   color: AppColors.teal),
               title: Text('Take Photo',
                   style: GoogleFonts.dmSans(fontWeight: FontWeight.w600)),
               onTap: () => Navigator.of(sheetCtx).pop(ImageSource.camera),
             ),
             ListTile(
-              leading: const Icon(Icons.photo_library_rounded,
+              leading: Icon(Icons.photo_library_rounded,
                   color: AppColors.teal),
               title: Text('Choose from Library',
                   style: GoogleFonts.dmSans(fontWeight: FontWeight.w600)),
@@ -584,12 +600,12 @@ class _SectionCard extends StatelessWidget {
                       ),
                     ),
                     trailing: item.trailing ??
-                        const Icon(Icons.chevron_right_rounded,
+                        Icon(Icons.chevron_right_rounded,
                             color: AppColors.text4, size: 22),
                     onTap: item.onTap,
                   ),
                   if (i < items.length - 1)
-                    const Divider(
+                    Divider(
                       height: 1,
                       indent: 70,
                       color: AppColors.border,

@@ -45,7 +45,7 @@ class FavoritesScreen extends ConsumerWidget {
 
     // Auth loading → short-lived spinner.
     if (authState.isLoading) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppColors.bgSection,
         body: Center(
           child: CircularProgressIndicator(color: AppColors.teal),
@@ -77,7 +77,7 @@ class FavoritesScreen extends ConsumerWidget {
     }
 
     if (appUser == null) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppColors.bgSection,
         body: Center(
           child: CircularProgressIndicator(color: AppColors.teal),
@@ -111,7 +111,7 @@ class FavoritesScreen extends ConsumerWidget {
                   userId: appUser.uid,
                 ),
               ),
-        loading: () => const Center(
+        loading: () => Center(
           child: CircularProgressIndicator(color: AppColors.teal),
         ),
         error: (e, _) => AppErrorWidget(
@@ -354,7 +354,7 @@ class _BaseTile extends StatelessWidget {
             // Clear favorited heart with remove action.
             IconButton(
               onPressed: onRemove,
-              icon: const Icon(Icons.favorite, color: AppColors.red),
+              icon: Icon(Icons.favorite, color: AppColors.red),
               tooltip: 'Remove from favorites',
             ),
           ],
@@ -378,11 +378,11 @@ class _EmptyFavorites extends StatelessWidget {
             Container(
               width: 72,
               height: 72,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.tealLight,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.favorite_outline,
+              child: Icon(Icons.favorite_outline,
                   color: AppColors.teal, size: 32),
             ),
             const SizedBox(height: 16),

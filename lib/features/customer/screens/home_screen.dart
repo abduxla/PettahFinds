@@ -191,7 +191,7 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
     final recentAsync = ref.watch(recentlyViewedProductsProvider);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
+      value: SystemUiOverlayStyle(
         statusBarColor: AppColors.tealDark,
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
@@ -264,7 +264,7 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                       },
                     );
                   },
-                  loading: () => const SliverToBoxAdapter(
+                  loading: () => SliverToBoxAdapter(
                     child: Padding(
                       padding: EdgeInsets.symmetric(vertical: 40),
                       child: Center(
@@ -410,7 +410,7 @@ class _TealHeader extends ConsumerWidget {
                         width: 6,
                         height: 6,
                         margin: const EdgeInsets.only(bottom: 4),
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: AppColors.orange,
                           shape: BoxShape.circle,
                         ),
@@ -496,7 +496,7 @@ class _TealHeader extends ConsumerWidget {
                   horizontal: 14, vertical: 10),
               child: Row(
                 children: [
-                  const Icon(Icons.search,
+                  Icon(Icons.search,
                       color: AppColors.text4, size: 15),
                   const SizedBox(width: 8),
                   Expanded(
@@ -508,7 +508,7 @@ class _TealHeader extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  const Icon(Icons.tune,
+                  Icon(Icons.tune,
                       color: AppColors.text4, size: 15),
                 ],
               ),
@@ -585,7 +585,7 @@ class _FeaturedShopsStrip extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
             child: Row(
               children: [
-                const Icon(Icons.auto_awesome_rounded,
+                Icon(Icons.auto_awesome_rounded,
                     size: 18, color: AppColors.orange),
                 const SizedBox(width: 6),
                 Text(
@@ -648,7 +648,7 @@ class _FeaturedShopCard extends StatelessWidget {
                     )
                   : Container(
                       color: AppColors.tealLight,
-                      child: const Icon(Icons.storefront,
+                      child: Icon(Icons.storefront,
                           color: AppColors.teal, size: 28),
                     ),
             ),
@@ -1339,7 +1339,7 @@ class _CategorySection extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.arrow_forward,
+                    Icon(Icons.arrow_forward,
                         color: AppColors.teal, size: 14),
                     const SizedBox(width: 6),
                     Text(
@@ -1484,7 +1484,7 @@ class _StreetPin extends ConsumerWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.location_on, color: AppColors.teal, size: 8),
+          Icon(Icons.location_on, color: AppColors.teal, size: 8),
           const SizedBox(width: 3),
           Flexible(
             child: Text(

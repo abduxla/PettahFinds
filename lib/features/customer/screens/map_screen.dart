@@ -249,7 +249,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                                 ),
                               ],
                             ),
-                            child: const Row(
+                            child: Row(
                               children: [
                                 Icon(Icons.search_rounded,
                                     color: AppTheme.textMuted, size: 22),
@@ -380,7 +380,7 @@ class _NoTokenFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
@@ -410,11 +410,11 @@ class _NoTokenFallback extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.explore_rounded,
+                  child: Icon(Icons.explore_rounded,
                       size: 34, color: AppTheme.accent),
                 ),
                 const SizedBox(height: 20),
-                const Text('Explore nearby',
+                Text('Explore nearby',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
@@ -422,7 +422,7 @@ class _NoTokenFallback extends StatelessWidget {
                       color: AppTheme.text,
                     )),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Browse local businesses around Pettah and Colombo '
                   'from the list below.',
                   textAlign: TextAlign.center,
@@ -490,7 +490,7 @@ class _EmptyStripPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.storefront_outlined,
+            Icon(Icons.storefront_outlined,
                 color: AppTheme.textMuted, size: 18),
             const SizedBox(width: 8),
             Text(
@@ -658,7 +658,7 @@ class _NearbyStrip extends StatelessWidget {
                         Text(b.category,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               color: AppTheme.textMuted,
                               fontWeight: FontWeight.w500,
@@ -666,14 +666,14 @@ class _NearbyStrip extends StatelessWidget {
                         const SizedBox(height: 6),
                         Row(
                           children: [
-                            const Icon(Icons.location_on_rounded,
+                            Icon(Icons.location_on_rounded,
                                 size: 13, color: AppTheme.accent),
                             const SizedBox(width: 3),
                             Expanded(
                               child: Text(b.location,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11,
                                     color: AppTheme.textSub,
                                     fontWeight: FontWeight.w500,
@@ -817,7 +817,7 @@ class _BusinessPreviewCard extends StatelessWidget {
                   Text('${business.category} • ${business.location}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         color: AppTheme.textMuted,
                         fontWeight: FontWeight.w500,

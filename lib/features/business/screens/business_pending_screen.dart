@@ -34,7 +34,7 @@ class BusinessPendingScreen extends StatelessWidget {
                       letterSpacing: -0.5,
                     ),
                   ),
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(bottom: 4, left: 2),
                     child: CircleAvatar(
                       radius: 3.5,
@@ -56,11 +56,11 @@ class BusinessPendingScreen extends StatelessWidget {
                       child: Container(
                         width: 88,
                         height: 88,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: AppColors.tealLight,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.hourglass_top_rounded,
                           size: 44,
                           color: AppColors.teal,
@@ -103,7 +103,7 @@ class BusinessPendingScreen extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.schedule_rounded,
+                          Icon(Icons.schedule_rounded,
                               color: AppColors.orange, size: 20),
                           const SizedBox(width: 10),
                           Text(

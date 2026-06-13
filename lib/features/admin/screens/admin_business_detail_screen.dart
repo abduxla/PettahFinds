@@ -179,7 +179,7 @@ class _HeaderCard extends ConsumerWidget {
                         )
                       : Container(
                           color: AppColors.tealLight,
-                          child: const Icon(Icons.store,
+                          child: Icon(Icons.store,
                               color: AppColors.teal, size: 26),
                         ),
                 ),
@@ -448,7 +448,7 @@ class _MembershipCardState extends ConsumerState<_MembershipCard> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.event_outlined,
+                    Icon(Icons.event_outlined,
                         size: 18, color: AppColors.text3),
                     const SizedBox(width: 10),
                     Text('Valid until',
@@ -467,7 +467,7 @@ class _MembershipCardState extends ConsumerState<_MembershipCard> {
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(Icons.chevron_right, size: 18, color: AppColors.text3),
+                    Icon(Icons.chevron_right, size: 18, color: AppColors.text3),
                   ],
                 ),
               ),
@@ -619,7 +619,7 @@ class _DetailsCard extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.admin_panel_settings,
+                  Icon(Icons.admin_panel_settings,
                       color: AppColors.teal, size: 14),
                   const SizedBox(width: 6),
                   Text(
@@ -733,7 +733,7 @@ class _ProductsSection extends StatelessWidget {
                 ],
               );
             },
-            loading: () => const Padding(
+            loading: () => Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Center(child: CircularProgressIndicator(color: AppColors.teal)),
             ),
@@ -804,7 +804,7 @@ class _AdminProductTileState extends ConsumerState<_AdminProductTile> {
                       )
                     : Container(
                         color: AppColors.tealLight,
-                        child: const Icon(Icons.shopping_bag_outlined,
+                        child: Icon(Icons.shopping_bag_outlined,
                             color: AppColors.teal, size: 22),
                       ),
               ),
@@ -872,7 +872,7 @@ class _AdminProductTileState extends ConsumerState<_AdminProductTile> {
               )
             else
               PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert_rounded,
+                icon: Icon(Icons.more_vert_rounded,
                     color: AppColors.text3),
                 onSelected: (val) async {
                   if (val == 'toggle') {
@@ -897,7 +897,7 @@ class _AdminProductTileState extends ConsumerState<_AdminProductTile> {
                       ],
                     ),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'delete',
                     child: Row(
                       children: [

@@ -153,7 +153,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                   onMapCreated: (map) => _map = map,
                 ),
                 // Centre crosshair — the selected point.
-                const Center(
+                Center(
                   child: Icon(
                     Icons.location_pin,
                     size: 52,
@@ -226,7 +226,7 @@ class _ManualCoordinateEntry extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Icon(Icons.location_on_outlined,
+          Icon(Icons.location_on_outlined,
               size: 52, color: AppColors.teal),
           const SizedBox(height: 16),
           Text(

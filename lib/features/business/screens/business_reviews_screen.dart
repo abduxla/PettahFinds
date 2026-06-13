@@ -355,11 +355,11 @@ class _EmptyReviews extends StatelessWidget {
             Container(
               width: 64,
               height: 64,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.tealLight,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.rate_review_outlined,
+              child: Icon(Icons.rate_review_outlined,
                   color: AppColors.teal, size: 28),
             ),
             const SizedBox(height: 14),

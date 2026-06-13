@@ -55,7 +55,7 @@ class BlockedUsersScreen extends ConsumerWidget {
           );
         },
         loading: () =>
-            const Center(child: CircularProgressIndicator(color: AppColors.teal)),
+            Center(child: CircularProgressIndicator(color: AppColors.teal)),
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -77,11 +77,11 @@ class BlockedUsersScreen extends ConsumerWidget {
             Container(
               width: 72,
               height: 72,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.tealLight,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.block_rounded,
+              child: Icon(Icons.block_rounded,
                   color: AppColors.teal, size: 32),
             ),
             const SizedBox(height: 16),
@@ -138,7 +138,7 @@ class _BlockedUserTile extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 20,
             backgroundColor: AppColors.tealLight,
             child: Icon(Icons.person_rounded, color: AppColors.teal),
@@ -172,7 +172,7 @@ class _BlockedUserTile extends ConsumerWidget {
             },
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.teal,
-              side: const BorderSide(color: AppColors.teal),
+              side: BorderSide(color: AppColors.teal),
               visualDensity: VisualDensity.compact,
             ),
             child: const Text('Unblock'),

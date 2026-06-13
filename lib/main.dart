@@ -8,6 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/app_colors.dart';
+import 'core/theme/theme_controller.dart';
+import 'core/providers/providers.dart';
 import 'core/constants/app_constants.dart';
 import 'firebase_options.dart';
 import 'services/notification_service.dart';
@@ -113,11 +116,24 @@ class _PetaFindsAppState extends ConsumerState<PetaFindsApp> {
       _fcmInitFired = false;
     }
 
+    // Resolve the active theme mode. Admins are always light; everyone
+    // else gets their saved preference. Keep `appBrightness` in sync so the
+    // AppColors getters resolve to the matching palette this build.
+    final savedMode = ref.watch(themeModeProvider);
+    final isAdmin = ref.watch(appUserProvider).valueOrNull?.isAdmin ?? false;
+    final effectiveMode = isAdmin ? ThemeMode.light : savedMode;
+    appBrightness =
+        effectiveMode == ThemeMode.dark ? Brightness.dark : Brightness.light;
+
     return MaterialApp.router(
       title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
+      // AppTheme.light is fully adaptive — it reads appBrightness, so it is
+      // the correct ThemeData for whichever mode is active. Passing it as
+      // both theme + darkTheme keeps MaterialApp's own brightness aligned.
       theme: AppTheme.light,
-      themeMode: ThemeMode.light,
+      darkTheme: AppTheme.light,
+      themeMode: effectiveMode,
       routerConfig: router,
     );
   }

@@ -186,7 +186,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                       child: Container(
                         width: 7,
                         height: 7,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: AppColors.orange,
                           shape: BoxShape.circle,
                         ),

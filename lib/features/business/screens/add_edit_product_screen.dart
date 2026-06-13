@@ -832,7 +832,7 @@ class _AddImageTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: AppColors.border, width: 1.5),
         ),
-        child: const Column(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.add_photo_alternate_outlined,
@@ -902,7 +902,7 @@ class _ProhibitedListingsNote extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline,
+          Icon(Icons.info_outline,
               size: 16, color: AppColors.teal),
           const SizedBox(width: 8),
           Expanded(

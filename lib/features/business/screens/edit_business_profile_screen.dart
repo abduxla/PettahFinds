@@ -147,7 +147,7 @@ class _EditBusinessProfileScreenState
                                 ? NetworkImage(business.logoUrl)
                                 : null,
                             child: business.logoUrl.isEmpty
-                                ? const Icon(Icons.store,
+                                ? Icon(Icons.store,
                                     size: 32, color: AppColors.teal)
                                 : null,
                           ),

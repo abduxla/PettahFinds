@@ -44,7 +44,7 @@ class _VerifyEmailBannerState extends ConsumerState<VerifyEmailBanner> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.mark_email_unread_outlined,
+          Icon(Icons.mark_email_unread_outlined,
               color: AppColors.orange, size: 18),
           const SizedBox(width: 10),
           Expanded(
@@ -86,7 +86,7 @@ class _VerifyEmailBannerState extends ConsumerState<VerifyEmailBanner> {
               minimumSize: const Size(0, 32),
             ),
             child: _sending
-                ? const SizedBox(
+                ? SizedBox(
                     height: 14,
                     width: 14,
                     child: CircularProgressIndicator(
@@ -105,7 +105,7 @@ class _VerifyEmailBannerState extends ConsumerState<VerifyEmailBanner> {
             iconSize: 16,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-            icon: const Icon(Icons.close, color: AppColors.text3),
+            icon: Icon(Icons.close, color: AppColors.text3),
           ),
         ],
       ),

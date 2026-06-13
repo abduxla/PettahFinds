@@ -44,7 +44,7 @@ class BusinessDashboardScreen extends ConsumerWidget {
         final products = productsAsync.valueOrNull ?? const <Product>[];
 
         return AnnotatedRegion<SystemUiOverlayStyle>(
-          value: const SystemUiOverlayStyle(
+          value: SystemUiOverlayStyle(
             statusBarColor: AppColors.tealDark,
             statusBarIconBrightness: Brightness.light,
             statusBarBrightness: Brightness.dark,
@@ -156,7 +156,7 @@ class _MerchantHeader extends StatelessWidget {
                     width: 6,
                     height: 6,
                     margin: const EdgeInsets.only(bottom: 4),
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: AppColors.orange,
                       shape: BoxShape.circle,
                     ),
@@ -549,7 +549,7 @@ class _RecentProductsSection extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    const Icon(Icons.inventory_2_outlined,
+                    Icon(Icons.inventory_2_outlined,
                         size: 40, color: AppColors.text4),
                     const SizedBox(height: 10),
                     Text(
@@ -683,7 +683,7 @@ class _MerchantProductCard extends StatelessWidget {
                                   Icons.shopping_bag_outlined,
                             ),
                           )
-                        : const Center(
+                        : Center(
                             child: Icon(Icons.shopping_bag_outlined,
                                 color: AppColors.text4, size: 32),
                           ),
@@ -750,7 +750,7 @@ class _MerchantProductCard extends StatelessWidget {
                     const SizedBox(height: 5),
                     Row(
                       children: [
-                        const Icon(Icons.edit_outlined,
+                        Icon(Icons.edit_outlined,
                             color: AppColors.text4, size: 12),
                         const SizedBox(width: 3),
                         Text(

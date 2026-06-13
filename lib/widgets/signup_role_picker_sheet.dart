@@ -97,7 +97,7 @@ Future<String?> showSignupRolePickerSheet(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.info_outline,
+                  Icon(Icons.info_outline,
                       color: AppColors.orange, size: 18),
                   const SizedBox(width: 10),
                   Expanded(
@@ -196,7 +196,7 @@ class _RoleOption extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded,
+            Icon(Icons.chevron_right_rounded,
                 color: AppColors.teal),
           ],
         ),

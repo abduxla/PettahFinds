@@ -270,7 +270,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         )
                       : Container(
                           color: AppColors.bgSection,
-                          child: const Center(
+                          child: Center(
                             child: Icon(Icons.shopping_bag_outlined,
                                 size: 64, color: AppColors.text4),
                           ),
@@ -281,7 +281,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               // ---- Body ----
               SliverToBoxAdapter(
                 child: Container(
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: AppColors.white,
                     borderRadius: BorderRadius.vertical(
                       top: Radius.circular(20),
@@ -332,7 +332,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.category_outlined,
+                                Icon(Icons.category_outlined,
                                     size: 13, color: AppColors.text3),
                                 const SizedBox(width: 5),
                                 Text(
@@ -349,7 +349,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         ],
 
                         const SizedBox(height: 24),
-                        const Divider(color: AppColors.border, height: 1),
+                        Divider(color: AppColors.border, height: 1),
                         const SizedBox(height: 20),
 
                         Text(
@@ -376,7 +376,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                         const _PlatformDisclaimer(),
 
                         const SizedBox(height: 24),
-                        const Divider(color: AppColors.border, height: 1),
+                        Divider(color: AppColors.border, height: 1),
                         const SizedBox(height: 20),
 
                         Text(
@@ -416,7 +416,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.lock_clock_rounded,
+                                Icon(Icons.lock_clock_rounded,
                                     color: AppColors.text3, size: 22),
                                 const SizedBox(width: 10),
                                 Expanded(
@@ -441,7 +441,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                           child: TextButton.icon(
                             onPressed: () => _openReportSheet(
                                 context, ref, product.id),
-                            icon: const Icon(Icons.flag_outlined,
+                            icon: Icon(Icons.flag_outlined,
                                 size: 16, color: AppColors.text3),
                             label: Text(
                               'Report product',
@@ -518,7 +518,7 @@ class _UnavailableProductScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 Icons.shopping_bag_outlined,
                 size: 56,
                 color: AppColors.text4,
@@ -631,7 +631,7 @@ class _SellerCard extends StatelessWidget {
                     ? NetworkImage(business.logoUrl)
                     : null,
                 child: business.logoUrl.isEmpty
-                    ? const Icon(Icons.store,
+                    ? Icon(Icons.store,
                         color: AppColors.teal, size: 20)
                     : null,
               ),
@@ -678,7 +678,7 @@ class _SellerCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.star_rounded,
+                        Icon(Icons.star_rounded,
                             size: 14, color: AppColors.orange),
                         const SizedBox(width: 2),
                         Text(
@@ -695,7 +695,7 @@ class _SellerCard extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded,
+            Icon(Icons.chevron_right_rounded,
                 color: AppColors.text3),
           ],
         ),
@@ -866,7 +866,7 @@ class _AdminProductActionsState
                   label: Text(p.isActive ? 'Deactivate' : 'Activate'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.teal,
-                    side: const BorderSide(color: AppColors.teal),
+                    side: BorderSide(color: AppColors.teal),
                   ),
                 ),
               ),
@@ -1059,7 +1059,7 @@ class _PlatformDisclaimer extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline, size: 14, color: AppColors.text4),
+          Icon(Icons.info_outline, size: 14, color: AppColors.text4),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -1238,11 +1238,11 @@ class _ReportProductSheetState extends ConsumerState<_ReportProductSheet> {
               ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.border),
+                borderSide: BorderSide(color: AppColors.border),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppColors.border),
+                borderSide: BorderSide(color: AppColors.border),
               ),
             ),
           ),
@@ -1316,7 +1316,7 @@ class _PricingBlock extends StatelessWidget {
             amount: _money(product.priceLkr),
             emphasized: false,
           ),
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 10),
             child: Divider(
               height: 1,
@@ -1648,7 +1648,7 @@ class _ProductReviewTile extends ConsumerWidget {
         children: [
           Row(
             children: [
-              const CircleAvatar(
+              CircleAvatar(
                 radius: 16,
                 backgroundColor: AppColors.tealLight,
                 child: Icon(Icons.person_rounded,
@@ -1680,7 +1680,7 @@ class _ProductReviewTile extends ConsumerWidget {
                   height: 28,
                   child: PopupMenuButton<String>(
                     padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.more_horiz_rounded,
+                    icon: Icon(Icons.more_horiz_rounded,
                         size: 18, color: AppColors.text4),
                     onSelected: (value) {
                       if (value == 'block') {
@@ -1697,7 +1697,7 @@ class _ProductReviewTile extends ConsumerWidget {
                         );
                       }
                     },
-                    itemBuilder: (_) => const [
+                    itemBuilder: (_) => [
                       PopupMenuItem(
                         value: 'block',
                         child: Row(

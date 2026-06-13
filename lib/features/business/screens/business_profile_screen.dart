@@ -92,7 +92,7 @@ class BusinessProfileScreen extends ConsumerWidget {
                                   ? NetworkImage(business.logoUrl)
                                   : null,
                               child: business.logoUrl.isEmpty
-                                  ? const Icon(Icons.store,
+                                  ? Icon(Icons.store,
                                       size: 30, color: AppColors.teal)
                                   : null,
                             ),
@@ -115,7 +115,7 @@ class BusinessProfileScreen extends ConsumerWidget {
                                     ),
                                     if (business.isVerified) ...[
                                       const SizedBox(width: 6),
-                                      const Icon(Icons.verified,
+                                      Icon(Icons.verified,
                                           size: 20, color: AppColors.teal),
                                     ],
                                   ],
@@ -164,7 +164,7 @@ class BusinessProfileScreen extends ConsumerWidget {
                               RatingBarIndicator(
                                 rating: business.ratingAvg,
                                 itemSize: 20,
-                                itemBuilder: (_, _) => const Icon(
+                                itemBuilder: (_, _) => Icon(
                                     Icons.star_rounded,
                                     color: AppColors.orange),
                               ),
@@ -201,7 +201,7 @@ class BusinessProfileScreen extends ConsumerWidget {
                           )),
 
                       const SizedBox(height: 24),
-                      const Divider(color: AppColors.border),
+                      Divider(color: AppColors.border),
                       const SizedBox(height: 16),
 
                       // Contact info

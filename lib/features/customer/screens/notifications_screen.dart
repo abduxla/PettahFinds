@@ -41,7 +41,7 @@ class NotificationsScreen extends ConsumerWidget {
 
     // Auth still resolving → show a brief loader with a back escape hatch.
     if (authState.isLoading) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppColors.bgSection,
         body: Center(
           child: CircularProgressIndicator(color: AppColors.teal),
@@ -78,7 +78,7 @@ class NotificationsScreen extends ConsumerWidget {
 
     // Firebase user resolved but AppUser doc still loading → short-lived loader.
     if (appUser == null) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppColors.bgSection,
         body: Center(
           child: CircularProgressIndicator(color: AppColors.teal),
@@ -139,7 +139,7 @@ class NotificationsScreen extends ConsumerWidget {
                 ),
               ),
         loading: () =>
-            const Center(child: CircularProgressIndicator(color: AppColors.teal)),
+            Center(child: CircularProgressIndicator(color: AppColors.teal)),
         error: (e, _) => AppErrorWidget(
           message: e.toString(),
           onRetry: () => ref.invalidate(_userNotificationsProvider(appUser.uid)),
@@ -224,7 +224,7 @@ class _NotificationTile extends StatelessWidget {
                 width: 8,
                 height: 8,
                 margin: const EdgeInsets.only(top: 4, left: 6),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: AppColors.orange,
                   shape: BoxShape.circle,
                 ),
@@ -250,11 +250,11 @@ class _EmptyNotifications extends StatelessWidget {
             Container(
               width: 72,
               height: 72,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.tealLight,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.notifications_off_outlined,
+              child: Icon(Icons.notifications_off_outlined,
                   color: AppColors.teal, size: 32),
             ),
             const SizedBox(height: 16),

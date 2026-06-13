@@ -6,6 +6,7 @@ import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../widgets/delete_account_dialog.dart';
 import '../../../widgets/sign_out_dialog.dart';
+import '../../../widgets/dark_mode_tile.dart';
 
 class BusinessSettingsScreen extends ConsumerWidget {
   const BusinessSettingsScreen({super.key});
@@ -74,6 +75,11 @@ class BusinessSettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
+
+          const SizedBox(height: 18),
+
+          // ---- APPEARANCE ----
+          const DarkModeSection(),
 
           const SizedBox(height: 18),
 
@@ -223,12 +229,12 @@ class _SectionCard extends StatelessWidget {
                         color: AppColors.text1,
                       ),
                     ),
-                    trailing: const Icon(Icons.chevron_right_rounded,
+                    trailing: Icon(Icons.chevron_right_rounded,
                         color: AppColors.text4, size: 22),
                     onTap: item.onTap,
                   ),
                   if (i < items.length - 1)
-                    const Divider(
+                    Divider(
                       height: 1,
                       indent: 70,
                       color: AppColors.border,

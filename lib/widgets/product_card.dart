@@ -205,7 +205,7 @@ class _StreetPin extends ConsumerWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.location_on, color: AppColors.teal, size: 8),
+          Icon(Icons.location_on, color: AppColors.teal, size: 8),
           const SizedBox(width: 3),
           Flexible(
             child: Text(

@@ -41,14 +41,14 @@ class BusinessAnalyticsScreen extends ConsumerWidget {
         ),
       ),
       body: businessAsync.when(
-        loading: () => const LoadingWidget(),
+        loading: () => LoadingWidget(),
         error: (e, _) => AppErrorWidget(
           message: e.toString(),
           onRetry: () => ref.invalidate(currentUserBusinessProvider),
         ),
         data: (business) {
           if (business == null) {
-            return const Center(
+            return Center(
               child: Padding(
                 padding: EdgeInsets.all(32),
                 child: Text(
@@ -77,14 +77,14 @@ class _LoadedAnalytics extends ConsumerWidget {
     final statsAsync = ref.watch(businessStatsProvider(businessId));
     final productStats =
         ref.watch(productStatsProvider(businessId)).valueOrNull ??
-            const <ProductStat>[];
+            <ProductStat>[];
     final products =
         ref.watch(businessProductsProvider(businessId)).valueOrNull ??
-            const <Product>[];
+            <Product>[];
     final titles = {for (final p in products) p.id: p.title};
 
     return statsAsync.when(
-      loading: () => const LoadingWidget(),
+      loading: () => LoadingWidget(),
       error: (e, _) => AppErrorWidget(
         message: e.toString(),
         onRetry: () => ref.invalidate(businessStatsProvider(businessId)),
@@ -116,33 +116,33 @@ class _AnalyticsBody extends StatelessWidget {
     final ranked = productStats.where((p) => p.views > 0 || p.chats > 0).toList();
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      padding: EdgeInsets.fromLTRB(20, 16, 20, 32),
       children: [
         _TotalCard(total: stats.totalEngagements, tier: tier),
-        const SizedBox(height: 14),
+        SizedBox(height: 14),
         _StatCard(
           icon: Icons.storefront_rounded,
           label: 'Shop profile views',
           value: stats.profileViews,
           color: AppColors.teal,
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         _StatCard(
           icon: Icons.inventory_2_rounded,
           label: 'Product views',
           value: stats.productViews,
           color: AppColors.orange,
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         _StatCard(
           icon: Icons.chat_bubble_rounded,
           label: 'Chats started',
           value: stats.chatsStarted,
-          color: const Color(0xFF7C3AED),
+          color: Color(0xFF7C3AED),
         ),
 
         // Per-product breakdown
-        const SizedBox(height: 22),
+        SizedBox(height: 22),
         Row(
           children: [
             Text(
@@ -153,7 +153,7 @@ class _AnalyticsBody extends StatelessWidget {
                 color: AppColors.text1,
               ),
             ),
-            const SizedBox(width: 6),
+            SizedBox(width: 6),
             Text(
               'by views',
               style: GoogleFonts.dmSans(
@@ -163,10 +163,10 @@ class _AnalyticsBody extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         if (ranked.isEmpty)
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: AppColors.white,
               borderRadius: BorderRadius.circular(16),
@@ -196,7 +196,7 @@ class _AnalyticsBody extends StatelessWidget {
               children: [
                 for (var i = 0; i < ranked.length && i < 15; i++) ...[
                   if (i > 0)
-                    const Divider(
+                    Divider(
                         height: 1, indent: 16, endIndent: 16,
                         color: AppColors.border),
                   _ProductStatRow(
@@ -210,7 +210,7 @@ class _AnalyticsBody extends StatelessWidget {
             ),
           ),
 
-        const SizedBox(height: 18),
+        SizedBox(height: 18),
         Text(
           'Totals since analytics became available on your shop. Numbers '
           'update live as customers browse.',
@@ -241,7 +241,7 @@ class _ProductStatRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Row(
         children: [
           SizedBox(
@@ -267,10 +267,10 @@ class _ProductStatRow extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           _miniStat(Icons.visibility_rounded, views, AppColors.teal),
-          const SizedBox(width: 10),
-          _miniStat(Icons.chat_bubble_rounded, chats, const Color(0xFF7C3AED)),
+          SizedBox(width: 10),
+          _miniStat(Icons.chat_bubble_rounded, chats, Color(0xFF7C3AED)),
         ],
       ),
     );
@@ -281,7 +281,7 @@ class _ProductStatRow extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 13, color: color),
-        const SizedBox(width: 3),
+        SizedBox(width: 3),
         Text(
           '$value',
           style: GoogleFonts.dmSans(
@@ -303,7 +303,7 @@ class _TotalCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(18),
@@ -322,11 +322,11 @@ class _TotalCard extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(width: 6),
+              SizedBox(width: 6),
               TierBadge(tier: tier, compact: true),
             ],
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           Text(
             '$total',
             style: GoogleFonts.nunito(
@@ -359,7 +359,7 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
@@ -376,7 +376,7 @@ class _StatCard extends StatelessWidget {
             ),
             child: Icon(icon, color: color, size: 22),
           ),
-          const SizedBox(width: 14),
+          SizedBox(width: 14),
           Expanded(
             child: Text(
               label,
@@ -388,7 +388,7 @@ class _StatCard extends StatelessWidget {
             ),
           ),
           if (locked)
-            const Icon(Icons.lock_outline_rounded,
+            Icon(Icons.lock_outline_rounded,
                 size: 20, color: AppColors.text4)
           else
             Text(
@@ -414,7 +414,7 @@ class _LockedAnalytics extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+      padding: EdgeInsets.fromLTRB(20, 24, 20, 32),
       children: [
         Center(
           child: Container(
@@ -424,11 +424,11 @@ class _LockedAnalytics extends StatelessWidget {
               color: AppColors.tealLight,
               borderRadius: BorderRadius.circular(18),
             ),
-            child: const Icon(Icons.insights_rounded,
+            child: Icon(Icons.insights_rounded,
                 size: 32, color: AppColors.teal),
           ),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         Text(
           'See how customers find you',
           textAlign: TextAlign.center,
@@ -439,7 +439,7 @@ class _LockedAnalytics extends StatelessWidget {
             letterSpacing: -0.4,
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         Text(
           'Performance analytics is part of the Prime and Elite levels — '
           'track your shop views, product views, customer chats, and which '
@@ -451,16 +451,16 @@ class _LockedAnalytics extends StatelessWidget {
             color: AppColors.text3,
           ),
         ),
-        const SizedBox(height: 22),
-        const _StatCard(
+        SizedBox(height: 22),
+        _StatCard(
           icon: Icons.storefront_rounded,
           label: 'Shop profile views',
           value: 0,
           color: AppColors.teal,
           locked: true,
         ),
-        const SizedBox(height: 12),
-        const _StatCard(
+        SizedBox(height: 12),
+        _StatCard(
           icon: Icons.inventory_2_rounded,
           label: 'Product views',
           value: 0,
@@ -468,7 +468,7 @@ class _LockedAnalytics extends StatelessWidget {
           locked: true,
         ),
         const SizedBox(height: 12),
-        const _StatCard(
+        _StatCard(
           icon: Icons.chat_bubble_rounded,
           label: 'Chats started',
           value: 0,

@@ -72,7 +72,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
+      value: SystemUiOverlayStyle(
         statusBarColor: _mintTop,
         statusBarIconBrightness: Brightness.dark,
         statusBarBrightness: Brightness.light,
@@ -82,7 +82,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Scaffold(
         backgroundColor: _mintTop,
         body: DecoratedBox(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
@@ -682,7 +682,7 @@ class _SearchMockCard extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.search,
+                Icon(Icons.search,
                     size: 18, color: AppColors.text3),
                 const SizedBox(width: 8),
                 Expanded(
@@ -769,7 +769,7 @@ class _SellerRow extends StatelessWidget {
           Container(
             width: 28,
             height: 28,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.tealLight,
               shape: BoxShape.circle,
             ),
@@ -893,7 +893,7 @@ class _SlideThree extends StatelessWidget {
                 child: Container(
                   width: 7,
                   height: 7,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: AppColors.orange,
                     shape: BoxShape.circle,
                   ),
@@ -912,14 +912,14 @@ class _SlideThree extends StatelessWidget {
 
           // Benefits card
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: AppColors.white,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.border),
             ),
             child: Column(
-              children: const [
+              children: [
                 _BenefitRow(
                   icon: Icons.search,
                   title: 'Search any product',
@@ -1025,7 +1025,7 @@ class _TermsCheckbox extends StatelessWidget {
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           activeColor: AppColors.orange,
           checkColor: Colors.white,
-          side: const BorderSide(color: AppColors.text4),
+          side: BorderSide(color: AppColors.text4),
         ),
         const SizedBox(width: 6),
         Expanded(

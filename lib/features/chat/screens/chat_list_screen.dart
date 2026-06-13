@@ -46,7 +46,7 @@ class ChatListScreen extends ConsumerWidget {
       );
     }
     if (appUser == null) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppColors.bgSection,
         body: Center(
           child: CircularProgressIndicator(color: AppColors.teal),
@@ -271,7 +271,7 @@ class _StuckRetry extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.wifi_tethering_error_rounded,
+            Icon(Icons.wifi_tethering_error_rounded,
                 color: AppColors.text4, size: 36),
             const SizedBox(height: 12),
             Text(
@@ -318,11 +318,11 @@ Widget _renderList(BuildContext context, List<Conversation> items,
             Container(
               width: 72,
               height: 72,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.tealLight,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.chat_bubble_outline_rounded,
+              child: Icon(Icons.chat_bubble_outline_rounded,
                   color: AppColors.teal, size: 32),
             ),
             const SizedBox(height: 16),

@@ -49,11 +49,11 @@ class _SignInRequiredSheet extends StatelessWidget {
             Container(
               width: 48,
               height: 48,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.tealLight,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.favorite_outline,
+              child: Icon(Icons.favorite_outline,
                   color: AppColors.teal, size: 24),
             ),
             const SizedBox(height: 12),
@@ -85,7 +85,7 @@ class _SignInRequiredSheet extends StatelessWidget {
                     onPressed: () => Navigator.of(context).pop(),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(44),
-                      side: const BorderSide(color: AppColors.border),
+                      side: BorderSide(color: AppColors.border),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),

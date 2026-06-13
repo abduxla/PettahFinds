@@ -263,7 +263,7 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const CircularProgressIndicator(color: AppColors.teal),
+              CircularProgressIndicator(color: AppColors.teal),
               const SizedBox(height: 16),
               Text(
                 _showSlowMessage
@@ -293,7 +293,7 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
+                Icon(
                   Icons.wifi_tethering_error_rounded,
                   color: AppColors.text4,
                   size: 44,
@@ -361,7 +361,7 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen> {
                     label: const Text('Sign Out & Retry'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.teal,
-                      side: const BorderSide(color: AppColors.teal),
+                      side: BorderSide(color: AppColors.teal),
                     ),
                   ),
                 ),

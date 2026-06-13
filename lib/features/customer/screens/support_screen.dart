@@ -247,7 +247,7 @@ class _ContactTile extends StatelessWidget {
           style: GoogleFonts.dmSans(fontSize: 12, color: AppColors.text3),
         ),
         trailing:
-            const Icon(Icons.open_in_new, size: 16, color: AppColors.teal),
+            Icon(Icons.open_in_new, size: 16, color: AppColors.teal),
         onTap: onTap,
       ),
     );

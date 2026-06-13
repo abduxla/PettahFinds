@@ -13,32 +13,39 @@ import 'app_colors.dart';
 /// that still reference them directly (main.dart, search, map).
 abstract class AppTheme {
   // --- Legacy aliases, remapped to the new palette ---
-  static const accent       = AppColors.teal;
-  static const accentDark   = AppColors.tealDark;
-  static const accentLight  = AppColors.tealLight;
-  static const accentCool   = Color(0xFFA9B9C9);
-  static const bg           = AppColors.bgSection;
-  static const bgAlt        = AppColors.bg;
-  static const inputBg      = AppColors.white;
-  static const card         = AppColors.white;
-  static const text         = AppColors.text1;
-  static const textSub      = AppColors.text2;
-  static const textMuted    = AppColors.text4;
-  static const border       = AppColors.border;
-  static const success      = Color(0xFF22C55E);
+  static Color get accent       => AppColors.teal;
+  static Color get accentDark   => AppColors.tealDark;
+  static Color get accentLight  => AppColors.tealLight;
+  static const accentCool       = Color(0xFFA9B9C9);
+  static Color get bg           => AppColors.bgSection;
+  static Color get bgAlt        => AppColors.bg;
+  static Color get inputBg      => AppColors.white;
+  static Color get card         => AppColors.white;
+  static Color get text         => AppColors.text1;
+  static Color get textSub      => AppColors.text2;
+  static Color get textMuted    => AppColors.text4;
+  static Color get border       => AppColors.border;
+  static const success          = Color(0xFF22C55E);
 
+  /// Single adaptive theme. Colours come from [AppColors], which resolves
+  /// against the global [appBrightness]; this getter just picks the right
+  /// ColorScheme/overlay brightness to match. Kept named `light` since
+  /// that's what `main.dart` passes — it is now the active theme for both
+  /// modes (the app keeps appBrightness in sync with the chosen mode).
   static ThemeData get light {
-    final cs = ColorScheme.light(
+    final dark = appBrightness == Brightness.dark;
+    final cs = (dark ? const ColorScheme.dark() : const ColorScheme.light())
+        .copyWith(
       primary: AppColors.teal,
       onPrimary: Colors.white,
       primaryContainer: AppColors.tealLight,
-      onPrimaryContainer: AppColors.tealDark,
+      onPrimaryContainer: dark ? AppColors.text1 : AppColors.tealDark,
       secondary: AppColors.orange,
       onSecondary: Colors.white,
       surface: AppColors.white,
       onSurface: AppColors.text1,
       error: AppColors.red,
-      outline: AppColors.text4,
+      outline: dark ? AppColors.text3 : AppColors.text4,
       surfaceContainerHighest: AppColors.bgSection,
     );
 
@@ -98,7 +105,7 @@ abstract class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.light,
+      brightness: appBrightness,
       colorScheme: cs,
       scaffoldBackgroundColor: AppColors.bgSection,
       textTheme: textTheme,
@@ -140,14 +147,16 @@ abstract class AppTheme {
         backgroundColor: AppColors.bgSection,
         foregroundColor: AppColors.text1,
         surfaceTintColor: Colors.transparent,
-        systemOverlayStyle: SystemUiOverlayStyle.dark,
+        systemOverlayStyle: dark
+            ? SystemUiOverlayStyle.light
+            : SystemUiOverlayStyle.dark,
         titleTextStyle: GoogleFonts.nunito(
           color: AppColors.text1,
           fontSize: 20,
           fontWeight: FontWeight.w800,
           letterSpacing: -0.4,
         ),
-        iconTheme: const IconThemeData(color: AppColors.text1, size: 22),
+        iconTheme: IconThemeData(color: AppColors.text1, size: 22),
       ),
 
       cardTheme: CardThemeData(
@@ -156,7 +165,7 @@ abstract class AppTheme {
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppColors.border),
+          side: BorderSide(color: AppColors.border),
         ),
         clipBehavior: Clip.antiAlias,
         margin: EdgeInsets.zero,
@@ -167,23 +176,23 @@ abstract class AppTheme {
         fillColor: AppColors.white,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.border, width: 1.5),
+          borderSide: BorderSide(color: AppColors.border, width: 1.5),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.border, width: 1.5),
+          borderSide: BorderSide(color: AppColors.border, width: 1.5),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.teal, width: 2),
+          borderSide: BorderSide(color: AppColors.teal, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.red),
+          borderSide: BorderSide(color: AppColors.red),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.red, width: 2),
+          borderSide: BorderSide(color: AppColors.red, width: 2),
         ),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -237,7 +246,7 @@ abstract class AppTheme {
         style: OutlinedButton.styleFrom(
           minimumSize: const Size.fromHeight(50),
           foregroundColor: AppColors.text1,
-          side: const BorderSide(color: AppColors.border, width: 1.5),
+          side: BorderSide(color: AppColors.border, width: 1.5),
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12)),
           textStyle: GoogleFonts.dmSans(
@@ -280,7 +289,7 @@ abstract class AppTheme {
         }),
       ),
 
-      dividerTheme: const DividerThemeData(
+      dividerTheme: DividerThemeData(
           color: AppColors.border, thickness: 1, space: 0),
 
       listTileTheme: ListTileThemeData(
@@ -296,7 +305,7 @@ abstract class AppTheme {
 
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.bg,
-        side: const BorderSide(color: AppColors.border),
+        side: BorderSide(color: AppColors.border),
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10)),
         labelStyle: GoogleFonts.dmSans(
@@ -374,7 +383,7 @@ abstract class AppTheme {
             fontWeight: FontWeight.w500),
       ),
 
-      bottomSheetTheme: const BottomSheetThemeData(
+      bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: AppColors.white,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
@@ -382,7 +391,7 @@ abstract class AppTheme {
         ),
       ),
 
-      progressIndicatorTheme: const ProgressIndicatorThemeData(
+      progressIndicatorTheme: ProgressIndicatorThemeData(
         color: AppColors.teal,
       ),
 

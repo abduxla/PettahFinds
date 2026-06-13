@@ -514,7 +514,7 @@ class _SortRow extends StatelessWidget {
               ),
             ),
             if (selected)
-              const Icon(Icons.check_rounded,
+              Icon(Icons.check_rounded,
                   size: 20, color: AppColors.teal),
           ],
         ),

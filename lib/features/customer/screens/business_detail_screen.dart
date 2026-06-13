@@ -918,7 +918,7 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.lock_clock_rounded,
+                        Icon(Icons.lock_clock_rounded,
                             size: 56, color: AppColors.text3),
                         const SizedBox(height: 12),
                         Text(

@@ -261,7 +261,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                           child: Container(
                             width: 7,
                             height: 7,
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               color: AppColors.orange,
                               shape: BoxShape.circle,
                             ),
@@ -343,7 +343,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   // OR divider between email/password and Google.
                   Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Divider(color: AppColors.border, thickness: 1),
                       ),
                       Padding(
@@ -358,7 +358,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                           ),
                         ),
                       ),
-                      const Expanded(
+                      Expanded(
                         child: Divider(color: AppColors.border, thickness: 1),
                       ),
                     ],
@@ -370,7 +370,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     label: const Text('Continue with Google'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.text1,
-                      side: const BorderSide(color: AppColors.border),
+                      side: BorderSide(color: AppColors.border),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
