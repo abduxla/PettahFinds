@@ -358,7 +358,7 @@ class _ManageProductsSkeleton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.circular(16),
           ),
           child: const Row(

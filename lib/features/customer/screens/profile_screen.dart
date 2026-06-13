@@ -34,21 +34,11 @@ class ProfileScreen extends ConsumerWidget {
                 letterSpacing: -0.5,
               )),
         ),
-        body: Column(
-          children: [
-            const Expanded(
-              child: SignInRequired(
-                icon: Icons.person_outline,
-                title: 'Sign in to PetaFinds',
-                subtitle:
-                    'Create an account or sign in to save favourites, manage your profile and receive notifications.',
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 0, 20, 24),
-              child: DarkModeSection(),
-            ),
-          ],
+        body: const SignInRequired(
+          icon: Icons.person_outline,
+          title: 'Sign in to PetaFinds',
+          subtitle:
+              'Create an account or sign in to save favourites, manage your profile and receive notifications.',
         ),
       );
     }
@@ -338,7 +328,7 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
     // UI, so no manual popover sourceRect is needed.
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),

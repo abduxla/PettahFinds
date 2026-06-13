@@ -25,11 +25,12 @@ class AnalyticsRepository {
   CollectionReference get _productStats =>
       _firestore.collection(AppConstants.productStatsCollection);
 
-  Future<void> _bumpBusiness(String businessId, String field) async {
+  Future<void> _bumpBusiness(String businessId, String field,
+      [int delta = 1]) async {
     if (businessId.isEmpty) return;
     try {
       await _stats.doc(businessId).set({
-        field: FieldValue.increment(1),
+        field: FieldValue.increment(delta),
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (_) {
@@ -37,13 +38,13 @@ class AnalyticsRepository {
     }
   }
 
-  Future<void> _bumpProduct(
-      String productId, String businessId, String field) async {
+  Future<void> _bumpProduct(String productId, String businessId, String field,
+      [int delta = 1]) async {
     if (productId.isEmpty || businessId.isEmpty) return;
     try {
       await _productStats.doc(productId).set({
         'businessId': businessId,
-        field: FieldValue.increment(1),
+        field: FieldValue.increment(delta),
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (_) {
@@ -70,8 +71,22 @@ class AnalyticsRepository {
     ]);
   }
 
-  Future<void> recordSave(String businessId) =>
-      _bumpBusiness(businessId, 'saves');
+  /// A customer saving a product bumps both the business total and the
+  /// per-product count; un-saving decrements, so the figure reflects the
+  /// current number of savers rather than total taps.
+  Future<void> recordProductSave(String businessId, String productId) async {
+    await Future.wait([
+      _bumpBusiness(businessId, 'saves'),
+      _bumpProduct(productId, businessId, 'saves'),
+    ]);
+  }
+
+  Future<void> recordProductUnsave(String businessId, String productId) async {
+    await Future.wait([
+      _bumpBusiness(businessId, 'saves', -1),
+      _bumpProduct(productId, businessId, 'saves', -1),
+    ]);
+  }
 
   /// Live engagement totals for a business. Emits [BusinessStats.empty]
   /// until the first event lands (the doc won't exist yet).

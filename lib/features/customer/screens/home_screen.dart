@@ -1098,7 +1098,7 @@ class _RecentlyViewedSection extends StatelessWidget {
           ),
           const SizedBox(height: 13),
           SizedBox(
-            height: 180,
+            height: 194,
             child: ScrollConfiguration(
               behavior: const _NoScrollbarBehavior(),
               child: ListView.separated(

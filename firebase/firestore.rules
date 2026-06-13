@@ -423,7 +423,8 @@ service cloud.firestore {
       // bound matches the business_stats rationale above.
       allow create, update: if isSignedIn()
                             && request.resource.data.keys().hasOnly(
-                                 ['businessId', 'views', 'chats', 'updatedAt']);
+                                 ['businessId', 'views', 'chats', 'saves',
+                                  'updatedAt']);
 
       allow delete: if isAdmin();
     }

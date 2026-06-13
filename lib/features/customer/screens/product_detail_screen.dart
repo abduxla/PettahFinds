@@ -192,6 +192,18 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                                   targetType: 'product',
                                   targetId: product.id,
                                 );
+                            // Engagement: track product saves (skip the
+                            // shop's own owner). `isFavorited` is the
+                            // pre-tap state, so true => just un-saved.
+                            if (appUser.businessId != product.businessId) {
+                              final a =
+                                  ref.read(analyticsRepositoryProvider);
+                              isFavorited
+                                  ? a.recordProductUnsave(
+                                      product.businessId, product.id)
+                                  : a.recordProductSave(
+                                      product.businessId, product.id);
+                            }
                           } catch (e) {
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).clearSnackBars();

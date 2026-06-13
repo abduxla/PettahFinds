@@ -350,7 +350,7 @@ void _showSortSheet(BuildContext context, WidgetRef ref) {
     isDismissible: true,
     isScrollControlled: true,
     useSafeArea: true,
-    backgroundColor: Colors.white,
+    backgroundColor: AppColors.white,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),

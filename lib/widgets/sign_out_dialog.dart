@@ -20,7 +20,7 @@ Future<bool?> showSignOutDialog(BuildContext context) {
     context: context,
     builder: (ctx) {
       return Dialog(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.white,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),

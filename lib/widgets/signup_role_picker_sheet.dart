@@ -37,7 +37,7 @@ Future<String?> showSignupRolePickerSheet(
     // "Something went wrong" timeout downstream. Root-navigator
     // hosting survives every nested route swap.
     useRootNavigator: useRootNavigator,
-    backgroundColor: Colors.white,
+    backgroundColor: AppColors.white,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
@@ -166,7 +166,7 @@ class _RoleOption extends StatelessWidget {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: AppColors.teal, size: 22),

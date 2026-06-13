@@ -8,12 +8,14 @@ class ProductStat {
   final String businessId;
   final int views;
   final int chats;
+  final int saves;
 
   const ProductStat({
     required this.productId,
     required this.businessId,
     this.views = 0,
     this.chats = 0,
+    this.saves = 0,
   });
 
   factory ProductStat.fromFirestore(DocumentSnapshot doc) {
@@ -24,6 +26,7 @@ class ProductStat {
       businessId: (data['businessId'] as String?) ?? '',
       views: read('views'),
       chats: read('chats'),
+      saves: read('saves'),
     );
   }
 }

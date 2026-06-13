@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/providers/providers.dart';
@@ -201,9 +202,13 @@ class _AnalyticsBody extends StatelessWidget {
                         color: AppColors.border),
                   _ProductStatRow(
                     rank: i + 1,
+                    productId: ranked[i].productId,
                     title: titles[ranked[i].productId] ?? 'Removed product',
                     views: ranked[i].views,
+                    saves: ranked[i].saves,
                     chats: ranked[i].chats,
+                    // Only navigate to listings that still exist.
+                    tappable: titles.containsKey(ranked[i].productId),
                   ),
                 ],
               ],
@@ -228,20 +233,26 @@ class _AnalyticsBody extends StatelessWidget {
 
 class _ProductStatRow extends StatelessWidget {
   final int rank;
+  final String productId;
   final String title;
   final int views;
+  final int saves;
   final int chats;
+  final bool tappable;
   const _ProductStatRow({
     required this.rank,
+    required this.productId,
     required this.title,
     required this.views,
+    required this.saves,
     required this.chats,
+    required this.tappable,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    final row = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Row(
         children: [
           SizedBox(
@@ -267,12 +278,27 @@ class _ProductStatRow extends StatelessWidget {
               ),
             ),
           ),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           _miniStat(Icons.visibility_rounded, views, AppColors.teal),
-          SizedBox(width: 10),
-          _miniStat(Icons.chat_bubble_rounded, chats, Color(0xFF7C3AED)),
+          const SizedBox(width: 9),
+          _miniStat(Icons.bookmark_rounded, saves, AppColors.orange),
+          const SizedBox(width: 9),
+          _miniStat(Icons.chat_bubble_rounded, chats, const Color(0xFF7C3AED)),
+          if (tappable) ...[
+            const SizedBox(width: 2),
+            Icon(Icons.chevron_right_rounded,
+                size: 18, color: AppColors.text4),
+          ],
         ],
       ),
+    );
+
+    if (!tappable) return row;
+    // Tap opens the listing (owner preview) so a seller can tell apart
+    // same-named products — e.g. the same item in different colorways.
+    return InkWell(
+      onTap: () => context.push('/product/$productId?mode=owner'),
+      child: row,
     );
   }
 

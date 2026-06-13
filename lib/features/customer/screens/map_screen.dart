@@ -24,6 +24,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../../core/constants/categories.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../main.dart' show hasMapboxToken;
 import '../../../models/business.dart';
 import '../../../utils/maps_launcher.dart';
@@ -239,7 +240,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 18),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: AppColors.white,
                               borderRadius: BorderRadius.circular(16),
                               boxShadow: [
                                 BoxShadow(
@@ -477,7 +478,7 @@ class _EmptyStripPill extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
@@ -533,7 +534,7 @@ class _CategoryChipsBar extends StatelessWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: active ? AppTheme.accent : Colors.white,
+                color: active ? AppTheme.accent : AppColors.white,
                 borderRadius: BorderRadius.circular(100),
                 boxShadow: [
                   BoxShadow(
@@ -579,7 +580,7 @@ class _FloatingIconButton extends StatelessWidget {
         width: 52,
         height: 52,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
@@ -618,7 +619,7 @@ class _NearbyStrip extends StatelessWidget {
               margin: const EdgeInsets.only(right: 12),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
@@ -710,7 +711,7 @@ class _NearbyStripSkeleton extends StatelessWidget {
           margin: const EdgeInsets.only(right: 12),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.circular(20),
           ),
           child: const Row(
@@ -753,7 +754,7 @@ class _BusinessPreviewCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
@@ -783,8 +784,8 @@ class _BusinessPreviewCard extends StatelessWidget {
                     child: Container(
                       width: 32,
                       height: 32,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.close_rounded, size: 18),
