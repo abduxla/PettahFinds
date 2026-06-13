@@ -10,6 +10,11 @@ import '../../../core/theme/app_colors.dart';
 /// flag to decide whether to send the user through onboarding again.
 const String onboardingCompletedKey = 'onboarding_completed_v1';
 
+/// Soft mint at the top of the onboarding gradient — gives the slides a
+/// branded teal wash instead of a flat white canvas, fading into the
+/// app's light background.
+const Color _mintTop = Color(0xFFCDE7E7);
+
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -68,16 +73,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
-        statusBarColor: AppColors.bg,
+        statusBarColor: _mintTop,
         statusBarIconBrightness: Brightness.dark,
         statusBarBrightness: Brightness.light,
         systemNavigationBarColor: AppColors.bg,
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
-        backgroundColor: AppColors.bg,
-        body: SafeArea(
-          child: Column(
+        backgroundColor: _mintTop,
+        body: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [_mintTop, AppColors.tealLight, AppColors.bg],
+              stops: [0.0, 0.3, 0.72],
+            ),
+          ),
+          child: SafeArea(
+            child: Column(
             children: [
               // ---- Top bar: Skip on slides 0/1 ----
               SizedBox(
@@ -252,7 +266,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ),
                       ),
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
