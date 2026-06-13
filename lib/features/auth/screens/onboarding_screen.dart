@@ -68,12 +68,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
-        statusBarColor: AppColors.tealDark,
-        statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: AppColors.tealDark,
+        statusBarColor: AppColors.bg,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+        systemNavigationBarColor: AppColors.bg,
+        systemNavigationBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
-        backgroundColor: AppColors.tealDark,
+        backgroundColor: AppColors.bg,
         body: SafeArea(
           child: Column(
             children: [
@@ -93,7 +95,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             style: GoogleFonts.dmSans(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: Colors.white.withValues(alpha: 0.85),
+                              color: AppColors.text3,
                             ),
                           ),
                         ),
@@ -140,7 +142,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       decoration: BoxDecoration(
                         color: _currentPage == i
                             ? AppColors.orange
-                            : Colors.white.withValues(alpha: 0.25),
+                            : AppColors.border,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -160,10 +162,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             width: double.infinity,
                             child: FilledButton(
                               style: FilledButton.styleFrom(
-                                backgroundColor: Colors.white.withValues(alpha: 0.15),
+                                backgroundColor: AppColors.teal,
                                 foregroundColor: Colors.white,
                                 disabledBackgroundColor:
-                                    Colors.white.withValues(alpha: 0.05),
+                                    AppColors.teal.withValues(alpha: 0.4),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(28),
                                 ),
@@ -231,7 +233,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         width: double.infinity,
                         child: FilledButton(
                           style: FilledButton.styleFrom(
-                            backgroundColor: AppColors.orange,
+                            backgroundColor: AppColors.teal,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(28),
@@ -292,7 +294,7 @@ class _SlideOne extends StatelessWidget {
               style: GoogleFonts.nunito(
                 fontSize: 26,
                 fontWeight: FontWeight.w900,
-                color: Colors.white,
+                color: AppColors.text1,
                 letterSpacing: -0.6,
                 height: 1.15,
               ),
@@ -322,7 +324,7 @@ class _SlideOne extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.dmSans(
               fontSize: 13.5,
-              color: Colors.white.withValues(alpha: 0.65),
+              color: AppColors.text3,
               height: 1.45,
               fontStyle: FontStyle.italic,
             ),
@@ -337,12 +339,12 @@ class _SlideOne extends StatelessWidget {
 class _MapMockCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final gridLine = Colors.white.withValues(alpha: 0.08);
+    final gridLine = AppColors.border;
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.tealDark.withValues(alpha: 0.55),
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Stack(
         children: [
@@ -357,7 +359,7 @@ class _MapMockCard extends StatelessWidget {
             child: Text('Sea St.',
                 style: GoogleFonts.dmSans(
                   fontSize: 9.5,
-                  color: Colors.white.withValues(alpha: 0.35),
+                  color: AppColors.text4,
                 )),
           ),
           Positioned(
@@ -366,7 +368,7 @@ class _MapMockCard extends StatelessWidget {
             child: Text('4th Cross',
                 style: GoogleFonts.dmSans(
                   fontSize: 9.5,
-                  color: Colors.white.withValues(alpha: 0.35),
+                  color: AppColors.text4,
                 )),
           ),
           Positioned(
@@ -375,7 +377,7 @@ class _MapMockCard extends StatelessWidget {
             child: Text('Front St.',
                 style: GoogleFonts.dmSans(
                   fontSize: 9.5,
-                  color: Colors.white.withValues(alpha: 0.35),
+                  color: AppColors.text4,
                 )),
           ),
 
@@ -425,7 +427,7 @@ class _MapMockCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.35),
+                      color: AppColors.bgSection,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -433,7 +435,7 @@ class _MapMockCard extends StatelessWidget {
                       style: GoogleFonts.nunito(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
-                        color: Colors.white,
+                        color: AppColors.text2,
                       ),
                     ),
                   ),
@@ -511,9 +513,16 @@ class _ShopChip extends StatelessWidget {
       padding: EdgeInsets.symmetric(
           horizontal: label != null ? 8 : 6, vertical: 5),
       decoration: BoxDecoration(
-        color: AppColors.tealDark,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.text1.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -526,7 +535,7 @@ class _ShopChip extends StatelessWidget {
               style: GoogleFonts.dmSans(
                 fontSize: 9.5,
                 fontWeight: FontWeight.w700,
-                color: Colors.white.withValues(alpha: 0.85),
+                color: AppColors.text2,
                 height: 1.1,
               ),
             ),
@@ -546,9 +555,9 @@ class _OrangePill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.orange.withValues(alpha: 0.18),
+        color: AppColors.orange.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.orange.withValues(alpha: 0.4)),
+        border: Border.all(color: AppColors.orange.withValues(alpha: 0.35)),
       ),
       child: Text(
         text,
@@ -576,7 +585,7 @@ class _SlideTwo extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 8),
-          Expanded(flex: 5, child: _SearchMockCard()),
+          Expanded(flex: 5, child: Center(child: _SearchMockCard())),
           const SizedBox(height: 12),
           _OrangePill(text: '+ THE PETAFINDS WAY'),
           const SizedBox(height: 12),
@@ -588,7 +597,7 @@ class _SlideTwo extends StatelessWidget {
               style: GoogleFonts.nunito(
                 fontSize: 26,
                 fontWeight: FontWeight.w900,
-                color: Colors.white,
+                color: AppColors.text1,
                 letterSpacing: -0.6,
                 height: 1.15,
               ),
@@ -617,7 +626,7 @@ class _SlideTwo extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: GoogleFonts.dmSans(
               fontSize: 13.5,
-              color: Colors.white.withValues(alpha: 0.7),
+              color: AppColors.text3,
               height: 1.45,
             ),
           ),
@@ -634,31 +643,38 @@ class _SearchMockCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.tealDark.withValues(alpha: 0.55),
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.text1.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Search bar
           Container(
             padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
             decoration: BoxDecoration(
-              color: AppColors.tealDark,
+              color: AppColors.bgSection,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+              border: Border.all(color: AppColors.border),
             ),
             child: Row(
               children: [
-                Icon(Icons.search,
-                    size: 18,
-                    color: Colors.white.withValues(alpha: 0.75)),
+                const Icon(Icons.search,
+                    size: 18, color: AppColors.text3),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text('iphone charger |',
                       style: GoogleFonts.dmSans(
                         fontSize: 13,
-                        color: Colors.white.withValues(alpha: 0.95),
+                        color: AppColors.text1,
                         fontWeight: FontWeight.w600,
                       )),
                 ),
@@ -685,7 +701,7 @@ class _SearchMockCard extends StatelessWidget {
             child: Text('3 sellers found in Pettah',
                 style: GoogleFonts.dmSans(
                   fontSize: 10.5,
-                  color: Colors.white.withValues(alpha: 0.5),
+                  color: AppColors.text3,
                   fontWeight: FontWeight.w600,
                 )),
           ),
@@ -729,17 +745,17 @@ class _SellerRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
       decoration: BoxDecoration(
-        color: AppColors.tealDark,
+        color: AppColors.bgSection,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: [
           Container(
             width: 28,
             height: 28,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.08),
+            decoration: const BoxDecoration(
+              color: AppColors.tealLight,
               shape: BoxShape.circle,
             ),
             child: Center(
@@ -754,7 +770,7 @@ class _SellerRow extends StatelessWidget {
                     style: GoogleFonts.dmSans(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w800,
-                      color: Colors.white,
+                      color: AppColors.text1,
                     )),
                 Text(price,
                     style: GoogleFonts.nunito(
@@ -768,14 +784,15 @@ class _SellerRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.06),
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: AppColors.border),
             ),
             child: Text(tag,
                 style: GoogleFonts.dmSans(
                   fontSize: 9.5,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white.withValues(alpha: 0.8),
+                  color: AppColors.text2,
                 )),
           ),
         ],
@@ -809,7 +826,7 @@ class _SlideThree extends StatelessWidget {
                   borderRadius: BorderRadius.circular(18),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.orange.withValues(alpha: 0.25),
+                      color: AppColors.teal.withValues(alpha: 0.25),
                       blurRadius: 24,
                       spreadRadius: 1,
                     ),
@@ -833,12 +850,13 @@ class _SlideThree extends StatelessWidget {
                 child: Container(
                   width: 26,
                   height: 26,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: AppColors.orange,
                     shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.bg, width: 2),
                   ),
                   child: const Icon(Icons.search,
-                      size: 15, color: Colors.white),
+                      size: 14, color: Colors.white),
                 ),
               ),
             ],
@@ -852,7 +870,7 @@ class _SlideThree extends StatelessWidget {
                   style: GoogleFonts.nunito(
                     fontSize: 26,
                     fontWeight: FontWeight.w900,
-                    color: Colors.white,
+                    color: AppColors.text1,
                     letterSpacing: -0.6,
                   )),
               Padding(
@@ -873,7 +891,7 @@ class _SlideThree extends StatelessWidget {
               textAlign: TextAlign.center,
               style: GoogleFonts.dmSans(
                 fontSize: 13,
-                color: Colors.white.withValues(alpha: 0.6),
+                color: AppColors.text3,
               )),
           const SizedBox(height: 16),
 
@@ -881,10 +899,9 @@ class _SlideThree extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppColors.tealDark.withValues(alpha: 0.55),
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(16),
-              border:
-                  Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              border: Border.all(color: AppColors.border),
             ),
             child: Column(
               children: const [
@@ -894,7 +911,7 @@ class _SlideThree extends StatelessWidget {
                   subtitle: 'Find it across all of Pettah instantly',
                 ),
                 SizedBox(height: 10),
-                Divider(color: Color(0x1AFFFFFF), height: 1),
+                Divider(color: AppColors.border, height: 1),
                 SizedBox(height: 10),
                 _BenefitRow(
                   icon: Icons.storefront_outlined,
@@ -902,7 +919,7 @@ class _SlideThree extends StatelessWidget {
                   subtitle: 'Compare prices before you visit',
                 ),
                 SizedBox(height: 10),
-                Divider(color: Color(0x1AFFFFFF), height: 1),
+                Divider(color: AppColors.border, height: 1),
                 SizedBox(height: 10),
                 _BenefitRow(
                   icon: Icons.location_on_outlined,
@@ -934,10 +951,10 @@ class _BenefitRow extends StatelessWidget {
           width: 38,
           height: 38,
           decoration: BoxDecoration(
-            color: AppColors.teal.withValues(alpha: 0.4),
+            color: AppColors.tealLight,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, color: AppColors.orange, size: 18),
+          child: Icon(icon, color: AppColors.teal, size: 18),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -948,13 +965,13 @@ class _BenefitRow extends StatelessWidget {
                   style: GoogleFonts.nunito(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    color: AppColors.text1,
                   )),
               const SizedBox(height: 2),
               Text(subtitle,
                   style: GoogleFonts.dmSans(
                     fontSize: 11.5,
-                    color: Colors.white.withValues(alpha: 0.55),
+                    color: AppColors.text3,
                   )),
             ],
           ),
@@ -973,7 +990,7 @@ class _TermsCheckbox extends StatelessWidget {
   Widget build(BuildContext context) {
     final base = GoogleFonts.dmSans(
       fontSize: 12.5,
-      color: Colors.white.withValues(alpha: 0.85),
+      color: AppColors.text2,
       height: 1.4,
     );
     final link = GoogleFonts.dmSans(
@@ -993,7 +1010,7 @@ class _TermsCheckbox extends StatelessWidget {
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           activeColor: AppColors.orange,
           checkColor: Colors.white,
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.4)),
+          side: const BorderSide(color: AppColors.text4),
         ),
         const SizedBox(width: 6),
         Expanded(
