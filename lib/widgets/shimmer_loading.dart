@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
+import '../core/theme/app_colors.dart';
 
 /// Skeleton shimmer placeholder that replaces boring spinners.
 class ShimmerBox extends StatelessWidget {
@@ -16,14 +17,15 @@ class ShimmerBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dark = appBrightness == Brightness.dark;
     return Shimmer.fromColors(
-      baseColor: const Color(0xFFE8E8E8),
-      highlightColor: const Color(0xFFF8F8F8),
+      baseColor: dark ? const Color(0xFF26282C) : const Color(0xFFE8E8E8),
+      highlightColor: dark ? const Color(0xFF34373C) : const Color(0xFFF8F8F8),
       child: Container(
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(radius),
         ),
       ),
@@ -80,7 +82,7 @@ class BusinessCardSkeleton extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 12),
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -162,7 +164,7 @@ class ProductGridSkeleton extends StatelessWidget {
       itemCount: count,
       itemBuilder: (_, __) => Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
