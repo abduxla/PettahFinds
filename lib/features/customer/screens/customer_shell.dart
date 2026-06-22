@@ -4,15 +4,20 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/theme_controller.dart';
 import '../../../widgets/unread_badge.dart';
 import 'home_screen.dart';
 
-class CustomerShell extends StatelessWidget {
+class CustomerShell extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
   const CustomerShell({super.key, required this.navigationShell});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // The shell + its nav bar persist across tab switches, so they don't
+    // otherwise rebuild when the theme toggles (the toggle lives behind the
+    // Profile tab). Watch the mode so the scaffold bg + nav repaint instantly.
+    ref.watch(themeModeProvider);
     return Scaffold(
       extendBody: true,
       backgroundColor: AppColors.bgSection,

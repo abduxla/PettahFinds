@@ -266,21 +266,31 @@ class _ConfirmDeleteDialogState extends State<_ConfirmDeleteDialog> {
               hintText: 'DELETE',
             ),
           ),
+          // Buttons live in the content (not `actions`) so we control the
+          // layout: a centered Cancel above a full-width destructive button,
+          // rather than AlertDialog's default right-aligned overflow stack.
+          const SizedBox(height: 20),
+          Center(
+            child: TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+          ),
+          const SizedBox(height: 4),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed:
+                  _canDelete ? () => Navigator.pop(context, true) : null,
+              style: FilledButton.styleFrom(
+                backgroundColor: theme.colorScheme.error,
+                foregroundColor: theme.colorScheme.onError,
+              ),
+              child: const Text('Delete forever'),
+            ),
+          ),
         ],
       ),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel')),
-        FilledButton(
-          onPressed: _canDelete ? () => Navigator.pop(context, true) : null,
-          style: FilledButton.styleFrom(
-            backgroundColor: theme.colorScheme.error,
-            foregroundColor: theme.colorScheme.onError,
-          ),
-          child: const Text('Delete forever'),
-        ),
-      ],
     );
   }
 }
