@@ -6,7 +6,6 @@ import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../widgets/delete_account_dialog.dart';
 import '../../../widgets/sign_out_dialog.dart';
-import '../../../widgets/dark_mode_tile.dart';
 
 class BusinessSettingsScreen extends ConsumerWidget {
   const BusinessSettingsScreen({super.key});
@@ -79,9 +78,10 @@ class BusinessSettingsScreen extends ConsumerWidget {
           const SizedBox(height: 18),
 
           // ---- APPEARANCE ----
-          const DarkModeSection(),
-
-          const SizedBox(height: 18),
+          // Dark-mode toggle intentionally hidden from the UI for now.
+          // The theming feature stays fully wired — re-add
+          // `const DarkModeSection(),` (widgets/dark_mode_tile.dart) here to
+          // bring the option back.
 
           // ---- LEGAL ----
           _SectionCard(

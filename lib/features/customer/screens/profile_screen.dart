@@ -11,7 +11,6 @@ import '../../../widgets/delete_account_dialog.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/sign_in_required.dart';
 import '../../../widgets/sign_out_dialog.dart';
-import '../../../widgets/dark_mode_tile.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -193,9 +192,10 @@ class ProfileScreen extends ConsumerWidget {
                   const SizedBox(height: 18),
 
                   // ---- APPEARANCE ----
-                  const DarkModeSection(),
-
-                  const SizedBox(height: 18),
+                  // Dark-mode toggle intentionally hidden from the UI for now.
+                  // The theming feature stays fully wired — re-add
+                  // `const DarkModeSection(),` (widgets/dark_mode_tile.dart)
+                  // here to bring the option back.
 
                   // ---- PRIVACY & SAFETY ----
                   _SectionCard(
