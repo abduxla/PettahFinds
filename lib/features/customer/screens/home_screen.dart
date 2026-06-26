@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/categories.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/theme_controller.dart';
 import '../../../models/business.dart';
 import '../../../models/product.dart';
 import '../../../utils/price_format.dart';
@@ -189,6 +190,10 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
     // Unverified sellers' products are hidden until an admin approves.
     final productsAsync = ref.watch(customerVisibleProductsProvider);
     final recentAsync = ref.watch(recentlyViewedProductsProvider);
+    // Re-read on theme flips so this (kept-alive) branch repaints with the
+    // active palette. Without this, AppColors-driven bands cached up the
+    // tree keep their old colours until the user navigates away and back.
+    ref.watch(themeModeProvider);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
@@ -223,7 +228,10 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                 const SliverToBoxAdapter(child: SizedBox(height: 14)),
 
                 // ---- Featured Carousel (white section) ----
-                const SliverToBoxAdapter(child: _FeaturedSection()),
+                // Non-const so it rebuilds with the home tree on theme flips
+                // — a const instance would be cached and keep its old band
+                // colour in dark mode.
+                SliverToBoxAdapter(child: _FeaturedSection()),
 
                 // ---- Featured shops (paid levels, rotated fairly) ----
                 const SliverToBoxAdapter(child: _FeaturedShopsStrip()),

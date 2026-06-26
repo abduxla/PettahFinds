@@ -9,8 +9,6 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_colors.dart';
-import 'core/theme/theme_controller.dart';
-import 'core/providers/providers.dart';
 import 'core/constants/app_constants.dart';
 import 'firebase_options.dart';
 import 'services/notification_service.dart';
@@ -116,14 +114,18 @@ class _PetaFindsAppState extends ConsumerState<PetaFindsApp> {
       _fcmInitFired = false;
     }
 
-    // Resolve the active theme mode. Admins are always light; everyone
-    // else gets their saved preference. Keep `appBrightness` in sync so the
-    // AppColors getters resolve to the matching palette this build.
-    final savedMode = ref.watch(themeModeProvider);
-    final isAdmin = ref.watch(appUserProvider).valueOrNull?.isAdmin ?? false;
-    final effectiveMode = isAdmin ? ThemeMode.light : savedMode;
-    appBrightness =
-        effectiveMode == ThemeMode.dark ? Brightness.dark : Brightness.light;
+    // Dark mode is temporarily turned off app-wide: the settings toggle is
+    // hidden (see DarkModeSection in widgets/dark_mode_tile.dart) and we force
+    // the light palette for everyone — this also frees any user who had dark
+    // saved in prefs but can no longer reach the switch. The whole theming
+    // system stays in place (theme_controller.dart, AppColors, the shell
+    // watches). To bring dark mode back, restore:
+    //   final savedMode = ref.watch(themeModeProvider);
+    //   final isAdmin = ref.watch(appUserProvider).valueOrNull?.isAdmin ?? false;
+    //   final effectiveMode = isAdmin ? ThemeMode.light : savedMode;
+    // and re-add the DarkModeSection toggle in the settings screens.
+    const effectiveMode = ThemeMode.light;
+    appBrightness = Brightness.light;
 
     return MaterialApp.router(
       title: AppConstants.appName,

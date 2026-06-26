@@ -4,14 +4,17 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/theme_controller.dart';
 import '../../../widgets/unread_badge.dart';
 
-class BusinessShell extends StatelessWidget {
+class BusinessShell extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
   const BusinessShell({super.key, required this.navigationShell});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Mirror CustomerShell: persistent shell/nav must repaint on theme flips.
+    ref.watch(themeModeProvider);
     return Scaffold(
       extendBody: true,
       backgroundColor: AppColors.bgSection,
