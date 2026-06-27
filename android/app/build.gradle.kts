@@ -34,10 +34,16 @@ android {
 
     signingConfigs {
         create("release") {
-            keyAlias = keyProperties["keyAlias"] as String
-            keyPassword = keyProperties["keyPassword"] as String
-            storeFile = file(keyProperties["storeFile"] as String)
-            storePassword = keyProperties["storePassword"] as String
+            // key.properties is used for local builds (git-ignored, never on CI).
+            // On Codemagic the file is absent, so we fall back to the environment
+            // variables that Codemagic injects when Android code signing is enabled.
+            // Using safe-cast (as?) avoids the NullPointerException that occurs when
+            // key.properties is missing and a hard cast (as String) is used instead.
+            keyAlias      = (keyProperties["keyAlias"]      as? String) ?: System.getenv("CM_KEY_ALIAS")           ?: ""
+            keyPassword   = (keyProperties["keyPassword"]   as? String) ?: System.getenv("CM_KEY_PASSWORD")        ?: ""
+            storePassword = (keyProperties["storePassword"] as? String) ?: System.getenv("CM_KEYSTORE_PASSWORD")   ?: ""
+            val storePath = (keyProperties["storeFile"]     as? String) ?: System.getenv("CM_KEYSTORE_PATH")
+            if (storePath != null) storeFile = file(storePath)
         }
     }
 
