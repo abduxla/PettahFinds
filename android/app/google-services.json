@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "263905072020-c3fhf81fuuo3j1l9qq8evvsot69dnfdr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.petafinds.petafinds",
+            "certificate_hash": "b6a35bdbfdc968a871fbbc2b8c335358a367d385"
+          }
+        },
+        {
           "client_id": "263905072020-70072lha7t7gd2hjpqd0rid10ha7ipbr.apps.googleusercontent.com",
           "client_type": 3
         }
@@ -39,10 +47,10 @@
               "client_type": 3
             },
             {
-              "client_id": "263905072020-hm60uhgu6tqkugmkktcpqktvpgsno3ni.apps.googleusercontent.com",
+              "client_id": "263905072020-3vrduttu6reqo6tt72q20drilvgsbkqp.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.pettahfinds.app"
+                "bundle_id": "com.petafinds.app"
               }
             }
           ]
@@ -83,10 +91,10 @@
               "client_type": 3
             },
             {
-              "client_id": "263905072020-hm60uhgu6tqkugmkktcpqktvpgsno3ni.apps.googleusercontent.com",
+              "client_id": "263905072020-3vrduttu6reqo6tt72q20drilvgsbkqp.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.pettahfinds.app"
+                "bundle_id": "com.petafinds.app"
               }
             }
           ]
