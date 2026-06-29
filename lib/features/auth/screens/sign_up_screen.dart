@@ -238,7 +238,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         final s = e.toString();
         snackMsg = (s.contains('cancelled') || s.contains('canceled'))
             ? 'Sign-in cancelled.'
-            : 'Sign-in failed. Please try again.';
+            : '[DEBUG] ${e.runtimeType}: $e';
       }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

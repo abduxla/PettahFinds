@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../core/constants/app_constants.dart';
@@ -161,44 +162,81 @@ class AuthRepository {
   /// _continueWithOAuth methods).
   Future<User> authenticateWithGoogle() async {
     debugPrint('🟣 [auth] authenticateWithGoogle: start (web=$kIsWeb)');
-    // Web and native are two completely different flows. Both branches
-    // converge on the same Firebase Auth credential — only how the
-    // credential is obtained differs.
     final UserCredential cred;
-    try {
-      if (kIsWeb) {
-        cred = await _auth.signInWithPopup(GoogleAuthProvider());
-      } else {
-        final googleUser = await GoogleSignIn().signIn();
-        debugPrint(
-            '🟣 [auth] GoogleSignIn.signIn returned ${googleUser?.email ?? "null"}');
-        if (googleUser == null) {
-          throw Exception('Google sign-in cancelled.');
-        }
-        final googleAuth = await googleUser.authentication;
-        final credential = GoogleAuthProvider.credential(
-          idToken: googleAuth.idToken,
-          accessToken: googleAuth.accessToken,
-        );
-        cred = await _auth.signInWithCredential(credential);
-      }
-      debugPrint(
-          '🟢 [auth] authenticateWithGoogle: signed in uid=${cred.user?.uid}');
-    } catch (e) {
-      debugPrint('🔴 [auth] Google Sign-In error: $e');
-      final s = e.toString();
-      if (s.contains('popup-closed-by-user') ||
-          s.contains('cancelled')) {
+
+    if (kIsWeb) {
+      cred = await _auth.signInWithPopup(GoogleAuthProvider());
+    } else {
+      // ── Step 1: native Google account picker ──────────────────────
+      final googleUser = await _googleSignIn();
+      if (googleUser == null) {
         throw Exception('Google sign-in cancelled.');
       }
-      if (s.contains('account-exists-with-different-credential')) {
-        throw Exception(
-            'An account already exists with this email. Sign in with the original method.');
-      }
-      throw Exception(
-          'Google sign-in failed. Please try again or use another method.');
+
+      final googleAuth = await googleUser.authentication;
+      debugPrint(
+        '🟣 [auth] tokens — '
+        'idToken:${googleAuth.idToken != null ? "✓" : "NULL"} '
+        'accessToken:${googleAuth.accessToken != null ? "✓" : "NULL"}',
+      );
+
+      final credential = GoogleAuthProvider.credential(
+        idToken: googleAuth.idToken,
+        accessToken: googleAuth.accessToken,
+      );
+
+      // ── Step 2: exchange Google credential for Firebase session ───
+      cred = await _firebaseSignIn(credential);
     }
+
+    debugPrint('🟢 [auth] authenticateWithGoogle: signed in uid=${cred.user?.uid}');
     return cred.user!;
+  }
+
+  /// Calls [GoogleSignIn.signIn] and logs every detail on failure.
+  /// Returns null when the user cancels (no exception thrown by the plugin).
+  Future<GoogleSignInAccount?> _googleSignIn() async {
+    try {
+      final account = await GoogleSignIn().signIn();
+      debugPrint('🟣 [auth] GoogleSignIn.signIn → ${account?.email ?? "null (cancelled)"}');
+      return account;
+    } catch (e, stack) {
+      debugPrint('🔴 [auth] GoogleSignIn.signIn THREW');
+      debugPrint('🔴 [auth] runtimeType : ${e.runtimeType}');
+      debugPrint('🔴 [auth] toString    : $e');
+      debugPrint('🔴 [auth] stackTrace  :\n$stack');
+      if (e is PlatformException) {
+        debugPrint('🔴 [auth] PlatformException.code    : ${e.code}');
+        debugPrint('🔴 [auth] PlatformException.message : ${e.message}');
+        debugPrint('🔴 [auth] PlatformException.details : ${e.details}');
+      }
+      rethrow;
+    }
+  }
+
+  /// Calls [FirebaseAuth.signInWithCredential] and logs every detail on failure.
+  Future<UserCredential> _firebaseSignIn(AuthCredential credential) async {
+    try {
+      return await _auth.signInWithCredential(credential);
+    } on FirebaseAuthException catch (e, stack) {
+      debugPrint('🔴 [auth] signInWithCredential FirebaseAuthException');
+      debugPrint('🔴 [auth] code       : ${e.code}');
+      debugPrint('🔴 [auth] message    : ${e.message}');
+      debugPrint('🔴 [auth] credential : ${e.credential}');
+      debugPrint('🔴 [auth] stackTrace :\n$stack');
+      rethrow;
+    } catch (e, stack) {
+      debugPrint('🔴 [auth] signInWithCredential THREW (non-Firebase)');
+      debugPrint('🔴 [auth] runtimeType : ${e.runtimeType}');
+      debugPrint('🔴 [auth] toString    : $e');
+      debugPrint('🔴 [auth] stackTrace  :\n$stack');
+      if (e is PlatformException) {
+        debugPrint('🔴 [auth] PlatformException.code    : ${e.code}');
+        debugPrint('🔴 [auth] PlatformException.message : ${e.message}');
+        debugPrint('🔴 [auth] PlatformException.details : ${e.details}');
+      }
+      rethrow;
+    }
   }
 
   /// Returns the existing AppUser doc, or seeds one with [role] +
