@@ -30,6 +30,14 @@
           }
         },
         {
+          "client_id": "263905072020-sc96g8cbkugptb36lf1vptkps66lp64g.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.petafinds.petafinds",
+            "certificate_hash": "9bbb3186b2189ef16d8f272bdab59362c395cbb4"
+          }
+        },
+        {
           "client_id": "263905072020-70072lha7t7gd2hjpqd0rid10ha7ipbr.apps.googleusercontent.com",
           "client_type": 3
         }
