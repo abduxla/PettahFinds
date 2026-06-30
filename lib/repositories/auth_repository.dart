@@ -111,10 +111,39 @@ class AuthRepository {
     required String email,
     required String password,
   }) async {
-    final cred = await _auth.signInWithEmailAndPassword(
-      email: email.trim(),
-      password: password,
-    );
+    debugPrint('🟣 [auth] signIn: email=${email.trim()}');
+
+    // ── Step 1: Firebase Auth ─────────────────────────────────────────
+    // Failure here = wrong password, user-not-found, network, etc.
+    // A FirebaseAuthException at this point means Auth itself rejected
+    // the credentials — Firestore was never reached.
+    final UserCredential cred;
+    try {
+      cred = await _auth.signInWithEmailAndPassword(
+        email: email.trim(),
+        password: password,
+      );
+      debugPrint('🟢 [auth] signInWithEmailAndPassword OK uid=${cred.user?.uid}');
+    } on FirebaseAuthException catch (e, stack) {
+      debugPrint('🔴 [auth] signInWithEmailAndPassword FirebaseAuthException');
+      debugPrint('🔴 [auth] code    : ${e.code}');
+      debugPrint('🔴 [auth] message : ${e.message}');
+      debugPrint('🔴 [auth] stack   :\n$stack');
+      rethrow;
+    } catch (e, stack) {
+      debugPrint('🔴 [auth] signInWithEmailAndPassword THREW (non-Firebase)');
+      debugPrint('🔴 [auth] runtimeType : ${e.runtimeType}');
+      debugPrint('🔴 [auth] toString    : $e');
+      debugPrint('🔴 [auth] stack       :\n$stack');
+      rethrow;
+    }
+
+    // ── Step 2: Load Firestore user profile ───────────────────────────
+    // Firebase Auth succeeded. A failure here means /users/{uid} is
+    // missing, App Check is enforcing and blocking the read, or
+    // Firestore security rules are rejecting the request.
+    // getAppUser() has its own detailed 🔴 logging for all three cases.
+    debugPrint('🟣 [auth] signIn: Auth OK — fetching /users/${cred.user!.uid}');
     return getAppUser(cred.user!.uid);
   }
 
