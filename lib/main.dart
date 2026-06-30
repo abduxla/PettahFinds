@@ -49,20 +49,32 @@ Future<void> main() async {
 
   // App Check — debug provider in debug builds (so emulator/CI keep working
   // without Play Integrity / DeviceCheck), Play Integrity / DeviceCheck for
-  // release. Failures are swallowed so a broken provider never blocks
-  // launch — backend enforcement is the source of truth.
+  // release.
+  //
+  // Pass --dart-define=USE_DEBUG_APP_CHECK=true in a Codemagic release build
+  // to force the debug provider while Play Integrity API is being configured
+  // in Google Cloud Console. Remove the dart-define once Play Integrity tokens
+  // are confirmed working.
+  const bool forceDebugAppCheck =
+      bool.fromEnvironment('USE_DEBUG_APP_CHECK', defaultValue: false);
+  final bool useDebugProvider = kDebugMode || forceDebugAppCheck;
+
   try {
     await FirebaseAppCheck.instance.activate(
-      providerAndroid: kDebugMode
+      providerAndroid: useDebugProvider
           ? AndroidDebugProvider()
           : AndroidPlayIntegrityProvider(),
-      providerApple: kDebugMode
+      providerApple: useDebugProvider
           ? AppleDebugProvider()
           : AppleDeviceCheckProvider(),
     );
-  } catch (_) {
+    debugPrint(
+      '[AppCheck] activated — provider: ${useDebugProvider ? "DEBUG" : "Play Integrity / DeviceCheck"}',
+    );
+  } catch (e) {
     // App Check init failed (no token, network blip, unsupported platform).
     // App still runs; rules will gate writes once Enforce is on in console.
+    debugPrint('[AppCheck] activation FAILED: $e');
   }
 
   if (_mapboxAccessToken.isNotEmpty) {
