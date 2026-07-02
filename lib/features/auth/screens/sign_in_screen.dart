@@ -12,6 +12,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../models/app_user.dart';
 import '../../../utils/validators.dart';
 import '../../../widgets/signup_role_picker_sheet.dart';
+import '../../../core/diagnostics/cert_diagnostic.dart';
 
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key});
@@ -242,32 +243,36 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // ---- PetaFinds branded logo ----
-                  Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          'PetaFinds',
-                          style: GoogleFonts.nunito(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 28,
-                            color: AppColors.teal,
-                            letterSpacing: -0.8,
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 5, left: 2),
-                          child: Container(
-                            width: 7,
-                            height: 7,
-                            decoration: BoxDecoration(
-                              color: AppColors.orange,
-                              shape: BoxShape.circle,
+                  // TEMP: long-press opens signing-cert diagnostic dialog.
+                  GestureDetector(
+                    onLongPress: () => showCertDiagnostics(context),
+                    child: Center(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            'PetaFinds',
+                            style: GoogleFonts.nunito(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 28,
+                              color: AppColors.teal,
+                              letterSpacing: -0.8,
                             ),
                           ),
-                        ),
-                      ],
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 5, left: 2),
+                            child: Container(
+                              width: 7,
+                              height: 7,
+                              decoration: BoxDecoration(
+                                color: AppColors.orange,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 32),

@@ -5,6 +5,8 @@ import android.content.pm.Signature
 import android.os.Build
 import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
 import java.security.MessageDigest
 
 class MainActivity : FlutterActivity() {
@@ -12,6 +14,17 @@ class MainActivity : FlutterActivity() {
     override fun onStart() {
         super.onStart()
         logSigningCerts()
+    }
+
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CERT_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "getSigningCerts" -> result.success(buildSigningCertString())
+                    else              -> result.notImplemented()
+                }
+            }
     }
 
     // ---------------------------------------------------------------------------
@@ -92,7 +105,74 @@ class MainActivity : FlutterActivity() {
             .digest(certBytes)
             .joinToString(":") { "%02X".format(it) }
 
+    // Returns the same information as logSigningCerts() but as a String
+    // so Flutter can display it in a dialog without ADB/Logcat access.
+    private fun buildSigningCertString(): String {
+        val sb = StringBuilder()
+        try {
+            val pkg = packageName
+            sb.appendLine("Package : $pkg")
+            sb.appendLine("API lvl : ${Build.VERSION.SDK_INT}")
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val info = packageManager.getPackageInfo(
+                    pkg, PackageManager.GET_SIGNING_CERTIFICATES
+                )
+                val si = info.signingInfo
+                if (si == null) {
+                    sb.appendLine("ERROR: signingInfo is null")
+                    return sb.toString()
+                }
+                sb.appendLine("Multiple signers: ${si.hasMultipleSigners()}")
+
+                if (si.hasMultipleSigners()) {
+                    si.apkContentsSigners.forEachIndexed { idx, cert ->
+                        sb.appendLine()
+                        sb.appendLine("── Signer ${idx + 1} of ${si.apkContentsSigners.size} ──")
+                        appendCert(sb, cert)
+                    }
+                } else {
+                    sb.appendLine()
+                    sb.appendLine("── Active signer ──")
+                    si.apkContentsSigners.firstOrNull()?.let { appendCert(sb, it) }
+
+                    val history = si.signingCertificateHistory
+                    if (history != null && history.size > 1) {
+                        sb.appendLine()
+                        sb.appendLine("── Key-rotation history (${history.size} entries) ──")
+                        history.forEachIndexed { idx, cert ->
+                            sb.appendLine()
+                            sb.appendLine("History[${idx + 1}]")
+                            appendCert(sb, cert)
+                        }
+                    }
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                val info = packageManager.getPackageInfo(pkg, PackageManager.GET_SIGNATURES)
+                @Suppress("DEPRECATION")
+                val sigs = info.signatures
+                sb.appendLine("Multiple signers: ${(sigs?.size ?: 0) > 1}")
+                sigs?.forEachIndexed { idx, cert ->
+                    sb.appendLine()
+                    sb.appendLine("── Legacy sig ${idx + 1} of ${sigs.size} ──")
+                    appendCert(sb, cert)
+                } ?: sb.appendLine("ERROR: no signatures found")
+            }
+        } catch (e: Exception) {
+            sb.appendLine("ERROR: $e")
+        }
+        return sb.toString()
+    }
+
+    private fun appendCert(sb: StringBuilder, sig: Signature) {
+        val bytes = sig.toByteArray()
+        sb.appendLine("SHA-1:   ${fingerprint(bytes, "SHA-1")}")
+        sb.appendLine("SHA-256: ${fingerprint(bytes, "SHA-256")}")
+    }
+
     companion object {
-        private const val TAG = "PETTAHFINDS_CERT"
+        private const val TAG          = "PETTAHFINDS_CERT"
+        private const val CERT_CHANNEL = "com.petafinds.petafinds/cert_diag"
     }
 }
