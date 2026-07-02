@@ -11,6 +11,21 @@ setGlobalOptions({maxInstances: 10});
 
 const RESEND_API_KEY = defineSecret("RESEND_API_KEY");
 
+/**
+ * Entity-escape a merchant-supplied string before it is interpolated into
+ * email HTML sent from our domain. Prevents markup/link injection (phishing).
+ * @param {string} s Raw value.
+ * @return {string} HTML-safe string.
+ */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 // ---------------------------------------------------------------------------
 // onBusinessCreated — fires when a new business doc is created.
 // Sends "under review" email if isVerified is false or absent.
@@ -28,8 +43,8 @@ export const onBusinessCreated = onDocumentCreated(
       return;
     }
 
-    const businessName =
-      (data.businessName as string | undefined) ?? "Your business";
+    const businessName = escapeHtml(
+      (data.businessName as string | undefined) ?? "Your business");
 
     const resend = new Resend(RESEND_API_KEY.value());
     const {error} = await resend.emails.send({
@@ -66,8 +81,8 @@ export const onBusinessVerified = onDocumentUpdated(
       return;
     }
 
-    const businessName =
-      (after.businessName as string | undefined) ?? "Your business";
+    const businessName = escapeHtml(
+      (after.businessName as string | undefined) ?? "Your business");
 
     const resend = new Resend(RESEND_API_KEY.value());
     const {error} = await resend.emails.send({

@@ -52,6 +52,27 @@ jobs:
         id: build_web
         run: flutter build web --release
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: npm audit (Cloud Functions)
+        id: npm_audit
+        run: |
+          fail=0
+          for dir in functions emails; do
+            if [ -f "$dir/package.json" ]; then
+              echo "== npm audit: $dir =="
+              # Fail the job on any high/critical prod-dependency advisory.
+              (cd "$dir" && npm audit --omit=dev --audit-level=high) || fail=1
+            fi
+          done
+          if [ $fail -ne 0 ]; then
+            echo "::error::npm audit found high/critical vulnerabilities"
+            exit 1
+          fi
+
       - name: Verify Firebase config files
         id: firebase_files
         run: |
@@ -121,8 +142,9 @@ jobs:
               `2. \`flutter analyze\``,
               `3. \`flutter test\` (skipped if no tests)`,
               `4. \`flutter build web\``,
-              `5. Firebase config file presence check`,
-              `6. Secret scan`,
+              `5. \`npm audit --omit=dev --audit-level=high\` (functions + emails)`,
+              `6. Firebase config file presence check`,
+              `7. Secret scan`,
               ``,
               `**Next action:** open the run linked above, find the first red step, and fix the underlying issue. If a secret was detected, rotate it before merging any fix.`,
             ].join('\n');

@@ -7,8 +7,18 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    // Two valid admin signals, mirroring firestore.rules isAdmin():
+    //   1) custom claim admin == true (preferred, no Firestore read), OR
+    //   2) /users/{uid}.role == 'admin' (console-promoted admins who don't
+    //      have the claim yet). Costs one Firestore get() per admin write.
     function isAdmin() {
-      return isSignedIn() && request.auth.token.admin == true;
+      return isSignedIn() && (
+        request.auth.token.admin == true
+        || (
+          firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+          && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        )
+      );
     }
 
     // Owns the referenced business doc (Firestore lookup).

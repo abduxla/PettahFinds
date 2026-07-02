@@ -18,12 +18,17 @@
  *   firebase deploy --only functions
  */
 
-const {onDocumentCreated, onDocumentUpdated} =
-  require("firebase-functions/v2/firestore");
+const {
+  onDocumentCreated,
+  onDocumentUpdated,
+  onDocumentWritten,
+  onDocumentDeleted,
+} = require("firebase-functions/v2/firestore");
+const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {onObjectFinalized} = require("firebase-functions/v2/storage");
 const {defineSecret} = require("firebase-functions/params");
 const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
-const nodemailer = require("nodemailer");
 const {Resend} = require("resend");
 
 admin.initializeApp();
@@ -34,12 +39,8 @@ const messaging = admin.messaging();
 // Email — Resend (transactional business emails)
 //
 //   firebase functions:secrets:set RESEND_API_KEY
-//
-// Legacy Gmail secrets kept for reference but no longer used for new emails.
 // --------------------------------------------------------------------------
 const RESEND_API_KEY = defineSecret("RESEND_API_KEY");
-const EMAIL_USER = defineSecret("EMAIL_USER");
-const EMAIL_PASS = defineSecret("EMAIL_PASS");
 
 // --------------------------------------------------------------------------
 // Helpers
@@ -105,6 +106,23 @@ function truncate(s, max) {
   return s.length > max ? `${s.substring(0, max)}…` : s;
 }
 
+/**
+ * Entity-escape a user-supplied string before interpolating it into
+ * email HTML. businessName is merchant-controlled at signup, so an
+ * unescaped value could inject markup into mail sent from our domain
+ * (phishing vector). Escapes < > & " '.
+ * @param {*} s Raw value (coerced to string; null/undefined → "").
+ * @return {string} HTML-safe string.
+ */
+function escapeHtml(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 // --------------------------------------------------------------------------
 // 1. New chat message → push to the other participant
 // --------------------------------------------------------------------------
@@ -166,7 +184,8 @@ exports.onBusinessCreated = onDocumentCreated(
         from: "PetaFinds <info@petafinds.lk>",
         to: email,
         subject: "Your PetaFinds Business Registration Is Under Review",
-        html: _businessUnderReviewHtml(biz.businessName || "Your business"),
+        html: _businessUnderReviewHtml(
+          escapeHtml(biz.businessName || "Your business")),
       });
       logger.info("[resend] under-review email sent to", email);
     } catch (err) {
@@ -220,7 +239,8 @@ exports.onBusinessVerified = onDocumentUpdated(
         from: "PetaFinds <info@petafinds.lk>",
         to: email,
         subject: "Your PetaFinds Business Has Been Approved 🎉",
-        html: _businessApprovedHtml(after.businessName || "Your business"),
+        html: _businessApprovedHtml(
+          escapeHtml(after.businessName || "Your business")),
       });
       logger.info("[resend] approval email sent to", email);
     } catch (err) {
@@ -290,19 +310,295 @@ exports.onNewProductReview = onDocumentCreated(
 );
 
 // --------------------------------------------------------------------------
-// 5. User sign-up — no-op for now.
-//    Business under-review email is sent by onBusinessCreated.
-//    Customer welcome emails are disabled until copy is finalised.
+// 5. Rating aggregator — business reviews.
+//    Ratings are now backend-owned: clients can no longer write ratingAvg /
+//    ratingCount (see firestore.rules). This trigger keeps the business doc's
+//    aggregate in sync transactionally on every review create/update/delete.
 // --------------------------------------------------------------------------
-exports.onUserSignUp = onDocumentCreated(
-  {
-    document: "users/{uid}",
-    secrets: [EMAIL_USER, EMAIL_PASS],
-  },
-  async (_event) => {
-    // intentionally empty — see comment above
+exports.onReviewWritten = onDocumentWritten(
+  "reviews/{reviewId}",
+  async (event) => {
+    const before = event.data && event.data.before && event.data.before.data();
+    const after = event.data && event.data.after && event.data.after.data();
+    const businessId =
+      (after && after.businessId) || (before && before.businessId);
+    if (!businessId) return;
+    await applyRatingDelta(
+      db.collection("businesses").doc(businessId),
+      ratingOf(before),
+      ratingOf(after),
+    );
   },
 );
+
+// --------------------------------------------------------------------------
+// 6. Rating aggregator — product reviews → parent product doc.
+// --------------------------------------------------------------------------
+exports.onProductReviewWritten = onDocumentWritten(
+  "productReviews/{reviewId}",
+  async (event) => {
+    const before = event.data && event.data.before && event.data.before.data();
+    const after = event.data && event.data.after && event.data.after.data();
+    const productId =
+      (after && after.productId) || (before && before.productId);
+    if (!productId) return;
+    await applyRatingDelta(
+      db.collection("products").doc(productId),
+      ratingOf(before),
+      ratingOf(after),
+    );
+  },
+);
+
+/**
+ * Read a review's numeric rating clamped to [1,5], or null when absent.
+ * @param {*} data Review doc data or undefined.
+ * @return {?number} Clamped rating or null.
+ */
+function ratingOf(data) {
+  if (!data) return null;
+  const r = Number(data.rating);
+  if (!Number.isFinite(r)) return null;
+  return Math.min(5, Math.max(1, r));
+}
+
+/**
+ * Apply a rating change to an aggregate doc transactionally.
+ *   create (null→r): count+1, sum+r
+ *   delete (r→null): count-1, sum-r
+ *   update (a→b):    sum+=(b-a), count unchanged
+ * Uses a running ratingSum on the doc so we never scan the whole review
+ * collection; falls back to avg*count for docs that predate ratingSum.
+ * @param {FirebaseFirestore.DocumentReference} ref Aggregate doc.
+ * @param {?number} before Prior rating (null on create).
+ * @param {?number} after New rating (null on delete).
+ * @return {Promise<void>}
+ */
+async function applyRatingDelta(ref, before, after) {
+  await db.runTransaction(async (txn) => {
+    const snap = await txn.get(ref);
+    if (!snap.exists) return;
+    const data = snap.data() || {};
+    let count = Number(data.ratingCount) || 0;
+    let sum = data.ratingSum != null ?
+      Number(data.ratingSum) :
+      (Number(data.ratingAvg) || 0) * count;
+
+    if (before == null && after != null) {
+      count += 1;
+      sum += after;
+    } else if (before != null && after == null) {
+      count -= 1;
+      sum -= before;
+    } else if (before != null && after != null) {
+      sum += after - before;
+    } else {
+      return;
+    }
+
+    if (count <= 0) {
+      count = 0;
+      sum = 0;
+    }
+    if (sum < 0) sum = 0;
+    const avg = count > 0 ? Math.round((sum / count) * 10) / 10 : 0;
+    txn.update(ref, {ratingCount: count, ratingSum: sum, ratingAvg: avg});
+  });
+}
+
+// --------------------------------------------------------------------------
+// 7. Business deletion cascade.
+//    Owners can no longer delete reviews via rules (that path was abused to
+//    scrub negative reviews). When a business doc is deleted the backend
+//    removes everything tied to it — reviews, product reviews, products,
+//    offers, analytics — with the Admin SDK bypassing rules.
+// --------------------------------------------------------------------------
+exports.onBusinessDeleted = onDocumentDeleted(
+  "businesses/{bizId}",
+  async (event) => {
+    const bizId = event.params.bizId;
+    const productsSnap = await db.collection("products")
+      .where("businessId", "==", bizId).get();
+
+    await Promise.all([
+      deleteByQuery(db.collection("reviews").where("businessId", "==", bizId)),
+      deleteByQuery(
+        db.collection("productReviews").where("businessId", "==", bizId)),
+      deleteByQuery(db.collection("offers").where("businessId", "==", bizId)),
+      deleteByQuery(
+        db.collection("product_stats").where("businessId", "==", bizId)),
+      deleteRefs(productsSnap.docs.map((d) => d.ref)),
+      db.collection("business_stats").doc(bizId).delete().catch(() => {}),
+    ]);
+
+    logger.info("[cascade] business", bizId, "wiped",
+      productsSnap.size, "products + associated reviews/offers/stats");
+  },
+);
+
+/**
+ * Delete every doc matched by a query, paged under the batch ceiling.
+ * @param {FirebaseFirestore.Query} query Query to drain.
+ * @return {Promise<void>}
+ */
+async function deleteByQuery(query) {
+  for (;;) {
+    const snap = await query.limit(400).get();
+    if (snap.empty) break;
+    await deleteRefs(snap.docs.map((d) => d.ref));
+    if (snap.size < 400) break;
+  }
+}
+
+/**
+ * Batch-delete refs, 450 per batch (500 hard cap, 50-op safety margin).
+ * @param {Array<FirebaseFirestore.DocumentReference>} refs Refs to delete.
+ * @return {Promise<void>}
+ */
+async function deleteRefs(refs) {
+  let batch = db.batch();
+  let ops = 0;
+  for (const ref of refs) {
+    batch.delete(ref);
+    if (++ops >= 450) {
+      await batch.commit();
+      batch = db.batch();
+      ops = 0;
+    }
+  }
+  if (ops > 0) await batch.commit();
+}
+
+// --------------------------------------------------------------------------
+// 8. Engagement analytics — server-authoritative counters.
+//    Clients can no longer write business_stats / product_stats directly
+//    (rules: allow create, update: if false). They call this callable, which
+//    applies bounded FieldValue.increment writes via the Admin SDK — so a
+//    competitor's numbers can't be forged or zeroed.
+// --------------------------------------------------------------------------
+exports.recordEngagement = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Sign in required.");
+  }
+  const {type, businessId, productId} = request.data || {};
+  if (typeof businessId !== "string" || !businessId) {
+    throw new HttpsError("invalid-argument", "businessId required.");
+  }
+
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const inc = (n) => admin.firestore.FieldValue.increment(n);
+  const bizRef = db.collection("business_stats").doc(businessId);
+  const prodRef = (typeof productId === "string" && productId) ?
+    db.collection("product_stats").doc(productId) :
+    null;
+  const writes = [];
+
+  switch (type) {
+    case "profileView":
+      writes.push(bizRef.set(
+        {profileViews: inc(1), updatedAt: now}, {merge: true}));
+      break;
+    case "productView":
+      writes.push(bizRef.set(
+        {productViews: inc(1), updatedAt: now}, {merge: true}));
+      if (prodRef) {
+        writes.push(prodRef.set(
+          {businessId, views: inc(1), updatedAt: now}, {merge: true}));
+      }
+      break;
+    case "chatStarted":
+      writes.push(bizRef.set(
+        {chatsStarted: inc(1), updatedAt: now}, {merge: true}));
+      if (prodRef) {
+        writes.push(prodRef.set(
+          {businessId, chats: inc(1), updatedAt: now}, {merge: true}));
+      }
+      break;
+    case "save":
+    case "unsave": {
+      const d = type === "save" ? 1 : -1;
+      writes.push(bizRef.set({saves: inc(d), updatedAt: now}, {merge: true}));
+      if (prodRef) {
+        writes.push(prodRef.set(
+          {businessId, saves: inc(d), updatedAt: now}, {merge: true}));
+      }
+      break;
+    }
+    default:
+      throw new HttpsError("invalid-argument", `Unknown type: ${type}`);
+  }
+
+  await Promise.all(writes);
+  return {ok: true};
+});
+
+// --------------------------------------------------------------------------
+// 9. Upload validation — magic-byte check.
+//    Storage rules gate on contentType, which is client-supplied and
+//    spoofable. This trigger re-reads the object header after upload and
+//    deletes anything whose real bytes don't match a known image format,
+//    so a renamed script/HTML/exe can't sit in a public bucket.
+// --------------------------------------------------------------------------
+exports.validateUpload = onObjectFinalized(async (event) => {
+  const obj = event.data;
+  const name = obj.name || "";
+  // Only guard user-generated image paths (see storage.rules).
+  if (!/^(users|businesses|products)\//.test(name)) return;
+
+  const bucket = admin.storage().bucket(obj.bucket);
+  const file = bucket.file(name);
+
+  const contentType = obj.contentType || "";
+  if (!contentType.startsWith("image/")) {
+    logger.warn("[upload] non-image contentType, deleting", name, contentType);
+    await file.delete().catch(() => {});
+    return;
+  }
+
+  let header;
+  try {
+    const [buf] = await file.download({start: 0, end: 15});
+    header = buf;
+  } catch (err) {
+    logger.error("[upload] header read failed for", name, err);
+    return; // don't delete on a transient read error
+  }
+
+  if (!isRealImage(header)) {
+    logger.warn("[upload] magic-byte mismatch, deleting", name, contentType);
+    await file.delete().catch(() => {});
+  }
+});
+
+/**
+ * True when the leading bytes match a known image format
+ * (JPEG, PNG, GIF, WebP, HEIC/HEIF).
+ * @param {Buffer} b First bytes of the object (>=12 recommended).
+ * @return {boolean} Whether the header is a recognised image.
+ */
+function isRealImage(b) {
+  if (!b || b.length < 12) return false;
+  // JPEG: FF D8 FF
+  if (b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF) return true;
+  // PNG: 89 50 4E 47
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47) {
+    return true;
+  }
+  // GIF: 47 49 46 38 ("GIF8")
+  if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x38) {
+    return true;
+  }
+  // WebP: "RIFF"...."WEBP"
+  if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 &&
+      b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) {
+    return true;
+  }
+  // HEIC/HEIF (iOS camera): bytes 4-7 == "ftyp"
+  if (b[4] === 0x66 && b[5] === 0x74 && b[6] === 0x79 && b[7] === 0x70) {
+    return true;
+  }
+  return false;
+}
 
 // --------------------------------------------------------------------------
 // Email HTML templates (Resend)

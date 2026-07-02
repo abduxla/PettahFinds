@@ -122,20 +122,19 @@ service cloud.firestore {
       //      typically the merchant's UID (looked up by email), and
       //      `createdByAdminUid` is stamped for audit. Verification
       //      may be pre-toggled here too.
-      //   2. Self-signup — caller must stamp themselves as ownerUid and
-      //      cannot pre-verify themselves. We deliberately do NOT check
-      //      ratingAvg/ratingCount value here: the prior `== 0` check
-      //      compared an int literal against the double 0.0 the model
-      //      writes and Firestore rejected it with permission-denied
-      //      on every self-signup. The update rule freezes ratings on
-      //      owner edits, and any fake initial rating is overwritten by
-      //      the bounded review aggregator within hours of real activity,
-      //      so the security cost of dropping the check is negligible.
+      //   2. Self-signup — caller must stamp themselves as ownerUid, cannot
+      //      pre-verify themselves, and cannot seed a fake initial rating.
+      //      Rating fields must be absent or zero (the model writes 0.0/0);
+      //      all real rating changes flow through the onReviewWritten trigger.
       allow create: if isAdmin()
                     || (
                       isSignedIn()
                       && request.resource.data.ownerUid == request.auth.uid
                       && request.resource.data.isVerified == false
+                      && (!('ratingAvg' in request.resource.data.keys())
+                          || request.resource.data.ratingAvg == 0)
+                      && (!('ratingCount' in request.resource.data.keys())
+                          || request.resource.data.ratingCount == 0)
                     );
 
       // Update paths:
@@ -156,27 +155,10 @@ service cloud.firestore {
                       && request.resource.data.diff(resource.data)
                            .affectedKeys()
                            .hasOnly(businessOwnerMutableFields())
-                    )
-                    || (
-                      // Rating bump path — same relaxation as the
-                      // /products counterpart below. The previous
-                      // strict `is int` + delta-must-equal-one form
-                      // rejected legitimate review submissions when
-                      // the existing ratingCount was stored as a
-                      // double (which happened on docs created via
-                      // earlier code paths). The bounded-bump intent
-                      // is preserved via the field allowlist + the
-                      // ratingAvg range; raw count delta is dropped.
-                      isSignedIn()
-                      && request.resource.data.diff(resource.data)
-                           .affectedKeys()
-                           .hasOnly(['ratingAvg', 'ratingCount'])
-                      && request.resource.data.ratingAvg is number
-                      && request.resource.data.ratingCount is number
-                      && request.resource.data.ratingAvg >= 1.0
-                      && request.resource.data.ratingAvg <= 5.0
-                      && request.resource.data.ratingCount >= 1
                     );
+      // ratingAvg / ratingCount / ratingSum are backend-owned: written
+      // ONLY by the onReviewWritten Cloud Function via the Admin SDK.
+      // No client rating-write path exists (was abused to forge/pin ratings).
 
       // Owner of the business may delete their own listing (drives the
       // self-delete cascade). Admins can delete any.
@@ -195,51 +177,29 @@ service cloud.firestore {
     match /products/{productId} {
       allow read: if true;
 
-      // Create: only the owner of the referenced business.
+      // Create: only the owner of the referenced business, and no seeded
+      // rating (fields must be absent or zero — the model writes 0.0/0).
       allow create: if ownsBusiness(request.resource.data.businessId)
-                    && request.resource.data.businessId is string;
+                    && request.resource.data.businessId is string
+                    && (!('ratingAvg' in request.resource.data.keys())
+                        || request.resource.data.ratingAvg == 0)
+                    && (!('ratingCount' in request.resource.data.keys())
+                        || request.resource.data.ratingCount == 0);
 
       // Update paths:
       //   1. Admin — unrestricted.
-      //   2. Business owner — may edit any non-rating field. businessId is
-      //      pinned so a product can't be reassigned to another business.
-      //   3. Any signed-in user — only when the diff is exactly the rating
-      //      fields, AND the new average is in the valid 1..5 range, AND
-      //      the count is incremented by exactly 1. Mirrors the same
-      //      bounded-bump path the businesses collection uses for its
-      //      ratingAvg/ratingCount aggregator (see ProductReviewRepository
-      //      ._bumpProductRating). Without these bounds anyone could pin a
-      //      competitor's product at 0.0 / 0 reviews. The proper long-term
-      //      fix is a Cloud Function so clients don't touch these fields.
+      //   2. Business owner — may edit any field EXCEPT the rating aggregates
+      //      (ratingAvg/ratingCount/ratingSum) and businessId, which is pinned
+      //      so a product can't be reassigned to another business.
+      // Rating aggregates are backend-owned: written ONLY by the
+      // onProductReviewWritten Cloud Function via the Admin SDK.
       allow update: if isAdmin()
                     || (
                       ownsBusiness(resource.data.businessId)
                       && request.resource.data.businessId == resource.data.businessId
-                    )
-                    || (
-                      // Rating aggregator bump — any signed-in user can
-                      // push ratingAvg+ratingCount on a product they're
-                      // reviewing. Relaxed from the previous strict
-                      // delta check (which forced ratingCount to
-                      // increment by exactly 1 and rejected when the
-                      // existing doc had ratingCount as a double
-                      // instead of int). The bounded-bump version kept
-                      // tripping legitimate review submissions with
-                      // "Missing or insufficient permissions" because
-                      // `is int` rejects 0.0 and the +1 delta check
-                      // failed against doubles. The new constraints
-                      // still prevent abuse: must touch only those two
-                      // fields, ratingAvg must be in [1, 5], count
-                      // must stay non-negative and stay a number.
-                      isSignedIn()
-                      && request.resource.data.diff(resource.data)
+                      && !request.resource.data.diff(resource.data)
                            .affectedKeys()
-                           .hasOnly(['ratingAvg', 'ratingCount'])
-                      && request.resource.data.ratingAvg is number
-                      && request.resource.data.ratingCount is number
-                      && request.resource.data.ratingAvg >= 1.0
-                      && request.resource.data.ratingAvg <= 5.0
-                      && request.resource.data.ratingCount >= 1
+                           .hasAny(['ratingAvg', 'ratingCount', 'ratingSum'])
                     );
 
       // Hard delete: admin OR the owning business (drives self-delete
@@ -269,8 +229,12 @@ service cloud.firestore {
       // userId spoofing, and spam reviews against random / fake business
       // IDs that would otherwise pollute the collection. Comment is also
       // length-capped so a single doc can't blow up storage cost.
+      // One review per (user, business): the doc id is pinned to
+      // `${uid}_${businessId}`, so a second submission overwrites the first
+      // instead of stacking duplicates (spam / vote-stuffing prevention).
       allow create: if isSignedIn()
                     && request.resource.data.userId == request.auth.uid
+                    && reviewId == request.auth.uid + '_' + request.resource.data.businessId
                     && request.resource.data.businessId is string
                     && request.resource.data.rating is number
                     && request.resource.data.rating >= 1
@@ -282,15 +246,30 @@ service cloud.firestore {
                     )
                     && exists(/databases/$(database)/documents/businesses/$(request.resource.data.businessId));
 
-      // No edits from clients. Moderation = admin; author can re-review by
-      // submitting a new review (or via admin tooling).
-      allow update: if isAdmin();
-      // Delete: admin, the review's author (self-delete cascade), OR
-      // the owner of the reviewed business (business-side cascade when
-      // a merchant wipes their own account).
+      // Author may revise their own review (rating/comment only; userId +
+      // businessId frozen). Admin may moderate. The onReviewWritten trigger
+      // re-aggregates on any change.
+      allow update: if isAdmin()
+                    || (
+                      isSignedIn()
+                      && resource.data.userId == request.auth.uid
+                      && request.resource.data.userId == resource.data.userId
+                      && request.resource.data.businessId == resource.data.businessId
+                      && request.resource.data.rating is number
+                      && request.resource.data.rating >= 1
+                      && request.resource.data.rating <= 5
+                      && (
+                        !('comment' in request.resource.data.keys())
+                        || (request.resource.data.comment is string
+                            && request.resource.data.comment.size() <= 2000)
+                      )
+                    );
+      // Delete: admin OR the review's author only. The business-owner delete
+      // path was removed — it let merchants scrub their own bad reviews.
+      // Merchant account/business deletion now cascades server-side
+      // (onBusinessDeleted Cloud Function).
       allow delete: if isAdmin()
-                    || (isSignedIn() && resource.data.userId == request.auth.uid)
-                    || ownsBusiness(resource.data.businessId);
+                    || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
 
     // ---------- Product Reviews ----------
@@ -300,8 +279,11 @@ service cloud.firestore {
     match /productReviews/{reviewId} {
       allow read: if true;
 
+      // One review per (user, product): doc id pinned to `${uid}_${productId}`
+      // so a re-submit overwrites rather than stacking duplicates.
       allow create: if isSignedIn()
                     && request.resource.data.userId == request.auth.uid
+                    && reviewId == request.auth.uid + '_' + request.resource.data.productId
                     && request.resource.data.productId is string
                     && request.resource.data.businessId is string
                     && request.resource.data.rating is number
@@ -314,20 +296,29 @@ service cloud.firestore {
                     )
                     && exists(/databases/$(database)/documents/products/$(request.resource.data.productId));
 
-      allow update: if isAdmin();
-      // Same three-path delete as /reviews: admin, review author, or
-      // the owner of the business that owns the reviewed product.
-      // The product-owner check has to fetch the product to read its
-      // businessId because productReviews docs only carry productId
-      // directly.
-      allow delete: if isAdmin()
-                    || (isSignedIn() && resource.data.userId == request.auth.uid)
+      // Author may revise their own review (rating/comment only; identity
+      // fields frozen). Admin may moderate. onProductReviewWritten re-aggregates.
+      allow update: if isAdmin()
                     || (
                       isSignedIn()
-                      && exists(/databases/$(database)/documents/products/$(resource.data.productId))
-                      && ownsBusiness(
-                          get(/databases/$(database)/documents/products/$(resource.data.productId)).data.businessId)
+                      && resource.data.userId == request.auth.uid
+                      && request.resource.data.userId == resource.data.userId
+                      && request.resource.data.productId == resource.data.productId
+                      && request.resource.data.businessId == resource.data.businessId
+                      && request.resource.data.rating is number
+                      && request.resource.data.rating >= 1
+                      && request.resource.data.rating <= 5
+                      && (
+                        !('comment' in request.resource.data.keys())
+                        || (request.resource.data.comment is string
+                            && request.resource.data.comment.size() <= 2000)
+                      )
                     );
+      // Delete: admin OR the review's author only. Business-owner delete
+      // removed (review-scrubbing); merchant/business deletion cascades
+      // server-side via onBusinessDeleted.
+      allow delete: if isAdmin()
+                    || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
 
     // ---------- Favorites ----------
@@ -398,15 +389,10 @@ service cloud.firestore {
       // Only the owning business (or an admin) may read its numbers.
       allow read: if isAdmin() || ownsBusiness(businessId);
 
-      // Any signed-in user may bump the engagement counters (best-effort
-      // view/chat/save tracking). Restricted to the known counter fields so
-      // the doc can't be repurposed. These are vanity metrics, never used
-      // for placement, so the relaxed bound is acceptable — proper bounded
-      // aggregation would move to a Cloud Function later.
-      allow create, update: if isSignedIn()
-                            && request.resource.data.keys().hasOnly(
-                                 ['profileViews', 'productViews',
-                                  'chatsStarted', 'saves', 'updatedAt']);
+      // Counters are backend-only: written exclusively by the
+      // recordEngagement callable (Admin SDK bypasses rules). Direct client
+      // writes are denied so a competitor's numbers can't be forged/zeroed.
+      allow create, update: if false;
 
       allow delete: if isAdmin();
     }
@@ -418,13 +404,9 @@ service cloud.firestore {
       // a seller listing their own handful of products.
       allow read: if isAdmin() || ownsBusiness(resource.data.businessId);
 
-      // Signed-in users bump the counters. Restricted to the known fields;
-      // vanity metrics only (never used for placement), so the relaxed
-      // bound matches the business_stats rationale above.
-      allow create, update: if isSignedIn()
-                            && request.resource.data.keys().hasOnly(
-                                 ['businessId', 'views', 'chats', 'saves',
-                                  'updatedAt']);
+      // Backend-only, same as business_stats: written exclusively by the
+      // recordEngagement callable via the Admin SDK.
+      allow create, update: if false;
 
       allow delete: if isAdmin();
     }

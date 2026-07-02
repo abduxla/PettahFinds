@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import '../core/constants/app_constants.dart';
 import '../models/business_stats.dart';
 import '../models/product_stat.dart';
@@ -15,9 +16,13 @@ import '../models/product_stat.dart';
 /// a seller opening their own shop doesn't inflate their numbers).
 class AnalyticsRepository {
   final FirebaseFirestore _firestore;
+  final FirebaseFunctions _functions;
 
-  AnalyticsRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  AnalyticsRepository({
+    FirebaseFirestore? firestore,
+    FirebaseFunctions? functions,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _functions = functions ?? FirebaseFunctions.instance;
 
   CollectionReference get _stats =>
       _firestore.collection(AppConstants.businessStatsCollection);
@@ -25,68 +30,45 @@ class AnalyticsRepository {
   CollectionReference get _productStats =>
       _firestore.collection(AppConstants.productStatsCollection);
 
-  Future<void> _bumpBusiness(String businessId, String field,
-      [int delta = 1]) async {
+  /// All engagement counters are server-authoritative: clients can no longer
+  /// write business_stats / product_stats directly (firestore.rules:
+  /// `allow create, update: if false`). This calls the `recordEngagement`
+  /// callable, which applies bounded FieldValue.increment writes via the
+  /// Admin SDK — so counters can't be forged or zeroed by a competitor.
+  ///
+  /// Best-effort: any failure is swallowed so analytics never breaks browsing.
+  Future<void> _record(String type, String businessId,
+      [String? productId]) async {
     if (businessId.isEmpty) return;
     try {
-      await _stats.doc(businessId).set({
-        field: FieldValue.increment(delta),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      await _functions.httpsCallable('recordEngagement').call<dynamic>({
+        'type': type,
+        'businessId': businessId,
+        if (productId != null && productId.isNotEmpty) 'productId': productId,
+      });
     } catch (_) {
       // Best-effort — analytics must never break browsing.
     }
   }
 
-  Future<void> _bumpProduct(String productId, String businessId, String field,
-      [int delta = 1]) async {
-    if (productId.isEmpty || businessId.isEmpty) return;
-    try {
-      await _productStats.doc(productId).set({
-        'businessId': businessId,
-        field: FieldValue.increment(delta),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    } catch (_) {
-      // Best-effort.
-    }
-  }
-
   Future<void> recordProfileView(String businessId) =>
-      _bumpBusiness(businessId, 'profileViews');
+      _record('profileView', businessId);
 
   /// A product view bumps both the business total and the per-product count
   /// so the seller can see which listings are actually being browsed.
-  Future<void> recordProductView(String businessId, String productId) async {
-    await Future.wait([
-      _bumpBusiness(businessId, 'productViews'),
-      _bumpProduct(productId, businessId, 'views'),
-    ]);
-  }
+  Future<void> recordProductView(String businessId, String productId) =>
+      _record('productView', businessId, productId);
 
-  Future<void> recordChatStarted(String businessId, String productId) async {
-    await Future.wait([
-      _bumpBusiness(businessId, 'chatsStarted'),
-      _bumpProduct(productId, businessId, 'chats'),
-    ]);
-  }
+  Future<void> recordChatStarted(String businessId, String productId) =>
+      _record('chatStarted', businessId, productId);
 
-  /// A customer saving a product bumps both the business total and the
-  /// per-product count; un-saving decrements, so the figure reflects the
-  /// current number of savers rather than total taps.
-  Future<void> recordProductSave(String businessId, String productId) async {
-    await Future.wait([
-      _bumpBusiness(businessId, 'saves'),
-      _bumpProduct(productId, businessId, 'saves'),
-    ]);
-  }
+  /// A customer saving a product increments both counters; un-saving
+  /// decrements, so the figure reflects current savers rather than total taps.
+  Future<void> recordProductSave(String businessId, String productId) =>
+      _record('save', businessId, productId);
 
-  Future<void> recordProductUnsave(String businessId, String productId) async {
-    await Future.wait([
-      _bumpBusiness(businessId, 'saves', -1),
-      _bumpProduct(productId, businessId, 'saves', -1),
-    ]);
-  }
+  Future<void> recordProductUnsave(String businessId, String productId) =>
+      _record('unsave', businessId, productId);
 
   /// Live engagement totals for a business. Emits [BusinessStats.empty]
   /// until the first event lands (the doc won't exist yet).

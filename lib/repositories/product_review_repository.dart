@@ -15,42 +15,18 @@ class ProductReviewRepository {
 
   CollectionReference get _ref => _firestore.collection('productReviews');
 
+  /// Upsert the caller's single review for a product. The doc id is pinned
+  /// to `${userId}_${productId}` so re-reviewing overwrites the previous
+  /// entry instead of stacking duplicates (enforced by firestore.rules).
+  ///
+  /// Rating aggregation on the parent product doc is owned entirely by the
+  /// `onProductReviewWritten` Cloud Function — the client never writes
+  /// ratingAvg / ratingCount.
   Future<void> add(ProductReview review) async {
-    final doc = _ref.doc();
-    await doc.set({
+    final id = '${review.userId}_${review.productId}';
+    await _ref.doc(id).set({
       ...review.toMap(),
-      'id': doc.id,
-    });
-    await _bumpProductRating(
-      productId: review.productId,
-      newRating: review.rating,
-    );
-  }
-
-  /// Incrementally maintain ratingAvg + ratingCount on the product doc
-  /// the same way `ReviewRepository._bumpBusinessRating` does for
-  /// businesses. The matching Firestore rule allows any signed-in user
-  /// to write *only* these two fields, only when the count increments
-  /// by exactly 1 and the avg is in [1.0, 5.0].
-  Future<void> _bumpProductRating({
-    required String productId,
-    required double newRating,
-  }) async {
-    final prodRef = _firestore.collection('products').doc(productId);
-    await _firestore.runTransaction((txn) async {
-      final snap = await txn.get(prodRef);
-      if (!snap.exists) return;
-      final data = snap.data() as Map<String, dynamic>;
-      final oldCount = (data['ratingCount'] as num?)?.toInt() ?? 0;
-      final oldAvg = (data['ratingAvg'] as num?)?.toDouble() ?? 0.0;
-      final newCount = oldCount + 1;
-      final clamped = newRating.clamp(1.0, 5.0);
-      final raw = (oldAvg * oldCount + clamped) / newCount;
-      final newAvg = raw.clamp(1.0, 5.0);
-      txn.update(prodRef, {
-        'ratingAvg': double.parse(newAvg.toStringAsFixed(1)),
-        'ratingCount': newCount,
-      });
+      'id': id,
     });
   }
 

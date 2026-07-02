@@ -11,44 +11,17 @@ class ReviewRepository {
   CollectionReference get _ref =>
       _firestore.collection(AppConstants.reviewsCollection);
 
+  /// Upsert the caller's single review for a business. The doc id is pinned
+  /// to `${userId}_${businessId}` so re-reviewing overwrites the previous
+  /// rating instead of stacking duplicates (enforced by firestore.rules).
+  ///
+  /// Rating aggregation (ratingAvg / ratingCount) is owned entirely by the
+  /// `onReviewWritten` Cloud Function — the client never writes those fields.
   Future<void> add(Review review) async {
-    final doc = _ref.doc();
-    await doc.set({
+    final id = '${review.userId}_${review.businessId}';
+    await _ref.doc(id).set({
       ...review.toMap(),
-      'id': doc.id,
-    });
-    // Incremental aggregation — avoids scanning every review for the
-    // business on every submit (which is O(n) per write). The Firestore
-    // rule allows `ratingCount <= old + 1` and `ratingAvg in [1.0, 5.0]`,
-    // which exactly matches this incremental update.
-    await _bumpBusinessRating(
-      businessId: review.businessId,
-      newRating: review.rating,
-    );
-  }
-
-  Future<void> _bumpBusinessRating({
-    required String businessId,
-    required double newRating,
-  }) async {
-    final bizRef = _firestore
-        .collection(AppConstants.businessesCollection)
-        .doc(businessId);
-    await _firestore.runTransaction((txn) async {
-      final snap = await txn.get(bizRef);
-      if (!snap.exists) return;
-      final data = snap.data() as Map<String, dynamic>;
-      final oldCount = (data['ratingCount'] as num?)?.toInt() ?? 0;
-      final oldAvg = (data['ratingAvg'] as num?)?.toDouble() ?? 0.0;
-      final newCount = oldCount + 1;
-      final clamped = newRating.clamp(1.0, 5.0);
-      final raw = (oldAvg * oldCount + clamped) / newCount;
-      // Keep within rule bounds even if old data was malformed.
-      final newAvg = raw.clamp(1.0, 5.0);
-      txn.update(bizRef, {
-        'ratingAvg': double.parse(newAvg.toStringAsFixed(1)),
-        'ratingCount': newCount,
-      });
+      'id': id,
     });
   }
 
