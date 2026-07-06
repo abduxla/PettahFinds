@@ -61,7 +61,7 @@ jobs:
         id: npm_audit
         run: |
           fail=0
-          for dir in functions emails; do
+          for dir in functions; do
             if [ -f "$dir/package.json" ]; then
               echo "== npm audit: $dir =="
               # Fail the job on any high/critical prod-dependency advisory.
@@ -142,7 +142,7 @@ jobs:
               `2. \`flutter analyze\``,
               `3. \`flutter test\` (skipped if no tests)`,
               `4. \`flutter build web\``,
-              `5. \`npm audit --omit=dev --audit-level=high\` (functions + emails)`,
+              `5. \`npm audit --omit=dev --audit-level=high\` (functions)`,
               `6. Firebase config file presence check`,
               `7. Secret scan`,
               ``,

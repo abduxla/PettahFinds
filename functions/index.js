@@ -475,8 +475,16 @@ async function deleteRefs(refs) {
 //    (rules: allow create, update: if false). They call this callable, which
 //    applies bounded FieldValue.increment writes via the Admin SDK — so a
 //    competitor's numbers can't be forged or zeroed.
+//
+//    App Check is ENFORCED: the callable only accepts requests carrying a
+//    valid App Check token (Play Integrity / DeviceCheck in release — see
+//    lib/main.dart), so an attacker can't script raw calls from outside the
+//    genuine app to inflate their own stats or spam `unsave` to drive a
+//    competitor's saver count negative. Each increment is a single atomic
+//    FieldValue.increment, so concurrent events are race-safe and never
+//    double-count on the server side.
 // --------------------------------------------------------------------------
-exports.recordEngagement = onCall(async (request) => {
+exports.recordEngagement = onCall({enforceAppCheck: true}, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Sign in required.");
   }
