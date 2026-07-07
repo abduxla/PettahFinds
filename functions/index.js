@@ -30,6 +30,7 @@ const {defineSecret} = require("firebase-functions/params");
 const {logger} = require("firebase-functions");
 const admin = require("firebase-admin");
 const {Resend} = require("resend");
+const crypto = require("crypto");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -697,6 +698,285 @@ function _businessApprovedHtml(businessName) {
         </p>
         <p style="margin-top: 32px; font-size: 12px; color: #9E9E9E;">
           PetaFinds · Bringing Pettah online · Colombo 11
+        </p>
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================================
+// PORTAL — Business Membership & Administration Portal backend
+// ============================================================================
+
+/** Public URL of the deployed portal (Firebase Hosting default site). */
+const PORTAL_URL = "https://pettahfinds-75075.web.app";
+
+/**
+ * Append an immutable entry to /auditLogs. The collection is server-write
+ * only (rules deny all client writes), so entries are tamper-proof.
+ * Never throws — auditing must not break the action being audited.
+ * @param {object} entry {action, actorUid, targetType, targetId, details}
+ */
+async function writeAudit(entry) {
+  try {
+    await db.collection("auditLogs").add({
+      ...entry,
+      at: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (err) {
+    logger.error("[audit] write failed", entry.action, err);
+  }
+}
+
+/**
+ * True when the caller is an administrator — same dual check as the
+ * Firestore rules isAdmin(): custom claim `admin` OR users-doc role.
+ * @param {object} auth request.auth from a callable.
+ * @return {Promise<boolean>} whether the caller is an admin.
+ */
+async function callerIsAdmin(auth) {
+  if (!auth) return false;
+  if (auth.token && auth.token.admin === true) return true;
+  const snap = await db.collection("users").doc(auth.uid).get();
+  return snap.exists && (snap.data() || {}).role === "admin";
+}
+
+/**
+ * Generate a cryptographically-secure temporary password: 14 chars with
+ * guaranteed upper/lower/digit/symbol coverage (satisfies common
+ * complexity rules), Fisher-Yates shuffled with crypto randomness.
+ * @return {string} the generated password.
+ */
+function generateTempPassword() {
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // no I/O (ambiguous)
+  const lower = "abcdefghijkmnpqrstuvwxyz"; // no l/o
+  const digits = "23456789"; // no 0/1
+  const symbols = "!@#$%&*+?";
+  const all = upper + lower + digits + symbols;
+  const pick = (set) => set[crypto.randomInt(set.length)];
+  const chars = [pick(upper), pick(lower), pick(digits), pick(symbols)];
+  while (chars.length < 14) chars.push(pick(all));
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join("");
+}
+
+// --------------------------------------------------------------------------
+// provisionPortalAccess — admin-only callable.
+//
+// Creates (or resets) the portal sign-in for a business:
+//   - no Firebase Auth user for the business email: create one with a
+//     temporary password;
+//   - existing user: reset their password to a new temporary one
+//     (the documented regenerate/reset/resend flow).
+// Then upserts /users/{uid} (role=business, businessId, mustChangePassword),
+// links businesses.ownerUid when unset, emails the credentials via Resend,
+// and writes an audit entry.
+//
+// The temporary password is delivered ONLY by email — it is never returned
+// to the calling client.
+// --------------------------------------------------------------------------
+exports.provisionPortalAccess = onCall(
+  {enforceAppCheck: true, secrets: [RESEND_API_KEY]},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in required.");
+    }
+    if (!(await callerIsAdmin(request.auth))) {
+      throw new HttpsError("permission-denied", "Administrators only.");
+    }
+
+    const businessId = String((request.data || {}).businessId || "").trim();
+    if (!businessId || businessId.length > 128) {
+      throw new HttpsError("invalid-argument", "businessId is required.");
+    }
+
+    const bizSnap = await db.collection("businesses").doc(businessId).get();
+    if (!bizSnap.exists) {
+      throw new HttpsError("not-found", "Business not found.");
+    }
+    const biz = bizSnap.data() || {};
+    const email = String(biz.email || "").trim().toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+      throw new HttpsError(
+          "failed-precondition",
+          "The business has no valid email address on file. " +
+          "Add one to the business profile first.",
+      );
+    }
+
+    // Find or create the Firebase Auth identity for this email.
+    const tempPassword = generateTempPassword();
+    let userRecord;
+    let created = false;
+    try {
+      userRecord = await admin.auth().getUserByEmail(email);
+    } catch (err) {
+      if (err && err.code === "auth/user-not-found") {
+        userRecord = await admin.auth().createUser({
+          email,
+          password: tempPassword,
+          displayName: biz.ownerName || biz.businessName || undefined,
+          emailVerified: false,
+        });
+        created = true;
+      } else {
+        throw new HttpsError("internal", "Auth lookup failed.");
+      }
+    }
+
+    // Ownership guards — never silently re-bind identities:
+    //   - business already owned by a DIFFERENT auth user: conflict;
+    //   - auth user already linked to a DIFFERENT business: conflict.
+    if (biz.ownerUid && biz.ownerUid !== userRecord.uid) {
+      throw new HttpsError(
+          "failed-precondition",
+          "This business is owned by a different account " +
+          "(the email on file belongs to someone else). " +
+          "Fix the business email or the owner link first.",
+      );
+    }
+    const userDocRef = db.collection("users").doc(userRecord.uid);
+    const userDoc = await userDocRef.get();
+    const existingBizId = userDoc.exists ?
+      (userDoc.data() || {}).businessId : null;
+    if (existingBizId && existingBizId !== businessId) {
+      throw new HttpsError(
+          "failed-precondition",
+          "This email's account is already linked to another business.",
+      );
+    }
+
+    // Existing identity: rotate the password (reset/regenerate flow).
+    if (!created) {
+      await admin.auth().updateUser(userRecord.uid, {password: tempPassword});
+      // Kill existing sessions so anything using the old password dies.
+      await admin.auth().revokeRefreshTokens(userRecord.uid);
+    }
+
+    // Upsert the profile the portal/app routing relies on.
+    await userDocRef.set({
+      email,
+      displayName: userDoc.exists ?
+        ((userDoc.data() || {}).displayName || biz.ownerName || "") :
+        (biz.ownerName || ""),
+      role: "business",
+      businessId,
+      onboardingCompleted: true,
+      mustChangePassword: true,
+      ...(userDoc.exists ? {} : {
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      }),
+    }, {merge: true});
+
+    // Link the business to its owner when not yet linked.
+    if (!biz.ownerUid) {
+      await bizSnap.ref.update({ownerUid: userRecord.uid});
+    }
+
+    // Deliver credentials — email only, never in the response.
+    const resend = new Resend(RESEND_API_KEY.value());
+    try {
+      await resend.emails.send({
+        from: "PetaFinds <info@petafinds.lk>",
+        to: email,
+        subject: created ?
+          "Your PetaFinds Business Portal access" :
+          "Your PetaFinds Business Portal password was reset",
+        html: _portalCredentialsHtml(
+            escapeHtml(biz.businessName || "your business"),
+            escapeHtml(email),
+            escapeHtml(tempPassword),
+            created,
+        ),
+      });
+    } catch (err) {
+      logger.error("[portal] credentials email failed for", email, err);
+      throw new HttpsError(
+          "internal",
+          "Account was prepared but the credentials email failed to " +
+          "send. Use Resend access to try again.",
+      );
+    }
+
+    await writeAudit({
+      action: created ? "portal_access_provisioned" : "portal_password_reset",
+      actorUid: request.auth.uid,
+      targetType: "business",
+      targetId: businessId,
+      details: {email, authUid: userRecord.uid},
+    });
+
+    logger.info(
+        "[portal]", created ? "provisioned" : "reset", email,
+        "for business", businessId, "by", request.auth.uid,
+    );
+    return {ok: true, email, created};
+  },
+);
+
+/**
+ * Credentials email — matches the house template style above.
+ * @param {string} businessName Escaped business name.
+ * @param {string} email Escaped sign-in email.
+ * @param {string} tempPassword Escaped temporary password.
+ * @param {boolean} created True on first provisioning, false on reset.
+ * @return {string} HTML body.
+ */
+function _portalCredentialsHtml(businessName, email, tempPassword, created) {
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 540px; margin: 0 auto; color: #1A1A1A;">
+      <div style="background: #095858; padding: 32px; text-align: center;
+        border-radius: 12px 12px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 26px; font-weight: 800;
+          letter-spacing: -0.5px;">
+          PetaFinds
+        </h1>
+      </div>
+      <div style="padding: 36px 32px; background: #FAFAF8;
+        border-radius: 0 0 12px 12px; border: 1px solid #E8E8E8; border-top: none;">
+        <h2 style="margin: 0 0 8px; font-size: 22px; font-weight: 800;
+          color: #1A1A1A; letter-spacing: -0.3px;">
+          ${created ? "Your Business Portal access is ready" :
+            "Your portal password was reset"}
+        </h2>
+        <p style="font-size: 15px; color: #555; line-height: 1.6; margin: 0 0 20px;">
+          Sign in to the PetaFinds Business Portal to manage the membership,
+          payments and invoices for <strong>${businessName}</strong>.
+        </p>
+        <div style="background: #E8F4F4; border-left: 4px solid #095858;
+          padding: 16px 20px; border-radius: 8px; margin-bottom: 24px;">
+          <p style="margin: 0 0 6px; font-size: 14px; color: #095858;">
+            <strong>Sign-in email:</strong> ${email}
+          </p>
+          <p style="margin: 0; font-size: 14px; color: #095858;">
+            <strong>Temporary password:</strong>
+            <code style="background: #fff; padding: 2px 8px; border-radius: 4px;
+              font-size: 14px;">${tempPassword}</code>
+          </p>
+        </div>
+        <div style="background: #FFF8F0; border-left: 4px solid #E8821A;
+          padding: 16px 20px; border-radius: 8px; margin-bottom: 24px;">
+          <p style="margin: 0; font-size: 14px; color: #7A4A00;">
+            &#128274; You will be asked to choose a new password the first
+            time you sign in. This temporary password stops working after
+            that.
+          </p>
+        </div>
+        <p style="text-align: center; margin: 0 0 24px;">
+          <a href="${PORTAL_URL}/sign-in"
+            style="display: inline-block; background: #095858; color: #fff;
+            text-decoration: none; font-weight: 700; font-size: 15px;
+            padding: 12px 28px; border-radius: 10px;">
+            Open the Business Portal
+          </a>
+        </p>
+        <p style="margin-top: 32px; font-size: 12px; color: #9E9E9E;">
+          If you did not expect this email, contact support@petafinds.lk.
+          <br>PetaFinds · Bringing Pettah online · Colombo 11
         </p>
       </div>
     </div>

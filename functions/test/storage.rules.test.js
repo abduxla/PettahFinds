@@ -65,6 +65,36 @@ beforeEach(async () => {
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     await setDoc(doc(ctx.firestore(), "businesses", BIZ), {ownerUid: OWNER});
   });
+  // ALSO seed through the emulator's REST API: the Storage emulator's
+  // cross-service firestore.get() reads a different internal store than
+  // the one rules-unit-testing writes to
+  // (https://github.com/firebase/firebase-js-sdk/issues/6803). Without
+  // this, ownership checks in storage.rules always see "no doc".
+  const host = process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080";
+  // Seed under BOTH project ids: rules-unit-testing namespaces data under
+  // its demo project, but the Storage emulator's cross-service
+  // firestore.get() resolves against the project the CLI was started
+  // with (GCLOUD_PROJECT). Seeding both makes the ownership lookup see
+  // the doc regardless of which routing this emulator version uses.
+  const cliProject = process.env.GCLOUD_PROJECT || "pettahfinds-75075";
+  for (const project of new Set([PROJECT_ID, cliProject])) {
+    const url =
+      `http://${host}/v1/projects/${project}/databases/(default)` +
+      `/documents/businesses?documentId=${BIZ}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        // Emulator-only admin bypass token — skips security rules.
+        "Authorization": "Bearer owner",
+      },
+      body: JSON.stringify({fields: {ownerUid: {stringValue: OWNER}}}),
+    });
+    // 200 = created; 409 = already exists from a previous seed.
+    if (!res.ok && res.status !== 409) {
+      throw new Error(`emulator REST seed failed (${project}): ${res.status}`);
+    }
+  }
 });
 
 function storage(uid) {

@@ -23,8 +23,12 @@ service cloud.firestore {
     // Either bootstraps the in-app admin shell + grants the privileged
     // writes below.
     function isAdmin() {
+      // `'admin' in token` guard: reading a missing custom claim can raise
+      // an evaluation error; Firestore's engine happens to recover inside
+      // `||`, but the Storage engine does not — keep both rulesets on the
+      // same defensive pattern so they never drift apart.
       return isSignedIn() && (
-        request.auth.token.admin == true
+        ('admin' in request.auth.token && request.auth.token.admin == true)
         || (
           exists(/databases/$(database)/documents/users/$(request.auth.uid))
           && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
@@ -48,7 +52,8 @@ service cloud.firestore {
     function userSelfMutableFields() {
       return ['displayName', 'phoneNumber', 'photoUrl',
               'onboardingCompleted', 'businessId',
-              'fcmToken', 'fcmUpdatedAt'];
+              'fcmToken', 'fcmUpdatedAt',
+              'mustChangePassword'];
     }
 
     // Fields a business owner is allowed to edit on their own business doc
@@ -85,6 +90,16 @@ service cloud.firestore {
                         || request.resource.data.businessId == null
                         || request.resource.data.businessId == ''
                         || ownsBusiness(request.resource.data.businessId)
+                      )
+                      // mustChangePassword: the owner may only CLEAR the
+                      // flag (after completing the forced password change).
+                      // Setting it is reserved for provisionPortalAccess
+                      // (Admin SDK) and admins.
+                      && (
+                        !request.resource.data.diff(resource.data)
+                             .affectedKeys()
+                             .hasAny(['mustChangePassword'])
+                        || request.resource.data.mustChangePassword == false
                       )
                     );
 
@@ -548,6 +563,16 @@ service cloud.firestore {
       // cascade). Admin can delete any.
       allow delete: if isAdmin()
                     || (isSignedIn() && resource.data.userId == request.auth.uid);
+    }
+
+    // ---------- Audit logs (portal) ----------
+    // Tamper-proof operational trail. Entries are written EXCLUSIVELY by
+    // Cloud Functions via the Admin SDK (writeAudit in functions/index.js),
+    // which bypasses these rules. No client — not even an admin session —
+    // can create, alter, or purge audit history.
+    match /auditLogs/{entryId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
     }
   }
 }

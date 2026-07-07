@@ -60,3 +60,4 @@ secrets/
 # Windows machines with a near-full C: drive — useless to other devs).
 run-on-d.ps1
 reclaim-c-drive.ps1
+.firebase/

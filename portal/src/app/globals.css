@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+/*
+ * PettahFinds brand tokens — mirrored from the mobile app's AppColors
+ * (lib/core/theme/app_colors.dart). Keep these in lockstep: the portal
+ * and the app must read as one product.
+ */
+@theme {
+  /* Brand */
+  --color-teal: #0d6e6e;
+  --color-teal-dark: #095858;
+  --color-teal-light: #e8f4f4;
+  --color-orange: #e8821a;
+  --color-orange-soft: #fff8f0;
+  --color-danger: #d63b3b;
+  --color-danger-soft: #fdf0f0;
+  --color-success: #1a7f4e;
+  --color-success-soft: #f0fff8;
+
+  /* Surfaces */
+  --color-bg: #fafaf8;
+  --color-bg-section: #f2f2ef;
+  --color-surface: #ffffff;
+
+  /* Ink scale (text1..text4 in the app) */
+  --color-ink-900: #111110;
+  --color-ink-700: #3d3d3a;
+  --color-ink-500: #78786e;
+  --color-ink-300: #aeaea4;
+  --color-line: #e8e8e4;
+
+  /* Tier accents (portal display names; colors match tier_badge.dart) */
+  --color-tier-silver: #78786e;
+  --color-tier-gold: #0d6e6e;
+  --color-tier-platinum: #e8821a;
+  --color-tier-vibranium: #7c3aed;
+
+  /* Typography — DM Sans body, Nunito display (same as the app) */
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-nunito), var(--font-dm-sans), ui-sans-serif,
+    system-ui, sans-serif;
+
+  /* Radii — inputs/buttons 12, cards 16, dialogs 20 (app conventions) */
+  --radius-input: 12px;
+  --radius-card: 16px;
+  --radius-dialog: 20px;
+
+  /* Motion */
+  --ease-apple: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink-900);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--color-teal-light);
+  color: var(--color-teal-dark);
+}
+
+/* Focus rings: subtle, brand-teal, keyboard-only */
+:focus-visible {
+  outline: 2px solid var(--color-teal);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Thin, quiet scrollbars (WebKit) */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-ink-300);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}

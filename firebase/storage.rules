@@ -12,8 +12,13 @@ service firebase.storage {
     //   2) /users/{uid}.role == 'admin' (console-promoted admins who don't
     //      have the claim yet). Costs one Firestore get() per admin write.
     function isAdmin() {
+      // `'admin' in token` guard: reading a missing claim raises an
+      // evaluation error in the Storage rules engine, and that error is
+      // NOT recovered by `||` — an unguarded read here denies writes for
+      // every non-admin (i.e. all merchant uploads). Caught by
+      // storage.rules.test.js; keep the guard.
       return isSignedIn() && (
-        request.auth.token.admin == true
+        ('admin' in request.auth.token && request.auth.token.admin == true)
         || (
           firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
           && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin'

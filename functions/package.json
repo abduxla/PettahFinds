@@ -8,7 +8,7 @@
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "test": "firebase emulators:exec --only firestore,storage,auth \"node --test test/\""
+    "test": "firebase emulators:exec --only firestore,storage,auth \"node --test test/firestore.rules.test.js test/storage.rules.test.js test/functions.test.js\""
   },
   "engines": {
     "node": "22"

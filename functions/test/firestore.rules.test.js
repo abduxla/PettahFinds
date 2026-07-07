@@ -232,3 +232,41 @@ test("a user cannot self-assign the admin role on create or update", async () =>
     updateDoc(doc(db(ATTACKER), "users", ATTACKER), {role: "admin"}),
   );
 });
+
+// ---------------------------------------------------------------------------
+// Portal (M1): mustChangePassword transitions + auditLogs lockdown.
+// ---------------------------------------------------------------------------
+
+test("owner may clear mustChangePassword but never set it", async () => {
+  // Seed a provisioned user (as the backend would, bypassing rules).
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "users", OWNER), {
+      role: "business",
+      businessId: BIZ,
+      mustChangePassword: true,
+    });
+  });
+  // Clearing the flag after the forced change: allowed.
+  await assertSucceeds(
+    updateDoc(doc(db(OWNER), "users", OWNER), {mustChangePassword: false}),
+  );
+  // Re-arming it client-side: denied (Admin SDK / admins only).
+  await assertFails(
+    updateDoc(doc(db(OWNER), "users", OWNER), {mustChangePassword: true}),
+  );
+});
+
+test("auditLogs reject every client write, including from the subject", async () => {
+  await assertFails(
+    setDoc(doc(db(OWNER), "auditLogs", "forged"), {
+      action: "portal_password_reset",
+      actorUid: OWNER,
+    }),
+  );
+  await assertFails(
+    setDoc(doc(db(ATTACKER), "auditLogs", "forged2"), {action: "x"}),
+  );
+  // Non-admins cannot read the trail either.
+  const snap = getDoc(doc(db(ATTACKER), "auditLogs", "any"));
+  await assertFails(snap);
+});
