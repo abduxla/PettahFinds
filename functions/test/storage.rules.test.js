@@ -153,3 +153,43 @@ test("the catch-all denies writes to unknown paths", async () => {
     uploadBytes(ref(storage(OWNER), `random/${OWNER}/x.jpg`), oneByte, IMG),
   );
 });
+
+// ---------------------------------------------------------------------------
+// Portal (M2): receipt uploads — owner-only, image/PDF, immutable.
+// ---------------------------------------------------------------------------
+
+const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]); // "%PDF-"
+const PDF = {contentType: "application/pdf"};
+
+test("owner may upload image and PDF receipts under their business", async () => {
+  await assertSucceeds(
+    uploadBytes(
+      ref(storage(OWNER), `receipts/${BIZ}/r1.jpg`), oneByte, IMG),
+  );
+  await assertSucceeds(
+    uploadBytes(
+      ref(storage(OWNER), `receipts/${BIZ}/r2.pdf`), pdfBytes, PDF),
+  );
+});
+
+test("non-owners cannot read or write another business's receipts", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await uploadBytes(
+      ref(ctx.storage(), `receipts/${BIZ}/r1.jpg`), oneByte, IMG);
+  });
+  await assertFails(
+    uploadBytes(
+      ref(storage(OTHER), `receipts/${BIZ}/evil.jpg`), oneByte, IMG),
+  );
+  const {getBytes} = require("firebase/storage");
+  await assertFails(getBytes(ref(storage(OTHER), `receipts/${BIZ}/r1.jpg`)));
+});
+
+test("receipts are immutable — no client delete or overwrite", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await uploadBytes(
+      ref(ctx.storage(), `receipts/${BIZ}/r1.jpg`), oneByte, IMG);
+  });
+  const {deleteObject} = require("firebase/storage");
+  await assertFails(deleteObject(ref(storage(OWNER), `receipts/${BIZ}/r1.jpg`)));
+});

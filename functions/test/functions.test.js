@@ -89,3 +89,87 @@ test("rejects an unknown engagement type", async () => {
     /Unknown type|invalid-argument/i,
   );
 });
+
+// ---------------------------------------------------------------------------
+// Portal (M2): submitPayment / reviewPayment input guards.
+// All of these throw before any Firestore access, so they run offline.
+// reviewPayment's admin check passes via the custom claim (token.admin),
+// which also avoids a Firestore read in offline mode.
+// ---------------------------------------------------------------------------
+
+test("submitPayment rejects unauthenticated callers", async () => {
+  const submitPayment = fft.wrap(fns.submitPayment);
+  await assert.rejects(
+    () => submitPayment({data: {}, app: APP}),
+    /unauthenticated|Sign in required/i,
+  );
+});
+
+test("submitPayment rejects a free/unknown tier", async () => {
+  const submitPayment = fft.wrap(fns.submitPayment);
+  for (const tier of ["listed", "gold", "", undefined]) {
+    await assert.rejects(
+      () =>
+        submitPayment({
+          data: {tierRequested: tier, months: 1, method: "bank_transfer",
+            referenceNumber: "REF123", paidOn: "2026-07-01"},
+          auth: {uid: "u1", token: {}},
+          app: APP,
+        }),
+      /paid tier|invalid-argument/i,
+    );
+  }
+});
+
+test("submitPayment rejects invalid months, method, reference and date", async () => {
+  const submitPayment = fft.wrap(fns.submitPayment);
+  const base = {
+    tierRequested: "spotlight",
+    months: 1,
+    method: "bank_transfer",
+    referenceNumber: "REF123",
+    paidOn: "2026-07-01",
+  };
+  const bad = [
+    {...base, months: 0},
+    {...base, months: 1.5},
+    {...base, months: 13},
+    {...base, method: "crypto"},
+    {...base, referenceNumber: "xy"},
+    {...base, paidOn: "01/07/2026"},
+    {...base, paidOn: "2031-01-01"},
+  ];
+  for (const data of bad) {
+    await assert.rejects(
+      () => submitPayment({data, auth: {uid: "u1", token: {}}, app: APP}),
+      /invalid-argument|must be|unknown/i,
+    );
+  }
+});
+
+test("reviewPayment rejects non-admins and bad decisions", async () => {
+  const reviewPayment = fft.wrap(fns.reviewPayment);
+  await assert.rejects(
+    () => reviewPayment({data: {paymentId: "p", decision: "approve"},
+      app: APP}),
+    /unauthenticated|Sign in required/i,
+  );
+  await assert.rejects(
+    () =>
+      reviewPayment({
+        data: {paymentId: "p", decision: "obliterate"},
+        auth: {uid: "admin1", token: {admin: true}},
+        app: APP,
+      }),
+    /decision must be|invalid-argument/i,
+  );
+  await assert.rejects(
+    () =>
+      reviewPayment({
+        data: {decision: "approve"},
+        auth: {uid: "admin1", token: {admin: true}},
+        app: APP,
+      }),
+    /paymentId is required|invalid-argument/i,
+  );
+});

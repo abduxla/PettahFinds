@@ -270,3 +270,63 @@ test("auditLogs reject every client write, including from the subject", async ()
   const snap = getDoc(doc(db(ATTACKER), "auditLogs", "any"));
   await assertFails(snap);
 });
+
+// ---------------------------------------------------------------------------
+// Portal (M2): payments are backend-owned; portalConfig is admin-write.
+// ---------------------------------------------------------------------------
+
+test("payments cannot be created or mutated by any client", async () => {
+  // Even the legitimate owner cannot fabricate a payment doc client-side.
+  await assertFails(
+    setDoc(doc(db(OWNER), "payments", "forged"), {
+      businessId: BIZ,
+      amountLkr: 1,
+      status: "approved",
+    }),
+  );
+  // Seed a real payment (as the backend would), then try to self-approve.
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "businesses", BIZ), {ownerUid: OWNER});
+    await setDoc(doc(ctx.firestore(), "payments", "pay_1"), {
+      businessId: BIZ,
+      amountLkr: 5490,
+      status: "pending_verification",
+    });
+  });
+  await assertFails(
+    updateDoc(doc(db(OWNER), "payments", "pay_1"), {status: "approved"}),
+  );
+  await assertFails(deleteDoc(doc(db(OWNER), "payments", "pay_1")));
+});
+
+test("a business reads only its own payments", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "businesses", BIZ), {ownerUid: OWNER});
+    await setDoc(doc(ctx.firestore(), "payments", "pay_1"), {
+      businessId: BIZ,
+      amountLkr: 5490,
+      status: "pending_verification",
+    });
+  });
+  await assertSucceeds(getDoc(doc(db(OWNER), "payments", "pay_1")));
+  await assertFails(getDoc(doc(db(ATTACKER), "payments", "pay_1")));
+});
+
+test("payment_dupes locks are invisible to all clients", async () => {
+  await assertFails(getDoc(doc(db(OWNER), "payment_dupes", "any")));
+  await assertFails(
+    setDoc(doc(db(ATTACKER), "payment_dupes", "k"), {paymentId: "x"}),
+  );
+});
+
+test("portalConfig: signed-in read, admin-only write", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "portalConfig", "payments"), {
+      bank: "Test Bank",
+    });
+  });
+  await assertSucceeds(getDoc(doc(db(OWNER), "portalConfig", "payments")));
+  await assertFails(
+    setDoc(doc(db(OWNER), "portalConfig", "payments"), {bank: "Evil Bank"}),
+  );
+});

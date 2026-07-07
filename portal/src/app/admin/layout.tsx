@@ -5,11 +5,16 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { FullScreenSpinner } from "@/components/ui/spinner";
 import { PortalShell, type NavItem } from "@/components/shell/portal-shell";
-import { IconBuildings, IconGauge } from "@/components/shell/icons";
+import {
+  IconBuildings,
+  IconGauge,
+  IconPayments,
+} from "@/components/shell/icons";
 
 const NAV: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: IconGauge },
   { href: "/admin/businesses", label: "Businesses", icon: IconBuildings },
+  { href: "/admin/payments", label: "Payments", icon: IconPayments },
 ];
 
 /**

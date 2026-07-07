@@ -565,6 +565,33 @@ service cloud.firestore {
                     || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
 
+    // ---------- Payments (portal) ----------
+    // The payment lifecycle is 100% backend-owned: docs are created by the
+    // submitPayment callable and transitioned by reviewPayment (Admin SDK,
+    // bypasses rules). Clients can only READ — the owning business sees its
+    // own history, admins see the queue. No client write path exists, so
+    // amounts, statuses and duplicate locks cannot be forged.
+    match /payments/{paymentId} {
+      allow read: if isAdmin()
+                  || (isSignedIn() && ownsBusiness(resource.data.businessId));
+      allow create, update, delete: if false;
+    }
+
+    // Duplicate-submission locks (see paymentDupeKey in functions/index.js).
+    // Purely internal bookkeeping — no client access at all.
+    match /payment_dupes/{dupeKey} {
+      allow read, write: if false;
+    }
+
+    // ---------- Portal configuration ----------
+    // Admin-editable settings the portal renders (bank account details for
+    // transfers, tier price overrides). Readable by any signed-in user;
+    // only admins may change it.
+    match /portalConfig/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     // ---------- Audit logs (portal) ----------
     // Tamper-proof operational trail. Entries are written EXCLUSIVELY by
     // Cloud Functions via the Admin SDK (writeAudit in functions/index.js),

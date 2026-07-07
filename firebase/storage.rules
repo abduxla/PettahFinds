@@ -76,6 +76,24 @@ service firebase.storage {
       allow delete: if ownsBusiness(businessId) || isAdmin();
     }
 
+    // ---------- Payment receipts (portal) ----------
+    // Evidence uploads for manual payment verification. The owning
+    // business writes under its own prefix; receipts are readable only by
+    // that owner and admins (they contain bank details). No client
+    // deletes/overwrites — receipts are evidence and must stay immutable
+    // once submitted. PDF is allowed here in addition to images;
+    // validateUpload re-checks magic bytes server-side.
+    match /receipts/{businessId}/{fileName} {
+      allow read: if ownsBusiness(businessId) || isAdmin();
+      allow create: if ownsBusiness(businessId)
+                    && request.resource.size < 10 * 1024 * 1024
+                    && (
+                      request.resource.contentType.matches('image/.*')
+                      || request.resource.contentType == 'application/pdf'
+                    );
+      allow update, delete: if false;
+    }
+
     // Deny everything else by default.
     match /{allPaths=**} {
       allow read, write: if false;

@@ -551,15 +551,19 @@ exports.recordEngagement = onCall({enforceAppCheck: true}, async (request) => {
 exports.validateUpload = onObjectFinalized(async (event) => {
   const obj = event.data;
   const name = obj.name || "";
-  // Only guard user-generated image paths (see storage.rules).
-  if (!/^(users|businesses|products)\//.test(name)) return;
+  // Guard all user-generated upload paths (see storage.rules). Receipts
+  // additionally accept PDF; everything else must be a real image.
+  const isReceipt = /^receipts\//.test(name);
+  if (!isReceipt && !/^(users|businesses|products)\//.test(name)) return;
 
   const bucket = admin.storage().bucket(obj.bucket);
   const file = bucket.file(name);
 
   const contentType = obj.contentType || "";
-  if (!contentType.startsWith("image/")) {
-    logger.warn("[upload] non-image contentType, deleting", name, contentType);
+  const typeAllowed = contentType.startsWith("image/") ||
+    (isReceipt && contentType === "application/pdf");
+  if (!typeAllowed) {
+    logger.warn("[upload] bad contentType, deleting", name, contentType);
     await file.delete().catch(() => {});
     return;
   }
@@ -573,11 +577,22 @@ exports.validateUpload = onObjectFinalized(async (event) => {
     return; // don't delete on a transient read error
   }
 
-  if (!isRealImage(header)) {
+  const headerOk = isRealImage(header) || (isReceipt && isRealPdf(header));
+  if (!headerOk) {
     logger.warn("[upload] magic-byte mismatch, deleting", name, contentType);
     await file.delete().catch(() => {});
   }
 });
+
+/**
+ * True when the leading bytes are a PDF header ("%PDF").
+ * @param {Buffer} b First bytes of the object.
+ * @return {boolean} Whether the header is a PDF.
+ */
+function isRealPdf(b) {
+  return !!b && b.length >= 4 &&
+    b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46;
+}
 
 /**
  * True when the leading bytes match a known image format
@@ -982,3 +997,373 @@ function _portalCredentialsHtml(businessName, email, tempPassword, created) {
     </div>
   `;
 }
+
+// ============================================================================
+// PORTAL M2 — Payments (manual bank-transfer verification flow)
+// ============================================================================
+
+/** Server-owned tier pricing (LKR/month) — the client NEVER supplies an
+ *  amount. portalConfig/tiers {prices: {tierId: number}} overrides these
+ *  compiled defaults when present. */
+const DEFAULT_TIER_PRICES_LKR = {
+  spotlight: 5490,
+  prime: 9999,
+  elite: 24999,
+};
+
+const PAYMENT_METHODS = [
+  "bank_transfer", "cash_deposit", "online_transfer", "qr",
+];
+
+/**
+ * Resolve the monthly price for a paid tier, preferring the admin-editable
+ * portalConfig/tiers doc over compiled defaults.
+ * @param {string} tierId one of spotlight|prime|elite.
+ * @return {Promise<number>} monthly price in LKR.
+ */
+async function tierMonthlyPriceLkr(tierId) {
+  try {
+    const snap = await db.collection("portalConfig").doc("tiers").get();
+    const prices = snap.exists ? (snap.data() || {}).prices : null;
+    if (prices && typeof prices[tierId] === "number" && prices[tierId] > 0) {
+      return prices[tierId];
+    }
+  } catch (err) {
+    logger.warn("[payments] portalConfig/tiers read failed, using defaults",
+        err);
+  }
+  return DEFAULT_TIER_PRICES_LKR[tierId];
+}
+
+/**
+ * Deterministic duplicate key for a payment: same reference number +
+ * amount + paid-on date can be submitted only once across ALL businesses
+ * (catches both accidental double-submits and receipt reuse by another
+ * account). Used as the doc id of an atomic lock in /payment_dupes.
+ * @param {string} referenceNumber raw user-entered reference.
+ * @param {number} amountLkr server-computed amount.
+ * @param {string} paidOnYmd normalized YYYY-MM-DD.
+ * @return {string} hex lock id.
+ */
+function paymentDupeKey(referenceNumber, amountLkr, paidOnYmd) {
+  const normalized =
+    `${referenceNumber.trim().toLowerCase()}|${amountLkr}|${paidOnYmd}`;
+  return crypto.createHash("sha256").update(normalized).digest("hex");
+}
+
+/** Mint an in-app inbox notification (server-side; bypasses rules). */
+async function mintNotification(userId, title, body, type) {
+  try {
+    await db.collection("notifications").add({
+      userId,
+      title,
+      body,
+      type,
+      read: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (err) {
+    logger.error("[notify] mint failed for", userId, err);
+  }
+}
+
+// --------------------------------------------------------------------------
+// submitPayment — business-owner callable.
+//
+// The client supplies WHAT it paid for (tier, months) and the evidence
+// (method, reference number, paid-on date, receipt path). The server owns
+// the price, the duplicate check, and the status machine:
+//   • amount = price(tier) × months — client-sent amounts are ignored;
+//   • /payment_dupes/{dupeKey} is create()d in the same transaction as the
+//     payment doc, so the same reference+amount+date can never enter the
+//     queue twice (txn.create throws ALREADY_EXISTS);
+//   • receiptPath must live under the caller's own receipts/ prefix and
+//     actually exist in Storage;
+//   • status is pinned to pending_verification.
+// --------------------------------------------------------------------------
+exports.submitPayment = onCall(
+  {enforceAppCheck: true},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in required.");
+    }
+    const uid = request.auth.uid;
+    const data = request.data || {};
+
+    // ---- pure input validation (no reads) ----
+    const tierRequested = String(data.tierRequested || "");
+    if (!(tierRequested in DEFAULT_TIER_PRICES_LKR)) {
+      throw new HttpsError(
+          "invalid-argument", "tierRequested must be a paid tier.");
+    }
+    const months = Number(data.months);
+    if (!Number.isInteger(months) || months < 1 || months > 12) {
+      throw new HttpsError(
+          "invalid-argument", "months must be a whole number from 1 to 12.");
+    }
+    const method = String(data.method || "");
+    if (!PAYMENT_METHODS.includes(method)) {
+      throw new HttpsError("invalid-argument", "Unknown payment method.");
+    }
+    const referenceNumber = String(data.referenceNumber || "").trim();
+    if (referenceNumber.length < 3 || referenceNumber.length > 64) {
+      throw new HttpsError(
+          "invalid-argument",
+          "referenceNumber must be 3–64 characters.");
+    }
+    const paidOnYmd = String(data.paidOn || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(paidOnYmd)) {
+      throw new HttpsError(
+          "invalid-argument", "paidOn must be a YYYY-MM-DD date.");
+    }
+    const paidOn = new Date(`${paidOnYmd}T00:00:00Z`);
+    const now = Date.now();
+    if (isNaN(paidOn.getTime()) ||
+        paidOn.getTime() > now + 24 * 3600 * 1000 ||
+        paidOn.getTime() < now - 366 * 24 * 3600 * 1000) {
+      throw new HttpsError(
+          "invalid-argument",
+          "paidOn must be within the last year and not in the future.");
+    }
+    const notes = String(data.notes || "").slice(0, 500);
+    const receiptPath = String(data.receiptPath || "");
+
+    // ---- caller must be the owner of a real business ----
+    const userSnap = await db.collection("users").doc(uid).get();
+    const user = userSnap.exists ? userSnap.data() : null;
+    const businessId = user && user.businessId;
+    if (!businessId) {
+      throw new HttpsError(
+          "failed-precondition", "No business linked to this account.");
+    }
+    const bizSnap = await db.collection("businesses").doc(businessId).get();
+    if (!bizSnap.exists || (bizSnap.data() || {}).ownerUid !== uid) {
+      throw new HttpsError(
+          "permission-denied", "You do not own this business.");
+    }
+
+    // ---- receipt must be the caller's own uploaded evidence ----
+    if (!receiptPath.startsWith(`receipts/${businessId}/`) ||
+        receiptPath.includes("..")) {
+      throw new HttpsError(
+          "invalid-argument",
+          "receiptPath must be under your receipts folder.");
+    }
+    const [receiptExists] =
+      await admin.storage().bucket().file(receiptPath).exists();
+    if (!receiptExists) {
+      throw new HttpsError(
+          "failed-precondition",
+          "Receipt upload not found — upload the receipt first.");
+    }
+
+    // ---- server-owned amount ----
+    const unitPrice = await tierMonthlyPriceLkr(tierRequested);
+    const amountLkr = unitPrice * months;
+
+    // ---- atomic create: payment + duplicate lock ----
+    const dupeKey = paymentDupeKey(referenceNumber, amountLkr, paidOnYmd);
+    const dupeRef = db.collection("payment_dupes").doc(dupeKey);
+    const paymentRef = db.collection("payments").doc();
+    try {
+      await db.runTransaction(async (txn) => {
+        txn.create(dupeRef, {
+          paymentId: paymentRef.id,
+          businessId,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        txn.create(paymentRef, {
+          businessId,
+          submittedByUid: uid,
+          tierRequested,
+          months,
+          amountLkr,
+          method,
+          referenceNumber,
+          paidOn: admin.firestore.Timestamp.fromDate(paidOn),
+          receiptPath,
+          notes,
+          status: "pending_verification",
+          dupeKey,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      });
+    } catch (err) {
+      if (err && err.code === 6) { // ALREADY_EXISTS
+        throw new HttpsError(
+            "already-exists",
+            "A payment with this reference number, amount and date has " +
+            "already been submitted.");
+      }
+      logger.error("[payments] submit txn failed", err);
+      throw new HttpsError("internal", "Could not record the payment.");
+    }
+
+    await writeAudit({
+      action: "payment_submitted",
+      actorUid: uid,
+      targetType: "payment",
+      targetId: paymentRef.id,
+      details: {businessId, tierRequested, months, amountLkr, method},
+    });
+
+    return {ok: true, paymentId: paymentRef.id, amountLkr};
+  },
+);
+
+// --------------------------------------------------------------------------
+// reviewPayment — admin callable. decision: approve | reject | resubmit.
+//
+// Runs in a transaction keyed on the payment still being
+// pending_verification, so two admins can never double-approve (the
+// second transaction sees the flipped status and aborts). Approval
+// activates the membership in the same transaction: tier is set and
+// tierValidUntil extends from max(now, current expiry) by the paid
+// months. Reject/resubmit releases the duplicate lock so the merchant
+// can resubmit the corrected details.
+// --------------------------------------------------------------------------
+exports.reviewPayment = onCall(
+  {enforceAppCheck: true},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in required.");
+    }
+    if (!(await callerIsAdmin(request.auth))) {
+      throw new HttpsError("permission-denied", "Administrators only.");
+    }
+
+    const paymentId = String((request.data || {}).paymentId || "");
+    const decision = String((request.data || {}).decision || "");
+    const note = String((request.data || {}).note || "").slice(0, 500);
+    if (!paymentId) {
+      throw new HttpsError("invalid-argument", "paymentId is required.");
+    }
+    if (!["approve", "reject", "resubmit"].includes(decision)) {
+      throw new HttpsError(
+          "invalid-argument",
+          "decision must be approve, reject or resubmit.");
+    }
+
+    const paymentRef = db.collection("payments").doc(paymentId);
+    let outcome;
+    try {
+      outcome = await db.runTransaction(async (txn) => {
+        const paySnap = await txn.get(paymentRef);
+        if (!paySnap.exists) {
+          throw new HttpsError("not-found", "Payment not found.");
+        }
+        const pay = paySnap.data();
+        if (pay.status !== "pending_verification") {
+          throw new HttpsError(
+              "failed-precondition",
+              `This payment was already ${pay.status.replace(/_/g, " ")}.`);
+        }
+
+        const stamp = {
+          reviewedBy: request.auth.uid,
+          reviewedAt: admin.firestore.FieldValue.serverTimestamp(),
+          reviewNote: note,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+
+        if (decision === "approve") {
+          const bizRef = db.collection("businesses").doc(pay.businessId);
+          const bizSnap = await txn.get(bizRef);
+          if (!bizSnap.exists) {
+            throw new HttpsError(
+                "failed-precondition", "The business no longer exists.");
+          }
+          const biz = bizSnap.data() || {};
+          // Extend from whichever is later: today, or the current expiry
+          // (early renewals stack instead of clobbering remaining time).
+          const current = biz.tierValidUntil &&
+            typeof biz.tierValidUntil.toDate === "function" ?
+            biz.tierValidUntil.toDate() : null;
+          const base = current && current.getTime() > Date.now() ?
+            current : new Date();
+          const validUntil = new Date(base.getTime());
+          validUntil.setMonth(validUntil.getMonth() + pay.months);
+
+          txn.update(bizRef, {
+            tier: pay.tierRequested,
+            tierValidUntil: admin.firestore.Timestamp.fromDate(validUntil),
+          });
+          txn.update(paymentRef, {...stamp, status: "approved"});
+          return {
+            status: "approved",
+            ownerUid: biz.ownerUid,
+            businessId: pay.businessId,
+            tier: pay.tierRequested,
+            months: pay.months,
+            validUntil,
+          };
+        }
+
+        // reject / resubmit — free the duplicate lock for a retry.
+        const newStatus = decision === "reject" ?
+          "rejected" : "resubmission_requested";
+        txn.update(paymentRef, {...stamp, status: newStatus});
+        if (pay.dupeKey) {
+          txn.delete(db.collection("payment_dupes").doc(pay.dupeKey));
+        }
+        const ownerSnap = await txn.get(
+            db.collection("businesses").doc(pay.businessId));
+        return {
+          status: newStatus,
+          ownerUid: ownerSnap.exists ?
+            (ownerSnap.data() || {}).ownerUid : null,
+          businessId: pay.businessId,
+          tier: pay.tierRequested,
+          months: pay.months,
+        };
+      });
+    } catch (err) {
+      if (err instanceof HttpsError) throw err;
+      logger.error("[payments] review txn failed", paymentId, err);
+      throw new HttpsError("internal", "Could not update the payment.");
+    }
+
+    // Post-transaction side effects (best-effort).
+    if (outcome.ownerUid) {
+      const tierLabel = {
+        spotlight: "Gold", prime: "Platinum", elite: "Vibranium",
+      }[outcome.tier] || outcome.tier;
+      if (outcome.status === "approved") {
+        await mintNotification(
+            outcome.ownerUid,
+            "Payment approved 🎉",
+            `Your ${tierLabel} membership is active until ` +
+            `${outcome.validUntil.toISOString().slice(0, 10)}.`,
+            "payment");
+      } else if (outcome.status === "rejected") {
+        await mintNotification(
+            outcome.ownerUid,
+            "Payment could not be verified",
+            note || "Contact support for details.",
+            "payment");
+      } else {
+        await mintNotification(
+            outcome.ownerUid,
+            "Payment needs resubmission",
+            note || "Please re-check the details and submit again.",
+            "payment");
+      }
+    }
+
+    await writeAudit({
+      action: `payment_${outcome.status}`,
+      actorUid: request.auth.uid,
+      targetType: "payment",
+      targetId: paymentId,
+      details: {
+        businessId: outcome.businessId,
+        tier: outcome.tier,
+        months: outcome.months,
+        note,
+      },
+    });
+
+    return {ok: true, status: outcome.status};
+  },
+);

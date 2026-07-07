@@ -157,11 +157,18 @@ export default function DashboardPage() {
                 }
               />
             </div>
-            <Link href="/membership" className="block">
-              <Button variant="secondary" className="w-full">
-                View plans &amp; benefits
-              </Button>
-            </Link>
+            <div className="grid grid-cols-2 gap-3">
+              <Link href="/membership" className="block">
+                <Button variant="secondary" className="w-full">
+                  View plans
+                </Button>
+              </Link>
+              <Link href="/payments" className="block">
+                <Button className="w-full">
+                  {expired || expiringSoon ? "Renew now" : "Make a payment"}
+                </Button>
+              </Link>
+            </div>
           </CardBody>
         </Card>
 

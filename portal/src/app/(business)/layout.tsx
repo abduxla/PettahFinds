@@ -6,7 +6,11 @@ import { useAuth } from "@/lib/auth-context";
 import { BusinessProvider, useBusiness } from "@/lib/business-context";
 import { FullScreenSpinner } from "@/components/ui/spinner";
 import { PortalShell, type NavItem } from "@/components/shell/portal-shell";
-import { IconHome, IconMembership } from "@/components/shell/icons";
+import {
+  IconHome,
+  IconMembership,
+  IconPayments,
+} from "@/components/shell/icons";
 import { ForcePasswordChange } from "@/components/force-password-change";
 import { Button } from "@/components/ui/button";
 import { Wordmark } from "@/components/shell/brand";
@@ -14,6 +18,7 @@ import { Wordmark } from "@/components/shell/brand";
 const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: IconHome },
   { href: "/membership", label: "Membership", icon: IconMembership },
+  { href: "/payments", label: "Payments", icon: IconPayments },
 ];
 
 /**

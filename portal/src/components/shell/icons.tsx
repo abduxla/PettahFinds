@@ -36,3 +36,10 @@ export const IconGauge = (
     <circle cx="10" cy="12.5" r="1" />
   </svg>
 );
+
+export const IconPayments = (
+  <svg {...base}>
+    <rect x="2.5" y="5" width="15" height="10.5" rx="2" />
+    <path d="M2.5 8.5h15M5.5 12.5h3" />
+  </svg>
+);
