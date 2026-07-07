@@ -165,8 +165,50 @@ exports.onBusinessCreated = onDocumentCreated(
   },
   async (event) => {
     const biz = event.data?.data();
-    if (!biz || !biz.ownerUid) return;
+    if (!biz) return;
+    const bizId = event.params.bizId;
+    const resend = new Resend(RESEND_API_KEY.value());
 
+    // ---- 1. Internal alert to the PetaFinds team (fires for EVERY new
+    // business, whether it came from app self-signup or admin onboarding;
+    // independent of the merchant email below). Recipient is configurable
+    // in portalConfig/notifications.newBusinessEmail. ----
+    try {
+      let teamEmail = "support@petafinds.lk";
+      try {
+        const cfg = await db.collection("portalConfig")
+            .doc("notifications").get();
+        const configured = cfg.exists ?
+          String((cfg.data() || {}).newBusinessEmail || "").trim() : "";
+        if (configured) teamEmail = configured;
+      } catch (err) {
+        logger.warn("[alert] notifications config read failed", err);
+      }
+      await resend.emails.send({
+        from: "PetaFinds <info@petafinds.lk>",
+        to: teamEmail,
+        subject: `New business registered: ${
+          (biz.businessName || "Unnamed").substring(0, 80)}`,
+        html: _newBusinessAlertHtml({
+          businessName: escapeHtml(biz.businessName || "—"),
+          category: escapeHtml(biz.category || "—"),
+          location: escapeHtml(biz.location || "—"),
+          ownerName: escapeHtml(biz.ownerName || "—"),
+          ownerPhone: escapeHtml(biz.ownerPhone || biz.phone || "—"),
+          email: escapeHtml(biz.email || "—"),
+          source: biz.createdByAdminUid ?
+            "Admin onboarding" : "Self signup (app)",
+          reviewUrl: `${PORTAL_URL}/admin/business/?id=${
+            encodeURIComponent(bizId)}`,
+        }),
+      });
+      logger.info("[alert] new-business alert sent to", teamEmail);
+    } catch (err) {
+      logger.error("[alert] new-business alert failed", err);
+    }
+
+    // ---- 2. "Under review" email to the merchant. ----
+    if (!biz.ownerUid) return;
     let email;
     try {
       const authUser = await admin.auth().getUser(biz.ownerUid);
@@ -180,7 +222,6 @@ exports.onBusinessCreated = onDocumentCreated(
       return;
     }
 
-    const resend = new Resend(RESEND_API_KEY.value());
     try {
       await resend.emails.send({
         from: "PetaFinds <info@petafinds.lk>",
@@ -195,6 +236,53 @@ exports.onBusinessCreated = onDocumentCreated(
     }
   },
 );
+
+/**
+ * Internal team alert for a new business registration.
+ * @param {object} v Pre-escaped display values.
+ * @return {string} HTML body.
+ */
+function _newBusinessAlertHtml(v) {
+  const row = (label, value) => `
+    <tr>
+      <td style="padding: 8px 14px; font-size: 13px; color: #777;
+        border-bottom: 1px solid #EFEFEF; white-space: nowrap;">${label}</td>
+      <td style="padding: 8px 14px; font-size: 13px; color: #1A1A1A;
+        font-weight: 600; border-bottom: 1px solid #EFEFEF;">${value}</td>
+    </tr>`;
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 540px; margin: 0 auto; color: #1A1A1A;">
+      <div style="background: #095858; padding: 24px; text-align: center;
+        border-radius: 12px 12px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 20px; font-weight: 800;">
+          🏪 New business registration
+        </h1>
+      </div>
+      <div style="padding: 28px 24px; background: #FAFAF8;
+        border-radius: 0 0 12px 12px; border: 1px solid #E8E8E8; border-top: none;">
+        <table style="width: 100%; border-collapse: collapse; background: #fff;
+          border: 1px solid #E8E8E8; border-radius: 8px; margin-bottom: 20px;">
+          ${row("Business", v.businessName)}
+          ${row("Category", v.category)}
+          ${row("Location", v.location)}
+          ${row("Owner", v.ownerName)}
+          ${row("Phone", v.ownerPhone)}
+          ${row("Email", v.email)}
+          ${row("Source", v.source)}
+        </table>
+        <p style="text-align: center; margin: 0;">
+          <a href="${v.reviewUrl}"
+            style="display: inline-block; background: #E8821A; color: #fff;
+            text-decoration: none; font-weight: 700; font-size: 14px;
+            padding: 11px 24px; border-radius: 10px;">
+            Review in Admin Portal
+          </a>
+        </p>
+      </div>
+    </div>
+  `;
+}
 
 // --------------------------------------------------------------------------
 // 2b. Business approved (isVerified false → true) → push + approval email
