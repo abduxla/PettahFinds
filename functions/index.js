@@ -723,8 +723,9 @@ function _businessApprovedHtml(businessName) {
 // PORTAL — Business Membership & Administration Portal backend
 // ============================================================================
 
-/** Public URL of the deployed portal (Firebase Hosting default site). */
-const PORTAL_URL = "https://pettahfinds-75075.web.app";
+/** Public URL of the deployed portal — served by Netlify under the
+ *  marketing site (source: abduxla/PetaFinds-Web repo, portal/). */
+const PORTAL_URL = "https://petafinds.lk/portal";
 
 /**
  * Append an immutable entry to /auditLogs. The collection is server-write
