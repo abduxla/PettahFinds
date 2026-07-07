@@ -203,3 +203,53 @@ test("manageInvoice rejects unauthenticated callers and bad input", async () => 
     /action must be|invalid-argument/i,
   );
 });
+
+// ---------------------------------------------------------------------------
+// Portal (M4): requestUpgrade / decideUpgrade input guards (offline).
+// ---------------------------------------------------------------------------
+
+test("requestUpgrade rejects unauthenticated and free/unknown tiers", async () => {
+  const requestUpgrade = fft.wrap(fns.requestUpgrade);
+  await assert.rejects(
+    () => requestUpgrade({data: {targetTier: "prime"}, app: APP}),
+    /unauthenticated|Sign in required/i,
+  );
+  for (const tier of ["listed", "diamond", "", undefined]) {
+    await assert.rejects(
+      () =>
+        requestUpgrade({
+          data: {targetTier: tier},
+          auth: {uid: "u1", token: {}},
+          app: APP,
+        }),
+      /paid tier|invalid-argument/i,
+    );
+  }
+});
+
+test("decideUpgrade validates decision and required businessId", async () => {
+  const decideUpgrade = fft.wrap(fns.decideUpgrade);
+  await assert.rejects(
+    () => decideUpgrade({data: {businessId: "b", decision: "approve"},
+      app: APP}),
+    /unauthenticated|Sign in required/i,
+  );
+  await assert.rejects(
+    () =>
+      decideUpgrade({
+        data: {decision: "approve"},
+        auth: {uid: "a", token: {admin: true}},
+        app: APP,
+      }),
+    /businessId is required|invalid-argument/i,
+  );
+  await assert.rejects(
+    () =>
+      decideUpgrade({
+        data: {businessId: "b", decision: "yeet"},
+        auth: {uid: "a", token: {admin: true}},
+        app: APP,
+      }),
+    /decision must be|invalid-argument/i,
+  );
+});

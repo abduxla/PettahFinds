@@ -599,6 +599,22 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ---------- Upgrade requests (portal) ----------
+    // One open request per business, doc id == businessId, created and
+    // transitioned ONLY by the requestUpgrade/decideUpgrade callables.
+    // The owning business and admins may read; nobody writes client-side.
+    match /upgradeRequests/{businessId} {
+      allow read: if isAdmin()
+                  || (isSignedIn() && ownsBusiness(businessId));
+      allow create, update, delete: if false;
+    }
+
+    // Rate-limiter state — backend-only. Exposing reads would leak other
+    // users' activity patterns; writes would let attackers reset limits.
+    match /rateLimits/{key} {
+      allow read, write: if false;
+    }
+
     // ---------- Portal configuration ----------
     // Admin-editable settings the portal renders (bank account details for
     // transfers, tier price overrides). Readable by any signed-in user;

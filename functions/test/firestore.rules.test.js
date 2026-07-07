@@ -380,3 +380,40 @@ test("a business reads only its own invoices; counters are private", async () =>
     setDoc(doc(db(ATTACKER), "counters", "invoices"), {seq: 9999}),
   );
 });
+
+// ---------------------------------------------------------------------------
+// Portal (M4): upgrade requests backend-owned; rate-limiter state private.
+// ---------------------------------------------------------------------------
+
+test("upgradeRequests: owner reads own, nobody writes client-side", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "businesses", BIZ), {ownerUid: OWNER});
+    await setDoc(doc(ctx.firestore(), "upgradeRequests", BIZ), {
+      businessId: BIZ,
+      currentTier: "listed",
+      targetTier: "prime",
+      status: "pending",
+    });
+  });
+  await assertSucceeds(getDoc(doc(db(OWNER), "upgradeRequests", BIZ)));
+  await assertFails(getDoc(doc(db(ATTACKER), "upgradeRequests", BIZ)));
+  // Owner cannot self-approve, retarget, or forge a request.
+  await assertFails(
+    updateDoc(doc(db(OWNER), "upgradeRequests", BIZ), {status: "approved"}),
+  );
+  await assertFails(
+    setDoc(doc(db(ATTACKER), "upgradeRequests", "other_biz"), {
+      status: "approved",
+    }),
+  );
+  await assertFails(deleteDoc(doc(db(OWNER), "upgradeRequests", BIZ)));
+});
+
+test("rateLimits are fully private", async () => {
+  await assertFails(getDoc(doc(db(OWNER), "rateLimits", "submitPayment:x")));
+  await assertFails(
+    setDoc(doc(db(ATTACKER), "rateLimits", "submitPayment:attacker_uid"), {
+      stamps: [],
+    }),
+  );
+});

@@ -25,6 +25,7 @@ const {
   onDocumentDeleted,
 } = require("firebase-functions/v2/firestore");
 const {onCall, HttpsError} = require("firebase-functions/v2/https");
+const {onSchedule} = require("firebase-functions/v2/scheduler");
 const {onObjectFinalized} = require("firebase-functions/v2/storage");
 const {defineSecret} = require("firebase-functions/params");
 const {logger} = require("firebase-functions");
@@ -804,6 +805,11 @@ exports.provisionPortalAccess = onCall(
       throw new HttpsError("permission-denied", "Administrators only.");
     }
 
+    // Abuse guard: caps credential emails even from a compromised admin
+    // session (each call rotates a password + sends mail).
+    await enforceRateLimit(
+        `provisionPortalAccess:${request.auth.uid}`, 20, 3600);
+
     const businessId = String((request.data || {}).businessId || "").trim();
     if (!businessId || businessId.length > 128) {
       throw new HttpsError("invalid-argument", "businessId is required.");
@@ -1128,6 +1134,11 @@ exports.submitPayment = onCall(
     }
     const notes = String(data.notes || "").slice(0, 500);
     const receiptPath = String(data.receiptPath || "");
+
+    // Abuse guard AFTER pure validation: malformed junk is rejected for
+    // free above; only well-formed requests spend rate-limit budget (and
+    // Firestore writes).
+    await enforceRateLimit(`submitPayment:${uid}`, 5, 3600);
 
     // ---- caller must be the owner of a real business ----
     const userSnap = await db.collection("users").doc(uid).get();
@@ -1519,6 +1530,8 @@ exports.manageInvoice = onCall(
     }
 
     // action === "email"
+    // Abuse guard: stops the re-send button being used as an email cannon.
+    await enforceRateLimit(`invoiceEmail:${request.auth.uid}`, 10, 3600);
     const bizSnap =
       await db.collection("businesses").doc(inv.businessId).get();
     const email = bizSnap.exists ?
@@ -1633,6 +1646,400 @@ function _invoiceEmailHtml(v) {
         </p>
         <p style="margin-top: 32px; font-size: 12px; color: #9E9E9E;">
           Keep this email for your records. Questions? support@petafinds.lk
+          <br>PetaFinds · Bringing Pettah online · Colombo 11
+        </p>
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================================
+// PORTAL M4 — Upgrades, renewals (7-day warning, 7-day grace) + hardening
+// ============================================================================
+
+/** Grace window after tierValidUntil before the hard downgrade to free. */
+const GRACE_DAYS = 7;
+/** How far ahead the sweep warns about an upcoming expiry. */
+const REMINDER_DAYS = 7;
+
+/**
+ * Sliding-window rate limiter backed by /rateLimits (no client access).
+ * Throws resource-exhausted when the caller exceeds `max` actions per
+ * `windowSeconds`. Fails OPEN on infrastructure errors (logged) — a
+ * limiter outage must not take the product down; the callables' auth and
+ * validation guards still stand on their own.
+ * @param {string} key e.g. "submitPayment:<uid>"
+ * @param {number} max allowed actions inside the window.
+ * @param {number} windowSeconds window length.
+ */
+async function enforceRateLimit(key, max, windowSeconds) {
+  const ref = db.collection("rateLimits").doc(key);
+  const now = Date.now();
+  const windowStart = now - windowSeconds * 1000;
+  try {
+    await db.runTransaction(async (txn) => {
+      const snap = await txn.get(ref);
+      const prev = snap.exists && Array.isArray(snap.data().stamps) ?
+        snap.data().stamps : [];
+      const stamps = prev.filter((t) => typeof t === "number" &&
+        t > windowStart);
+      if (stamps.length >= max) {
+        throw new HttpsError(
+            "resource-exhausted",
+            "Too many requests — please wait a while and try again.");
+      }
+      stamps.push(now);
+      txn.set(ref, {
+        stamps,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+  } catch (err) {
+    if (err instanceof HttpsError) throw err;
+    logger.warn("[ratelimit] degraded (failing open)", key, err);
+  }
+}
+
+// --------------------------------------------------------------------------
+// requestUpgrade — business-owner callable.
+//
+// One OPEN request per business, enforced atomically: the request doc id
+// IS the businessId, and the transaction refuses to replace a doc that is
+// still pending. Approval does not change the tier — money does: an
+// approved request tells the merchant to submit payment, and the existing
+// payment-verification flow activates the membership.
+// --------------------------------------------------------------------------
+exports.requestUpgrade = onCall(
+  {enforceAppCheck: true},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in required.");
+    }
+    const uid = request.auth.uid;
+
+    const targetTier = String((request.data || {}).targetTier || "");
+    if (!(targetTier in DEFAULT_TIER_PRICES_LKR)) {
+      throw new HttpsError(
+          "invalid-argument", "targetTier must be a paid tier.");
+    }
+    const notes = String((request.data || {}).notes || "").slice(0, 300);
+
+    await enforceRateLimit(`requestUpgrade:${uid}`, 3, 3600);
+
+    // Caller must own a real business.
+    const userSnap = await db.collection("users").doc(uid).get();
+    const businessId = userSnap.exists ?
+      (userSnap.data() || {}).businessId : null;
+    if (!businessId) {
+      throw new HttpsError(
+          "failed-precondition", "No business linked to this account.");
+    }
+    const bizSnap = await db.collection("businesses").doc(businessId).get();
+    if (!bizSnap.exists || (bizSnap.data() || {}).ownerUid !== uid) {
+      throw new HttpsError(
+          "permission-denied", "You do not own this business.");
+    }
+    const biz = bizSnap.data();
+    const currentTier = biz.tier || "listed";
+    if (currentTier === targetTier) {
+      throw new HttpsError(
+          "failed-precondition", "You are already on this plan.");
+    }
+
+    const reqRef = db.collection("upgradeRequests").doc(businessId);
+    try {
+      await db.runTransaction(async (txn) => {
+        const existing = await txn.get(reqRef);
+        if (existing.exists &&
+            (existing.data() || {}).status === "pending") {
+          throw new HttpsError(
+              "already-exists",
+              "You already have an upgrade request awaiting review.");
+        }
+        txn.set(reqRef, {
+          businessId,
+          businessName: biz.businessName || "",
+          requestedByUid: uid,
+          currentTier,
+          targetTier,
+          currentMonthlyLkr: DEFAULT_TIER_PRICES_LKR[currentTier] || 0,
+          targetMonthlyLkr: DEFAULT_TIER_PRICES_LKR[targetTier],
+          notes,
+          status: "pending",
+          decidedBy: null,
+          decidedAt: null,
+          decisionNote: "",
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      });
+    } catch (err) {
+      if (err instanceof HttpsError) throw err;
+      logger.error("[upgrade] request txn failed", businessId, err);
+      throw new HttpsError("internal", "Could not submit the request.");
+    }
+
+    await writeAudit({
+      action: "upgrade_requested",
+      actorUid: uid,
+      targetType: "business",
+      targetId: businessId,
+      details: {currentTier, targetTier},
+    });
+    return {ok: true};
+  },
+);
+
+// --------------------------------------------------------------------------
+// decideUpgrade — admin callable. decision: approve | decline.
+// --------------------------------------------------------------------------
+exports.decideUpgrade = onCall(
+  {enforceAppCheck: true},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in required.");
+    }
+    const businessId = String((request.data || {}).businessId || "");
+    const decision = String((request.data || {}).decision || "");
+    const note = String((request.data || {}).note || "").slice(0, 300);
+    if (!businessId) {
+      throw new HttpsError("invalid-argument", "businessId is required.");
+    }
+    if (!["approve", "decline"].includes(decision)) {
+      throw new HttpsError(
+          "invalid-argument", "decision must be approve or decline.");
+    }
+    if (!(await callerIsAdmin(request.auth))) {
+      throw new HttpsError("permission-denied", "Administrators only.");
+    }
+
+    const reqRef = db.collection("upgradeRequests").doc(businessId);
+    let outcome;
+    try {
+      outcome = await db.runTransaction(async (txn) => {
+        const snap = await txn.get(reqRef);
+        if (!snap.exists) {
+          throw new HttpsError("not-found", "Upgrade request not found.");
+        }
+        const r = snap.data();
+        if (r.status !== "pending") {
+          throw new HttpsError(
+              "failed-precondition", `Request was already ${r.status}.`);
+        }
+        const status = decision === "approve" ? "approved" : "declined";
+        txn.update(reqRef, {
+          status,
+          decidedBy: request.auth.uid,
+          decidedAt: admin.firestore.FieldValue.serverTimestamp(),
+          decisionNote: note,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        return {status, requestedByUid: r.requestedByUid,
+          targetTier: r.targetTier};
+      });
+    } catch (err) {
+      if (err instanceof HttpsError) throw err;
+      logger.error("[upgrade] decide txn failed", businessId, err);
+      throw new HttpsError("internal", "Could not update the request.");
+    }
+
+    const tierLabel = TIER_DISPLAY[outcome.targetTier] || outcome.targetTier;
+    if (outcome.requestedByUid) {
+      await mintNotification(
+          outcome.requestedByUid,
+          outcome.status === "approved" ?
+            `Upgrade to ${tierLabel} approved` :
+            `Upgrade request declined`,
+          outcome.status === "approved" ?
+            "Head to Payments and submit your payment — your new plan " +
+            "activates as soon as it's verified." :
+            (note || "Contact support for details."),
+          "membership");
+    }
+    await writeAudit({
+      action: `upgrade_${outcome.status}`,
+      actorUid: request.auth.uid,
+      targetType: "business",
+      targetId: businessId,
+      details: {targetTier: outcome.targetTier, note},
+    });
+    return {ok: true, status: outcome.status};
+  },
+);
+
+// --------------------------------------------------------------------------
+// dailyMembershipSweep — scheduled (03:00 Asia/Colombo, daily).
+//
+// One pass over every business whose tierValidUntil is within the horizon:
+//   • expires in ≤7 days  → ONE renewal warning (in-app + email);
+//   • past expiry, in the 7-day grace window → ONE grace notice;
+//   • grace exhausted → hard server-side downgrade to the free tier
+//     (tier field cleared — until now expiry was only computed
+//     client-side; this makes it authoritative), notice + audit.
+// Idempotent: notices are stamped on the business doc keyed by the exact
+// expiry timestamp (renewalReminderFor / graceNotifiedFor), so scheduler
+// retries and overlapping runs can never double-send.
+// --------------------------------------------------------------------------
+exports.dailyMembershipSweep = onSchedule(
+  {
+    schedule: "every day 03:00",
+    timeZone: "Asia/Colombo",
+    secrets: [RESEND_API_KEY],
+  },
+  async () => {
+    const now = new Date();
+    const horizon = new Date(
+        now.getTime() + REMINDER_DAYS * 86400000);
+    const graceCut = new Date(now.getTime() - GRACE_DAYS * 86400000);
+
+    const snap = await db.collection("businesses")
+        .where("tierValidUntil", "<=",
+            admin.firestore.Timestamp.fromDate(horizon))
+        .get();
+    logger.info("[sweep] candidates:", snap.size);
+
+    const resend = new Resend(RESEND_API_KEY.value());
+    for (const docSnap of snap.docs) {
+      const b = docSnap.data() || {};
+      if (!b.tierValidUntil || !b.tier || b.tier === "listed") continue;
+      const vu = b.tierValidUntil.toDate();
+      const vuKey = vu.getTime();
+      const tierLabel = TIER_DISPLAY[b.tier] || b.tier;
+      const email = String(b.email || "").trim().toLowerCase();
+      const dateStr = vu.toISOString().slice(0, 10);
+
+      try {
+        if (vu > now) {
+          // ---- expiring within 7 days: one warning per expiry date ----
+          if (b.renewalReminderFor === vuKey) continue;
+          await docSnap.ref.update({renewalReminderFor: vuKey});
+          if (b.ownerUid) {
+            await mintNotification(
+                b.ownerUid,
+                `Your ${tierLabel} membership expires soon`,
+                `It ends on ${dateStr}. Renew in the Business Portal to ` +
+                "keep your benefits without interruption.",
+                "membership");
+          }
+          if (email) {
+            await resend.emails.send({
+              from: "PetaFinds <info@petafinds.lk>",
+              to: email,
+              subject:
+                `Your ${tierLabel} membership expires on ${dateStr}`,
+              html: _membershipNoticeHtml(
+                  escapeHtml(b.businessName || "your business"),
+                  `Your <strong>${escapeHtml(tierLabel)}</strong> ` +
+                  `membership ends on <strong>${dateStr}</strong>.`,
+                  "Renew now to keep your visibility, product slots and " +
+                  "benefits without interruption.",
+                  "Renew membership"),
+            });
+          }
+        } else if (vu > graceCut) {
+          // ---- inside the 7-day grace window: one notice ----
+          if (b.graceNotifiedFor === vuKey) continue;
+          await docSnap.ref.update({graceNotifiedFor: vuKey});
+          if (b.ownerUid) {
+            await mintNotification(
+                b.ownerUid,
+                `Your ${tierLabel} membership has expired`,
+                `You have ${GRACE_DAYS} days to renew before your account ` +
+                "moves to the free plan.",
+                "membership");
+          }
+          if (email) {
+            await resend.emails.send({
+              from: "PetaFinds <info@petafinds.lk>",
+              to: email,
+              subject:
+                `Action needed — your ${tierLabel} membership has expired`,
+              html: _membershipNoticeHtml(
+                  escapeHtml(b.businessName || "your business"),
+                  `Your <strong>${escapeHtml(tierLabel)}</strong> ` +
+                  `membership expired on <strong>${dateStr}</strong>.`,
+                  `Renew within ${GRACE_DAYS} days to restore your plan — ` +
+                  "after that your account moves to the free Silver plan.",
+                  "Renew now"),
+            });
+          }
+        } else {
+          // ---- grace exhausted: authoritative downgrade ----
+          await docSnap.ref.update({
+            tier: "listed",
+            tierValidUntil: admin.firestore.FieldValue.delete(),
+            downgradedAt: admin.firestore.FieldValue.serverTimestamp(),
+            downgradedFrom: b.tier,
+          });
+          if (b.ownerUid) {
+            await mintNotification(
+                b.ownerUid,
+                "Your membership has ended",
+                `The ${GRACE_DAYS}-day grace period is over and your ` +
+                "account is now on the free Silver plan. You can upgrade " +
+                "again anytime from the Business Portal.",
+                "membership");
+          }
+          await writeAudit({
+            action: "membership_downgraded",
+            actorUid: "system:dailyMembershipSweep",
+            targetType: "business",
+            targetId: docSnap.id,
+            details: {from: b.tier, expiredOn: dateStr},
+          });
+        }
+      } catch (err) {
+        // Never let one business abort the sweep for everyone else.
+        logger.error("[sweep] failed for", docSnap.id, err);
+      }
+    }
+  },
+);
+
+/**
+ * Membership notice email — house template style.
+ * @param {string} businessName escaped.
+ * @param {string} headlineHtml escaped-and-marked-up first line.
+ * @param {string} bodyText escaped body line.
+ * @param {string} cta button label.
+ * @return {string} HTML body.
+ */
+function _membershipNoticeHtml(businessName, headlineHtml, bodyText, cta) {
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 540px; margin: 0 auto; color: #1A1A1A;">
+      <div style="background: #095858; padding: 32px; text-align: center;
+        border-radius: 12px 12px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 26px; font-weight: 800;
+          letter-spacing: -0.5px;">
+          PetaFinds
+        </h1>
+      </div>
+      <div style="padding: 36px 32px; background: #FAFAF8;
+        border-radius: 0 0 12px 12px; border: 1px solid #E8E8E8; border-top: none;">
+        <h2 style="margin: 0 0 8px; font-size: 22px; font-weight: 800;
+          color: #1A1A1A; letter-spacing: -0.3px;">
+          Membership renewal
+        </h2>
+        <p style="font-size: 15px; color: #555; line-height: 1.6; margin: 0 0 12px;">
+          Hi <strong>${businessName}</strong> — ${headlineHtml}
+        </p>
+        <div style="background: #FFF8F0; border-left: 4px solid #E8821A;
+          padding: 16px 20px; border-radius: 8px; margin-bottom: 24px;">
+          <p style="margin: 0; font-size: 14px; color: #7A4A00;">
+            ${bodyText}
+          </p>
+        </div>
+        <p style="text-align: center; margin: 0 0 24px;">
+          <a href="${PORTAL_URL}/payments/"
+            style="display: inline-block; background: #095858; color: #fff;
+            text-decoration: none; font-weight: 700; font-size: 15px;
+            padding: 12px 28px; border-radius: 10px;">
+            ${cta}
+          </a>
+        </p>
+        <p style="margin-top: 32px; font-size: 12px; color: #9E9E9E;">
+          Questions? support@petafinds.lk
           <br>PetaFinds · Bringing Pettah online · Colombo 11
         </p>
       </div>
