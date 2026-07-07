@@ -330,3 +330,53 @@ test("portalConfig: signed-in read, admin-only write", async () => {
     setDoc(doc(db(OWNER), "portalConfig", "payments"), {bank: "Evil Bank"}),
   );
 });
+
+// ---------------------------------------------------------------------------
+// Portal (M3): invoices are backend-issued and immutable; counters private.
+// ---------------------------------------------------------------------------
+
+test("invoices cannot be created or mutated by any client", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "businesses", BIZ), {ownerUid: OWNER});
+    await setDoc(doc(ctx.firestore(), "invoices", "inv_1"), {
+      invoiceNumber: "INV-2026-0001",
+      businessId: BIZ,
+      amountLkr: 5490,
+      status: "paid",
+    });
+  });
+  // Owner cannot forge, edit (e.g. self-void or change the amount) or purge.
+  await assertFails(
+    setDoc(doc(db(OWNER), "invoices", "forged"), {
+      invoiceNumber: "INV-9999-9999",
+      businessId: BIZ,
+      amountLkr: 1,
+      status: "paid",
+    }),
+  );
+  await assertFails(
+    updateDoc(doc(db(OWNER), "invoices", "inv_1"), {amountLkr: 1}),
+  );
+  await assertFails(deleteDoc(doc(db(OWNER), "invoices", "inv_1")));
+});
+
+test("a business reads only its own invoices; counters are private", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "businesses", BIZ), {ownerUid: OWNER});
+    await setDoc(doc(ctx.firestore(), "invoices", "inv_1"), {
+      invoiceNumber: "INV-2026-0001",
+      businessId: BIZ,
+      amountLkr: 5490,
+      status: "paid",
+    });
+    await setDoc(doc(ctx.firestore(), "counters", "invoices"), {
+      year: 2026, seq: 1,
+    });
+  });
+  await assertSucceeds(getDoc(doc(db(OWNER), "invoices", "inv_1")));
+  await assertFails(getDoc(doc(db(ATTACKER), "invoices", "inv_1")));
+  await assertFails(getDoc(doc(db(OWNER), "counters", "invoices")));
+  await assertFails(
+    setDoc(doc(db(ATTACKER), "counters", "invoices"), {seq: 9999}),
+  );
+});

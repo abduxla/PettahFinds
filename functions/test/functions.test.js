@@ -173,3 +173,33 @@ test("reviewPayment rejects non-admins and bad decisions", async () => {
     /paymentId is required|invalid-argument/i,
   );
 });
+
+// ---------------------------------------------------------------------------
+// Portal (M3): manageInvoice input guards (offline — throw before reads).
+// ---------------------------------------------------------------------------
+
+test("manageInvoice rejects unauthenticated callers and bad input", async () => {
+  const manageInvoice = fft.wrap(fns.manageInvoice);
+  await assert.rejects(
+    () => manageInvoice({data: {invoiceId: "i", action: "email"}, app: APP}),
+    /unauthenticated|Sign in required/i,
+  );
+  await assert.rejects(
+    () =>
+      manageInvoice({
+        data: {action: "email"},
+        auth: {uid: "u1", token: {}},
+        app: APP,
+      }),
+    /invoiceId is required|invalid-argument/i,
+  );
+  await assert.rejects(
+    () =>
+      manageInvoice({
+        data: {invoiceId: "i", action: "shred"},
+        auth: {uid: "u1", token: {}},
+        app: APP,
+      }),
+    /action must be|invalid-argument/i,
+  );
+});

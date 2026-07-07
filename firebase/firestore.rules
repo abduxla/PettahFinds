@@ -583,6 +583,22 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ---------- Invoices (portal) ----------
+    // Issued ONLY by reviewPayment inside the approval transaction, with a
+    // sequential number from /counters. Lifecycle changes (void/restore/
+    // re-email) go through the manageInvoice callable. Clients read-only:
+    // the owning business sees its own invoices, admins see all.
+    match /invoices/{invoiceId} {
+      allow read: if isAdmin()
+                  || (isSignedIn() && ownsBusiness(resource.data.businessId));
+      allow create, update, delete: if false;
+    }
+
+    // Sequence counters (invoice numbering) — backend-only bookkeeping.
+    match /counters/{counterId} {
+      allow read, write: if false;
+    }
+
     // ---------- Portal configuration ----------
     // Admin-editable settings the portal renders (bank account details for
     // transfers, tier price overrides). Readable by any signed-in user;

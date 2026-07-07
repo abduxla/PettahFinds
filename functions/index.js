@@ -1218,14 +1218,25 @@ exports.submitPayment = onCall(
 //
 // Runs in a transaction keyed on the payment still being
 // pending_verification, so two admins can never double-approve (the
-// second transaction sees the flipped status and aborts). Approval
-// activates the membership in the same transaction: tier is set and
-// tierValidUntil extends from max(now, current expiry) by the paid
-// months. Reject/resubmit releases the duplicate lock so the merchant
-// can resubmit the corrected details.
+// second transaction sees the flipped status and aborts). Firestore
+// transactions require ALL reads before ANY write, so the payment,
+// business and invoice counter are read up front.
+//
+// Approval — atomically, in one transaction:
+//   • business tier is set and tierValidUntil extends from
+//     max(now, current expiry) by the paid months (early renewals stack);
+//   • a sequential invoice (INV-YYYY-NNNN, counter in /counters/invoices)
+//     is created with status "paid";
+//   • the payment doc records the decision + invoice linkage.
+// Reject/resubmit releases the duplicate lock so the merchant can
+// resubmit corrected details.
 // --------------------------------------------------------------------------
+
+/** Commercial tier names for merchant-facing copy (portal display map). */
+const TIER_DISPLAY = {spotlight: "Gold", prime: "Platinum", elite: "Vibranium"};
+
 exports.reviewPayment = onCall(
-  {enforceAppCheck: true},
+  {enforceAppCheck: true, secrets: [RESEND_API_KEY]},
   async (request) => {
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Sign in required.");
@@ -1247,9 +1258,11 @@ exports.reviewPayment = onCall(
     }
 
     const paymentRef = db.collection("payments").doc(paymentId);
+    const counterRef = db.collection("counters").doc("invoices");
     let outcome;
     try {
       outcome = await db.runTransaction(async (txn) => {
+        // ---- reads (all before any write) ----
         const paySnap = await txn.get(paymentRef);
         if (!paySnap.exists) {
           throw new HttpsError("not-found", "Payment not found.");
@@ -1260,6 +1273,17 @@ exports.reviewPayment = onCall(
               "failed-precondition",
               `This payment was already ${pay.status.replace(/_/g, " ")}.`);
         }
+        const bizRef = db.collection("businesses").doc(pay.businessId);
+        const bizSnap = await txn.get(bizRef);
+        const biz = bizSnap.exists ? (bizSnap.data() || {}) : null;
+        let counterSnap = null;
+        if (decision === "approve") {
+          if (!biz) {
+            throw new HttpsError(
+                "failed-precondition", "The business no longer exists.");
+          }
+          counterSnap = await txn.get(counterRef);
+        }
 
         const stamp = {
           reviewedBy: request.auth.uid,
@@ -1268,16 +1292,9 @@ exports.reviewPayment = onCall(
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         };
 
+        // ---- writes ----
         if (decision === "approve") {
-          const bizRef = db.collection("businesses").doc(pay.businessId);
-          const bizSnap = await txn.get(bizRef);
-          if (!bizSnap.exists) {
-            throw new HttpsError(
-                "failed-precondition", "The business no longer exists.");
-          }
-          const biz = bizSnap.data() || {};
-          // Extend from whichever is later: today, or the current expiry
-          // (early renewals stack instead of clobbering remaining time).
+          // Extend from whichever is later: today, or the current expiry.
           const current = biz.tierValidUntil &&
             typeof biz.tierValidUntil.toDate === "function" ?
             biz.tierValidUntil.toDate() : null;
@@ -1286,18 +1303,55 @@ exports.reviewPayment = onCall(
           const validUntil = new Date(base.getTime());
           validUntil.setMonth(validUntil.getMonth() + pay.months);
 
+          // Sequential, year-scoped invoice number.
+          const year = new Date().getFullYear();
+          const counter = counterSnap.exists ? (counterSnap.data() || {}) : {};
+          const seq = (counter.year === year ? (counter.seq || 0) : 0) + 1;
+          const invoiceNumber = `INV-${year}-${String(seq).padStart(4, "0")}`;
+          const invoiceRef = db.collection("invoices").doc();
+
+          txn.set(counterRef, {year, seq}, {merge: true});
           txn.update(bizRef, {
             tier: pay.tierRequested,
             tierValidUntil: admin.firestore.Timestamp.fromDate(validUntil),
           });
-          txn.update(paymentRef, {...stamp, status: "approved"});
+          txn.update(paymentRef, {
+            ...stamp,
+            status: "approved",
+            invoiceId: invoiceRef.id,
+            invoiceNumber,
+          });
+          txn.create(invoiceRef, {
+            invoiceNumber,
+            businessId: pay.businessId,
+            businessName: biz.businessName || "",
+            paymentId,
+            tier: pay.tierRequested,
+            months: pay.months,
+            amountLkr: pay.amountLkr,
+            method: pay.method,
+            referenceNumber: pay.referenceNumber,
+            periodStart: admin.firestore.Timestamp.fromDate(base),
+            periodEnd: admin.firestore.Timestamp.fromDate(validUntil),
+            status: "paid",
+            issuedAt: admin.firestore.FieldValue.serverTimestamp(),
+            issuedBy: request.auth.uid,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
           return {
             status: "approved",
             ownerUid: biz.ownerUid,
             businessId: pay.businessId,
+            businessName: biz.businessName || "",
+            businessEmail: (biz.email || "").trim().toLowerCase() || null,
             tier: pay.tierRequested,
             months: pay.months,
+            amountLkr: pay.amountLkr,
             validUntil,
+            periodStart: base,
+            invoiceId: invoiceRef.id,
+            invoiceNumber,
           };
         }
 
@@ -1308,12 +1362,9 @@ exports.reviewPayment = onCall(
         if (pay.dupeKey) {
           txn.delete(db.collection("payment_dupes").doc(pay.dupeKey));
         }
-        const ownerSnap = await txn.get(
-            db.collection("businesses").doc(pay.businessId));
         return {
           status: newStatus,
-          ownerUid: ownerSnap.exists ?
-            (ownerSnap.data() || {}).ownerUid : null,
+          ownerUid: biz ? biz.ownerUid : null,
           businessId: pay.businessId,
           tier: pay.tierRequested,
           months: pay.months,
@@ -1325,17 +1376,16 @@ exports.reviewPayment = onCall(
       throw new HttpsError("internal", "Could not update the payment.");
     }
 
-    // Post-transaction side effects (best-effort).
+    // ---- post-transaction side effects (best-effort) ----
+    const tierLabel = TIER_DISPLAY[outcome.tier] || outcome.tier;
     if (outcome.ownerUid) {
-      const tierLabel = {
-        spotlight: "Gold", prime: "Platinum", elite: "Vibranium",
-      }[outcome.tier] || outcome.tier;
       if (outcome.status === "approved") {
         await mintNotification(
             outcome.ownerUid,
             "Payment approved 🎉",
             `Your ${tierLabel} membership is active until ` +
-            `${outcome.validUntil.toISOString().slice(0, 10)}.`,
+            `${outcome.validUntil.toISOString().slice(0, 10)}. ` +
+            `Invoice ${outcome.invoiceNumber} is in your Invoice Centre.`,
             "payment");
       } else if (outcome.status === "rejected") {
         await mintNotification(
@@ -1352,6 +1402,32 @@ exports.reviewPayment = onCall(
       }
     }
 
+    // Invoice email on approval.
+    if (outcome.status === "approved" && outcome.businessEmail) {
+      try {
+        const resend = new Resend(RESEND_API_KEY.value());
+        await resend.emails.send({
+          from: "PetaFinds <info@petafinds.lk>",
+          to: outcome.businessEmail,
+          subject:
+            `Invoice ${outcome.invoiceNumber} — ${tierLabel} membership ` +
+            "activated",
+          html: _invoiceEmailHtml({
+            invoiceNumber: escapeHtml(outcome.invoiceNumber),
+            businessName: escapeHtml(outcome.businessName),
+            tierLabel: escapeHtml(tierLabel),
+            months: outcome.months,
+            amountLkr: outcome.amountLkr,
+            periodStart: outcome.periodStart.toISOString().slice(0, 10),
+            periodEnd: outcome.validUntil.toISOString().slice(0, 10),
+          }),
+        });
+      } catch (err) {
+        logger.error("[invoices] email failed for",
+            outcome.businessEmail, err);
+      }
+    }
+
     await writeAudit({
       action: `payment_${outcome.status}`,
       actorUid: request.auth.uid,
@@ -1362,9 +1438,204 @@ exports.reviewPayment = onCall(
         tier: outcome.tier,
         months: outcome.months,
         note,
+        ...(outcome.invoiceNumber ? {invoice: outcome.invoiceNumber} : {}),
       },
     });
 
-    return {ok: true, status: outcome.status};
+    return {
+      ok: true,
+      status: outcome.status,
+      ...(outcome.invoiceNumber ? {invoiceNumber: outcome.invoiceNumber} : {}),
+    };
   },
 );
+
+// --------------------------------------------------------------------------
+// manageInvoice — invoice lifecycle callable.
+//   action: "email"    → re-send the invoice email (admin or owning business)
+//   action: "void"     → mark void (admin only; note recommended)
+//   action: "markPaid" → restore a voided invoice to paid (admin only)
+// Invoices are otherwise immutable — rules deny every client write.
+// --------------------------------------------------------------------------
+exports.manageInvoice = onCall(
+  {enforceAppCheck: true, secrets: [RESEND_API_KEY]},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in required.");
+    }
+    const invoiceId = String((request.data || {}).invoiceId || "");
+    const action = String((request.data || {}).action || "");
+    const note = String((request.data || {}).note || "").slice(0, 300);
+    if (!invoiceId) {
+      throw new HttpsError("invalid-argument", "invoiceId is required.");
+    }
+    if (!["email", "void", "markPaid"].includes(action)) {
+      throw new HttpsError(
+          "invalid-argument", "action must be email, void or markPaid.");
+    }
+
+    const invoiceRef = db.collection("invoices").doc(invoiceId);
+    const invSnap = await invoiceRef.get();
+    if (!invSnap.exists) {
+      throw new HttpsError("not-found", "Invoice not found.");
+    }
+    const inv = invSnap.data() || {};
+
+    // AuthZ: admins may do anything; the owning business may only re-email.
+    const isAdminCaller = await callerIsAdmin(request.auth);
+    if (!isAdminCaller) {
+      if (action !== "email") {
+        throw new HttpsError("permission-denied", "Administrators only.");
+      }
+      const userSnap =
+        await db.collection("users").doc(request.auth.uid).get();
+      const businessId = userSnap.exists ?
+        (userSnap.data() || {}).businessId : null;
+      if (!businessId || businessId !== inv.businessId) {
+        throw new HttpsError(
+            "permission-denied", "This is not your invoice.");
+      }
+    }
+
+    if (action === "void" || action === "markPaid") {
+      const newStatus = action === "void" ? "void" : "paid";
+      if (inv.status === newStatus) {
+        throw new HttpsError(
+            "failed-precondition", `Invoice is already ${newStatus}.`);
+      }
+      await invoiceRef.update({
+        status: newStatus,
+        statusNote: note,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      await writeAudit({
+        action: `invoice_${newStatus === "void" ? "voided" : "restored"}`,
+        actorUid: request.auth.uid,
+        targetType: "invoice",
+        targetId: invoiceId,
+        details: {invoiceNumber: inv.invoiceNumber, note},
+      });
+      return {ok: true, status: newStatus};
+    }
+
+    // action === "email"
+    const bizSnap =
+      await db.collection("businesses").doc(inv.businessId).get();
+    const email = bizSnap.exists ?
+      String((bizSnap.data() || {}).email || "").trim().toLowerCase() : "";
+    if (!email) {
+      throw new HttpsError(
+          "failed-precondition",
+          "The business has no email address on file.");
+    }
+    const tierLabel = TIER_DISPLAY[inv.tier] || inv.tier;
+    const resend = new Resend(RESEND_API_KEY.value());
+    try {
+      await resend.emails.send({
+        from: "PetaFinds <info@petafinds.lk>",
+        to: email,
+        subject: `Invoice ${inv.invoiceNumber} — PetaFinds membership`,
+        html: _invoiceEmailHtml({
+          invoiceNumber: escapeHtml(inv.invoiceNumber || ""),
+          businessName: escapeHtml(inv.businessName || ""),
+          tierLabel: escapeHtml(tierLabel),
+          months: inv.months || 1,
+          amountLkr: inv.amountLkr || 0,
+          periodStart: inv.periodStart &&
+            typeof inv.periodStart.toDate === "function" ?
+            inv.periodStart.toDate().toISOString().slice(0, 10) : "",
+          periodEnd: inv.periodEnd &&
+            typeof inv.periodEnd.toDate === "function" ?
+            inv.periodEnd.toDate().toISOString().slice(0, 10) : "",
+        }),
+      });
+    } catch (err) {
+      logger.error("[invoices] re-email failed for", email, err);
+      throw new HttpsError("internal", "Email failed to send — try again.");
+    }
+    await writeAudit({
+      action: "invoice_emailed",
+      actorUid: request.auth.uid,
+      targetType: "invoice",
+      targetId: invoiceId,
+      details: {invoiceNumber: inv.invoiceNumber, to: email},
+    });
+    return {ok: true, status: "emailed"};
+  },
+);
+
+/**
+ * Invoice email — house template style.
+ * @param {object} v Pre-escaped display values.
+ * @return {string} HTML body.
+ */
+function _invoiceEmailHtml(v) {
+  const amount = `LKR ${Number(v.amountLkr).toLocaleString("en-LK")}`;
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 540px; margin: 0 auto; color: #1A1A1A;">
+      <div style="background: #095858; padding: 32px; text-align: center;
+        border-radius: 12px 12px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 26px; font-weight: 800;
+          letter-spacing: -0.5px;">
+          PetaFinds
+        </h1>
+      </div>
+      <div style="padding: 36px 32px; background: #FAFAF8;
+        border-radius: 0 0 12px 12px; border: 1px solid #E8E8E8; border-top: none;">
+        <h2 style="margin: 0 0 8px; font-size: 22px; font-weight: 800;
+          color: #1A1A1A; letter-spacing: -0.3px;">
+          Invoice ${v.invoiceNumber}
+        </h2>
+        <p style="font-size: 15px; color: #555; line-height: 1.6; margin: 0 0 20px;">
+          Thank you, <strong>${v.businessName}</strong> — your payment has
+          been received and your membership is active.
+        </p>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;
+          background: #fff; border: 1px solid #E8E8E8; border-radius: 8px;">
+          <tr>
+            <td style="padding: 12px 16px; font-size: 14px; color: #555;
+              border-bottom: 1px solid #EFEFEF;">
+              ${v.tierLabel} membership × ${v.months} month${v.months > 1 ? "s" : ""}
+            </td>
+            <td style="padding: 12px 16px; font-size: 14px; font-weight: 700;
+              text-align: right; border-bottom: 1px solid #EFEFEF;">
+              ${amount}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 16px; font-size: 13px; color: #777;">
+              Coverage period
+            </td>
+            <td style="padding: 12px 16px; font-size: 13px; color: #777;
+              text-align: right;">
+              ${v.periodStart} → ${v.periodEnd}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 12px 16px; font-size: 14px; font-weight: 800;
+              background: #E8F4F4; color: #095858;">
+              Total paid
+            </td>
+            <td style="padding: 12px 16px; font-size: 16px; font-weight: 800;
+              text-align: right; background: #E8F4F4; color: #095858;">
+              ${amount}
+            </td>
+          </tr>
+        </table>
+        <p style="text-align: center; margin: 0 0 24px;">
+          <a href="${PORTAL_URL}/invoices/"
+            style="display: inline-block; background: #095858; color: #fff;
+            text-decoration: none; font-weight: 700; font-size: 15px;
+            padding: 12px 28px; border-radius: 10px;">
+            View in the Invoice Centre
+          </a>
+        </p>
+        <p style="margin-top: 32px; font-size: 12px; color: #9E9E9E;">
+          Keep this email for your records. Questions? support@petafinds.lk
+          <br>PetaFinds · Bringing Pettah online · Colombo 11
+        </p>
+      </div>
+    </div>
+  `;
+}
