@@ -19,6 +19,7 @@ import '../../../core/extensions/context_extensions.dart';
 import '../../../utils/maps_launcher.dart';
 import '../../../utils/whatsapp.dart';
 import '../../../widgets/whatsapp_icon.dart';
+import '../../../widgets/founding_badge.dart';
 import '../../../widgets/tier_badge.dart';
 
 // Stable family providers — defined top-level so `ref.invalidate` targets
@@ -223,6 +224,11 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
                                     ],
                                   ],
                                 ),
+                                // Founding-50 honor — permanent, backend-stamped.
+                                if (business.foundingMember) ...[
+                                  const SizedBox(height: 6),
+                                  const FoundingBadge(),
+                                ],
                                 const SizedBox(height: 4),
                                 Row(
                                   children: [

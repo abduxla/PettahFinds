@@ -169,6 +169,36 @@ exports.onBusinessCreated = onDocumentCreated(
     const bizId = event.params.bizId;
     const resend = new Resend(RESEND_API_KEY.value());
 
+    // ---- 0. Founding-50 stamp: the first 50 businesses to ever join get
+    // a permanent "Founding Business" badge. Transactional against
+    // counters/founding so concurrent signups can't both take rank #50,
+    // and re-checked against the doc so a trigger retry can't stamp (or
+    // count) the same business twice. Clients can never write this field
+    // (rules block it on create AND update) — this is the only mint path.
+    const FOUNDING_LIMIT = 50;
+    try {
+      await db.runTransaction(async (txn) => {
+        const counterRef = db.collection("counters").doc("founding");
+        const [counterSnap, bizSnap] = await Promise.all([
+          txn.get(counterRef),
+          txn.get(event.data.ref),
+        ]);
+        if (!bizSnap.exists) return;
+        if ((bizSnap.data() || {}).foundingMember === true) return;
+        const count = counterSnap.exists ?
+          ((counterSnap.data() || {}).count || 0) : 0;
+        if (count >= FOUNDING_LIMIT) return;
+        txn.set(counterRef, {count: count + 1}, {merge: true});
+        txn.update(event.data.ref, {
+          foundingMember: true,
+          foundingRank: count + 1,
+        });
+        logger.info("[founding] stamped", bizId, "rank", count + 1);
+      });
+    } catch (err) {
+      logger.error("[founding] stamp failed for", bizId, err);
+    }
+
     // ---- 1. Internal alert to the PetaFinds team (fires for EVERY new
     // business, whether it came from app self-signup or admin onboarding;
     // independent of the merchant email below). Recipient is configurable

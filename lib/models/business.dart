@@ -38,6 +38,12 @@ class Business {
   /// perks downgrade automatically once the date passes — no cron needed.
   final DateTime? tierValidUntil;
 
+  /// One of the first 50 businesses to join PetaFinds. Stamped EXCLUSIVELY
+  /// by the backend (onBusinessCreated transaction / one-time backfill) —
+  /// rules block clients from seeding or editing it. Permanent honor: it
+  /// never expires and survives tier changes.
+  final bool foundingMember;
+
   const Business({
     required this.id,
     required this.businessName,
@@ -61,6 +67,7 @@ class Business {
     this.createdByAdminUid,
     this.tier = 'listed',
     this.tierValidUntil,
+    this.foundingMember = false,
   });
 
   bool get hasCoordinates => latitude != null && longitude != null;
@@ -109,6 +116,7 @@ class Business {
       createdByAdminUid: data['createdByAdminUid'] as String?,
       tier: data['tier'] as String? ?? 'listed',
       tierValidUntil: (data['tierValidUntil'] as Timestamp?)?.toDate(),
+      foundingMember: data['foundingMember'] == true,
     );
   }
 
@@ -135,6 +143,8 @@ class Business {
         'tier': tier,
         if (tierValidUntil != null)
           'tierValidUntil': Timestamp.fromDate(tierValidUntil!),
+        // Deliberately NOT serialized: foundingMember is backend-stamped
+        // only; a client create/update must never carry it (rules reject).
       };
 
   Business copyWith({
@@ -180,5 +190,7 @@ class Business {
         createdByAdminUid: createdByAdminUid,
         tier: tier ?? this.tier,
         tierValidUntil: tierValidUntil ?? this.tierValidUntil,
+        // Backend-owned honor — always carried through, never a param.
+        foundingMember: foundingMember,
       );
 }

@@ -150,6 +150,11 @@ service cloud.firestore {
                           || request.resource.data.ratingAvg == 0)
                       && (!('ratingCount' in request.resource.data.keys())
                           || request.resource.data.ratingCount == 0)
+                      // Founding-50 badge is minted ONLY by the
+                      // onBusinessCreated transaction — a signup can't
+                      // award itself the honor.
+                      && !('foundingMember' in request.resource.data.keys())
+                      && !('foundingRank' in request.resource.data.keys())
                     );
 
       // Update paths:

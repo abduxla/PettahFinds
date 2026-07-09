@@ -417,3 +417,39 @@ test("rateLimits are fully private", async () => {
     }),
   );
 });
+
+// ---------------------------------------------------------------------------
+// Founding-50 badge: backend-minted only, never client-writable.
+// ---------------------------------------------------------------------------
+
+test("founding badge cannot be self-seeded or edited by clients", async () => {
+  // Self-signup carrying the badge (or a rank) is rejected outright.
+  await assertFails(
+    setDoc(doc(db(ATTACKER), "businesses", "fb1"), {
+      ownerUid: ATTACKER,
+      isVerified: false,
+      foundingMember: true,
+    }),
+  );
+  await assertFails(
+    setDoc(doc(db(ATTACKER), "businesses", "fb2"), {
+      ownerUid: ATTACKER,
+      isVerified: false,
+      foundingRank: 1,
+    }),
+  );
+  // A clean signup without the fields still works.
+  await assertSucceeds(
+    setDoc(doc(db(ATTACKER), "businesses", "fb3"), {
+      ownerUid: ATTACKER,
+      isVerified: false,
+    }),
+  );
+  // The owner cannot award themselves the badge after the fact.
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "businesses", BIZ), {ownerUid: OWNER});
+  });
+  await assertFails(
+    updateDoc(doc(db(OWNER), "businesses", BIZ), {foundingMember: true}),
+  );
+});
