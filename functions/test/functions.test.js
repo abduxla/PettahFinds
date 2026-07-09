@@ -253,3 +253,37 @@ test("decideUpgrade validates decision and required businessId", async () => {
     /decision must be|invalid-argument/i,
   );
 });
+
+// ---------------------------------------------------------------------------
+// Portal (M5): broadcastNotification input guards.
+// ---------------------------------------------------------------------------
+
+test("broadcastNotification rejects unauth, bad audience and bad content", async () => {
+  const broadcast = fft.wrap(fns.broadcastNotification);
+  await assert.rejects(
+    () => broadcast({data: {audience: "all", title: "Hi all", body: "News"},
+      app: APP}),
+    /unauthenticated|Sign in required/i,
+  );
+  const admin1 = {uid: "admin1", token: {admin: true}};
+  await assert.rejects(
+    () => broadcast({data: {audience: "everyone", title: "Hi all",
+      body: "News body"}, auth: admin1, app: APP}),
+    /audience must be|invalid-argument/i,
+  );
+  await assert.rejects(
+    () => broadcast({data: {audience: "all", title: "Hi",
+      body: "x".repeat(501)}, auth: admin1, app: APP}),
+    /must be|invalid-argument/i,
+  );
+  await assert.rejects(
+    () => broadcast({data: {audience: "tier", tierId: "gold",
+      title: "Hi all", body: "News body"}, auth: admin1, app: APP}),
+    /tierId must be|invalid-argument/i,
+  );
+  await assert.rejects(
+    () => broadcast({data: {audience: "single", title: "Hi all",
+      body: "News body"}, auth: admin1, app: APP}),
+    /businessId is required|invalid-argument/i,
+  );
+});

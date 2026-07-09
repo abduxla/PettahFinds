@@ -2134,3 +2134,119 @@ function _membershipNoticeHtml(businessName, headlineHtml, bodyText, cta) {
     </div>
   `;
 }
+
+// --------------------------------------------------------------------------
+// broadcastNotification — admin callable (portal M5).
+//
+// Mints in-app inbox notifications (and best-effort FCM pushes) for:
+//   audience: "single"  → one business (businessId required)
+//   audience: "tier"    → every business on a stored tier id
+//   audience: "all"     → every business with an owner
+// Content is length-capped, recipients are deduped by owner uid, writes go
+// in batched commits, and the whole action is rate-limited + audited.
+// --------------------------------------------------------------------------
+exports.broadcastNotification = onCall(
+  {enforceAppCheck: true},
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Sign in required.");
+    }
+    if (!(await callerIsAdmin(request.auth))) {
+      throw new HttpsError("permission-denied", "Administrators only.");
+    }
+
+    const data = request.data || {};
+    const audience = String(data.audience || "");
+    const tierId = String(data.tierId || "");
+    const businessId = String(data.businessId || "").trim();
+    const title = String(data.title || "").trim();
+    const body = String(data.body || "").trim();
+
+    if (!["single", "tier", "all"].includes(audience)) {
+      throw new HttpsError(
+          "invalid-argument", "audience must be single, tier or all.");
+    }
+    if (title.length < 3 || title.length > 120) {
+      throw new HttpsError(
+          "invalid-argument", "title must be 3–120 characters.");
+    }
+    if (body.length < 3 || body.length > 500) {
+      throw new HttpsError(
+          "invalid-argument", "body must be 3–500 characters.");
+    }
+    if (audience === "single" && !businessId) {
+      throw new HttpsError(
+          "invalid-argument", "businessId is required for a single send.");
+    }
+    if (audience === "tier" &&
+        !["listed", "spotlight", "prime", "elite"].includes(tierId)) {
+      throw new HttpsError(
+          "invalid-argument", "tierId must be a valid stored tier id.");
+    }
+
+    // 10 broadcasts/hour per admin — a compromised session can't spam
+    // every merchant inbox.
+    await enforceRateLimit(`broadcast:${request.auth.uid}`, 10, 3600);
+
+    // Resolve recipient owner uids.
+    let ownerUids = [];
+    if (audience === "single") {
+      const snap = await db.collection("businesses").doc(businessId).get();
+      if (!snap.exists) {
+        throw new HttpsError("not-found", "Business not found.");
+      }
+      const uid = (snap.data() || {}).ownerUid;
+      if (uid) ownerUids = [uid];
+    } else {
+      let q = db.collection("businesses");
+      if (audience === "tier") q = q.where("tier", "==", tierId);
+      const snap = await q.select("ownerUid").get();
+      ownerUids = [...new Set(
+          snap.docs.map((d) => (d.data() || {}).ownerUid).filter(Boolean),
+      )];
+    }
+    if (ownerUids.length === 0) {
+      throw new HttpsError(
+          "failed-precondition", "No recipients match this audience.");
+    }
+
+    // Inbox docs in batched commits (500 writes per batch).
+    let batch = db.batch();
+    let inBatch = 0;
+    for (const uid of ownerUids) {
+      batch.set(db.collection("notifications").doc(), {
+        userId: uid,
+        title,
+        body,
+        type: "announcement",
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      inBatch++;
+      if (inBatch === 450) {
+        await batch.commit();
+        batch = db.batch();
+        inBatch = 0;
+      }
+    }
+    if (inBatch > 0) await batch.commit();
+
+    // Best-effort push to devices (sequential; fine at directory scale).
+    for (const uid of ownerUids) {
+      const token = await getUserToken(uid);
+      await sendPush(uid, token, title, truncate(body, 120),
+          {type: "announcement", id: ""});
+    }
+
+    await writeAudit({
+      action: "notification_broadcast",
+      actorUid: request.auth.uid,
+      targetType: "audience",
+      targetId: audience === "single" ? businessId :
+        audience === "tier" ? `tier:${tierId}` : "all-businesses",
+      details: {recipients: ownerUids.length, title},
+    });
+
+    return {ok: true, recipients: ownerUids.length};
+  },
+);
