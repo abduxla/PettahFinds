@@ -11,10 +11,11 @@ class Product {
   final String image2Url;
   final String image3Url;
   final String image4Url;
-  /// Retail unit price. Always shown to customers and falls back as the
-  /// only displayed price when wholesale isn't configured. The historical
-  /// field name stays `priceLkr` so old docs round-trip unchanged.
-  final double priceLkr;
+  /// Retail unit price. OPTIONAL — some vendors prefer not to publish
+  /// prices; `null` (or a legacy 0) renders as "Ask for price" and buyers
+  /// use chat instead. The historical field name stays `priceLkr` so old
+  /// docs round-trip unchanged.
+  final double? priceLkr;
   /// Per-unit wholesale price for bulk orders. `0` = not offered; the
   /// detail screen then hides the wholesale row entirely.
   final double wholesalePriceLkr;
@@ -43,7 +44,7 @@ class Product {
     this.image2Url = '',
     this.image3Url = '',
     this.image4Url = '',
-    required this.priceLkr,
+    this.priceLkr,
     this.wholesalePriceLkr = 0.0,
     this.minOrderQuantity = 0,
     this.keywords = '',
@@ -65,6 +66,11 @@ class Product {
   bool get hasWholesaleTier =>
       wholesalePriceLkr > 0 && minOrderQuantity > 0;
 
+  /// Whether a publishable retail price exists. Legacy docs that stored
+  /// 0 are treated as price-on-request too (nothing legitimately costs
+  /// LKR 0 in the directory).
+  bool get hasPrice => priceLkr != null && priceLkr! > 0;
+
   factory Product.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return Product(
@@ -78,7 +84,7 @@ class Product {
       image2Url: data['image2Url'] ?? '',
       image3Url: data['image3Url'] ?? '',
       image4Url: data['image4Url'] ?? '',
-      priceLkr: (data['priceLkr'] ?? 0.0).toDouble(),
+      priceLkr: (data['priceLkr'] as num?)?.toDouble(),
       wholesalePriceLkr:
           (data['wholesalePriceLkr'] ?? 0.0).toDouble(),
       minOrderQuantity:
@@ -115,6 +121,10 @@ class Product {
         'updatedAt': Timestamp.fromDate(updatedAt),
       };
 
+  /// Sentinel so copyWith can distinguish "not passed" from an explicit
+  /// `null` (vendor clearing a previously-published price).
+  static const Object _unsetPrice = Object();
+
   Product copyWith({
     String? title,
     String? shortTitle,
@@ -124,7 +134,7 @@ class Product {
     String? image2Url,
     String? image3Url,
     String? image4Url,
-    double? priceLkr,
+    Object? priceLkr = _unsetPrice,
     double? wholesalePriceLkr,
     int? minOrderQuantity,
     String? keywords,
@@ -143,7 +153,9 @@ class Product {
         image2Url: image2Url ?? this.image2Url,
         image3Url: image3Url ?? this.image3Url,
         image4Url: image4Url ?? this.image4Url,
-        priceLkr: priceLkr ?? this.priceLkr,
+        priceLkr: identical(priceLkr, _unsetPrice)
+            ? this.priceLkr
+            : priceLkr as double?,
         wholesalePriceLkr: wholesalePriceLkr ?? this.wholesalePriceLkr,
         minOrderQuantity: minOrderQuantity ?? this.minOrderQuantity,
         keywords: keywords ?? this.keywords,

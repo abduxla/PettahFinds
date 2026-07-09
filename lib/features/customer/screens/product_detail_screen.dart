@@ -1301,14 +1301,33 @@ class _PricingBlock extends StatelessWidget {
           color: AppColors.tealLight,
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Text(
-          _money(product.priceLkr),
-          style: GoogleFonts.nunito(
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            color: AppColors.teal,
-            letterSpacing: -0.4,
-          ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              productPriceLabel(product.priceLkr),
+              style: GoogleFonts.nunito(
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                color: AppColors.teal,
+                letterSpacing: -0.4,
+              ),
+            ),
+            // Price-on-request products point the buyer at the chat
+            // button — the vendor's chosen pathway for pricing.
+            if (!product.hasPrice)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  'Chat with the shop for today\'s price',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 11.5,
+                    color: AppColors.text3,
+                  ),
+                ),
+              ),
+          ],
         ),
       );
     }
@@ -1325,7 +1344,7 @@ class _PricingBlock extends StatelessWidget {
           _PriceRow(
             label: 'Retail',
             sub: 'per unit',
-            amount: _money(product.priceLkr),
+            amount: productPriceLabel(product.priceLkr),
             emphasized: false,
           ),
           Padding(

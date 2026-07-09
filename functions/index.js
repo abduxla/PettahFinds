@@ -2250,3 +2250,193 @@ exports.broadcastNotification = onCall(
     return {ok: true, recipients: ownerUids.length};
   },
 );
+
+// --------------------------------------------------------------------------
+// monthlyBusinessReport — scheduled: 06:00 on the 1st, Asia/Colombo.
+//
+// The "Monthly Business Report" every paid tier is promised (Gold's main
+// analytics surface; Platinum/Vibranium get it on top of the live
+// dashboard). For each paid business:
+//   • reads lifetime counters from business_stats,
+//   • subtracts the snapshot taken at the previous report to get THIS
+//     month's numbers (first report = activity to date),
+//   • pulls the top 3 products by views from product_stats,
+//   • emails a branded summary to the business email,
+//   • stores the new snapshot with the month stamp (idempotent — a retry
+//     in the same month is a no-op per business).
+// --------------------------------------------------------------------------
+exports.monthlyBusinessReport = onSchedule(
+  {
+    schedule: "0 6 1 * *",
+    timeZone: "Asia/Colombo",
+    secrets: [RESEND_API_KEY],
+  },
+  async () => {
+    const month = new Date().toISOString().slice(0, 7); // YYYY-MM
+    const prevMonthName = new Date(Date.now() - 5 * 86400000)
+        .toLocaleString("en-US", {month: "long", year: "numeric"});
+    const resend = new Resend(RESEND_API_KEY.value());
+
+    const paid = await db.collection("businesses")
+        .where("tier", "in", ["spotlight", "prime", "elite"])
+        .get();
+    logger.info("[report] monthly run", month, "candidates:", paid.size);
+
+    let sent = 0;
+    for (const bizSnap of paid.docs) {
+      try {
+        const biz = bizSnap.data() || {};
+        const email = String(biz.email || "").trim().toLowerCase();
+        if (!email) continue;
+
+        const snapRef =
+          db.collection("reportSnapshots").doc(bizSnap.id);
+        const prevSnap = await snapRef.get();
+        const prev = prevSnap.exists ? (prevSnap.data() || {}) : {};
+        if (prev.lastSentMonth === month) continue; // idempotency
+
+        const statsSnap =
+          await db.collection("business_stats").doc(bizSnap.id).get();
+        const s = statsSnap.exists ? (statsSnap.data() || {}) : {};
+        const cur = {
+          profileViews: s.profileViews || 0,
+          productViews: s.productViews || 0,
+          chatsStarted: s.chatsStarted || 0,
+          saves: s.saves || 0,
+        };
+        const delta = {
+          profileViews: Math.max(0, cur.profileViews -
+            (prev.profileViews || 0)),
+          productViews: Math.max(0, cur.productViews -
+            (prev.productViews || 0)),
+          chatsStarted: Math.max(0, cur.chatsStarted -
+            (prev.chatsStarted || 0)),
+          saves: Math.max(0, cur.saves - (prev.saves || 0)),
+        };
+
+        // Top products by lifetime views (titles joined from /products).
+        const topStats = await db.collection("product_stats")
+            .where("businessId", "==", bizSnap.id)
+            .orderBy("views", "desc")
+            .limit(3)
+            .get();
+        const topProducts = [];
+        for (const t of topStats.docs) {
+          const p = await db.collection("products").doc(t.id).get();
+          if (p.exists) {
+            topProducts.push({
+              title: (p.data() || {}).title || "Product",
+              views: (t.data() || {}).views || 0,
+              chats: (t.data() || {}).chats || 0,
+            });
+          }
+        }
+
+        await resend.emails.send({
+          from: "PetaFinds <info@petafinds.lk>",
+          to: email,
+          subject:
+            `Your ${prevMonthName} business report — ` +
+            `${biz.businessName || "your shop"}`,
+          html: _monthlyReportHtml({
+            businessName: escapeHtml(biz.businessName || "Your shop"),
+            monthName: escapeHtml(prevMonthName),
+            firstReport: !prevSnap.exists,
+            delta,
+            topProducts: topProducts.map((p) => ({
+              title: escapeHtml(p.title),
+              views: p.views,
+              chats: p.chats,
+            })),
+          }),
+        });
+
+        await snapRef.set({
+          ...cur,
+          lastSentMonth: month,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        sent++;
+      } catch (err) {
+        logger.error("[report] failed for", bizSnap.id, err);
+      }
+    }
+    logger.info("[report] monthly reports sent:", sent);
+  },
+);
+
+/**
+ * Monthly report email — house template style.
+ * @param {object} v Pre-escaped display values.
+ * @return {string} HTML body.
+ */
+function _monthlyReportHtml(v) {
+  const tile = (label, value) => `
+    <td style="width: 25%; padding: 14px 6px; text-align: center;
+      background: #fff; border: 1px solid #EFEFEF;">
+      <div style="font-size: 22px; font-weight: 800; color: #095858;">
+        ${value}
+      </div>
+      <div style="font-size: 11px; color: #777; margin-top: 2px;">
+        ${label}
+      </div>
+    </td>`;
+  const productRows = v.topProducts.length === 0 ? "" : `
+    <h3 style="font-size: 15px; margin: 24px 0 10px;">Top products</h3>
+    <table style="width: 100%; border-collapse: collapse; background: #fff;
+      border: 1px solid #E8E8E8; border-radius: 8px;">
+      ${v.topProducts.map((p) => `
+        <tr>
+          <td style="padding: 10px 14px; font-size: 13px; font-weight: 600;
+            border-bottom: 1px solid #EFEFEF;">${p.title}</td>
+          <td style="padding: 10px 14px; font-size: 13px; color: #777;
+            text-align: right; border-bottom: 1px solid #EFEFEF;
+            white-space: nowrap;">
+            ${p.views} views · ${p.chats} chats
+          </td>
+        </tr>`).join("")}
+    </table>`;
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 540px; margin: 0 auto; color: #1A1A1A;">
+      <div style="background: #095858; padding: 28px; text-align: center;
+        border-radius: 12px 12px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 800;">
+          📈 ${v.monthName} report
+        </h1>
+        <p style="color: #A8D5D5; margin: 6px 0 0; font-size: 14px;">
+          ${v.businessName}
+        </p>
+      </div>
+      <div style="padding: 28px 24px; background: #FAFAF8;
+        border-radius: 0 0 12px 12px; border: 1px solid #E8E8E8; border-top: none;">
+        ${v.firstReport ? `
+        <p style="font-size: 13px; color: #777; margin: 0 0 16px;">
+          This is your first report, so it covers all activity to date.
+          From next month it shows that month only.
+        </p>` : ""}
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            ${tile("Profile views", v.delta.profileViews)}
+            ${tile("Product views", v.delta.productViews)}
+            ${tile("Chats started", v.delta.chatsStarted)}
+            ${tile("Saves", v.delta.saves)}
+          </tr>
+        </table>
+        ${productRows}
+        <p style="text-align: center; margin: 26px 0 0;">
+          <a href="${PORTAL_URL}/dashboard/"
+            style="display: inline-block; background: #095858; color: #fff;
+            text-decoration: none; font-weight: 700; font-size: 14px;
+            padding: 11px 26px; border-radius: 10px;">
+            Open your Business Portal
+          </a>
+        </p>
+        <p style="margin: 26px 0 0; font-size: 11px; color: #9E9E9E;">
+          You receive this because your shop has a paid PetaFinds membership.
+          <br>PetaFinds · Bringing Pettah online · Colombo 11
+        </p>
+      </div>
+    </div>
+  `;
+}

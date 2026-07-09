@@ -22,6 +22,25 @@ class BusinessSetupScreen extends ConsumerStatefulWidget {
 
 class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
   final _formKey = GlobalKey<FormState>();
+
+  // Per-field keys, in VISUAL ORDER, so a failed submit can scroll to and
+  // announce the first invalid field. On a form this tall the inline
+  // error text is often off-screen — without this the submit button
+  // appears to silently do nothing (real merchant-reported issue).
+  final _kName = GlobalKey<FormFieldState>();
+  final _kOwnerName = GlobalKey<FormFieldState>();
+  final _kOwnerPhone = GlobalKey<FormFieldState>();
+  final _kCategory = GlobalKey<FormFieldState>();
+  final _kLocation = GlobalKey<FormFieldState>();
+  final _kDesc = GlobalKey<FormFieldState>();
+  final _kPhone = GlobalKey<FormFieldState>();
+  final _kWhatsapp = GlobalKey<FormFieldState>();
+  final _kEmail = GlobalKey<FormFieldState>();
+  late final List<GlobalKey<FormFieldState>> _fieldOrder = [
+    _kName, _kOwnerName, _kOwnerPhone, _kCategory, _kLocation,
+    _kDesc, _kPhone, _kWhatsapp, _kEmail,
+  ];
+
   final _nameCtrl = TextEditingController();
   final _ownerNameCtrl = TextEditingController();
   final _ownerPhoneCtrl = TextEditingController();
@@ -73,9 +92,34 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
     super.dispose();
   }
 
+  /// Scroll to the first invalid field and surface its error in a
+  /// snackbar, so validation failures are impossible to miss.
+  void _revealFirstInvalidField() {
+    for (final key in _fieldOrder) {
+      final state = key.currentState;
+      if (state == null || !state.hasError) continue;
+      final ctx = key.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOutCubic,
+          alignment: 0.15,
+        );
+      }
+      context.showErrorSnackBar(
+          state.errorText ?? 'Please fix the highlighted field.');
+      return;
+    }
+    context.showErrorSnackBar('Please fix the highlighted fields.');
+  }
+
   Future<void> _submit() async {
     if (_loading) return;
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      _revealFirstInvalidField();
+      return;
+    }
     if (_category == null || _category!.isEmpty) {
       context.showErrorSnackBar('Please pick a category.');
       return;
@@ -209,6 +253,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
 
               // ---- Form fields ----
               TextFormField(
+                key: _kName,
                 controller: _nameCtrl,
                 decoration: const InputDecoration(
                     labelText: 'Business Name',
@@ -217,6 +262,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
               ),
               const SizedBox(height: 16),
               TextFormField(
+                key: _kOwnerName,
                 controller: _ownerNameCtrl,
                 decoration: const InputDecoration(
                     labelText: 'Owner Full Name',
@@ -226,6 +272,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
               ),
               const SizedBox(height: 16),
               TextFormField(
+                key: _kOwnerPhone,
                 controller: _ownerPhoneCtrl,
                 decoration: const InputDecoration(
                     labelText: 'Owner Phone',
@@ -244,6 +291,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
               // "food & drink") and never aggregate cleanly under the
               // home category sections.
               DropdownButtonFormField<String>(
+                key: _kCategory,
                 initialValue: _category,
                 isExpanded: true,
                 decoration: const InputDecoration(
@@ -260,6 +308,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
               ),
               const SizedBox(height: 16),
               TextFormField(
+                key: _kLocation,
                 controller: _locationCtrl,
                 decoration: const InputDecoration(
                     labelText: 'Location',
@@ -295,6 +344,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
               ),
               const SizedBox(height: 16),
               TextFormField(
+                key: _kDesc,
                 controller: _descCtrl,
                 decoration: const InputDecoration(
                     labelText: 'Description',
@@ -304,6 +354,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
               ),
               const SizedBox(height: 16),
               TextFormField(
+                key: _kPhone,
                 controller: _phoneCtrl,
                 decoration: const InputDecoration(
                     labelText: 'Phone', prefixIcon: Icon(Icons.phone)),
@@ -316,6 +367,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
               ),
               const SizedBox(height: 16),
               TextFormField(
+                key: _kWhatsapp,
                 controller: _whatsappCtrl,
                 decoration: const InputDecoration(
                     labelText: 'WhatsApp Number *',
@@ -338,6 +390,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
               ),
               const SizedBox(height: 16),
               TextFormField(
+                key: _kEmail,
                 controller: _emailCtrl,
                 decoration: const InputDecoration(
                     labelText: 'Business Email',

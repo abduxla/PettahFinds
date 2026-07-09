@@ -183,7 +183,7 @@ class _ProductTileState extends State<_ProductTile> {
           subtitle: Row(
             children: [
               Text(
-                'LKR ${formatLkr(p.priceLkr)}',
+                productPriceLabel(p.priceLkr),
                 style: GoogleFonts.nunito(
                   color: AppColors.teal,
                   fontWeight: FontWeight.w800,

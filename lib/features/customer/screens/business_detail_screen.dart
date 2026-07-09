@@ -1165,7 +1165,7 @@ class _BusinessProductGridCell extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'LKR ${formatLkr(product.priceLkr)}',
+                      productPriceLabel(product.priceLkr),
                       style: GoogleFonts.nunito(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,

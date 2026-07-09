@@ -124,7 +124,7 @@ class ProductCard extends ConsumerWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'LKR ${formatLkr(product.priceLkr)}',
+                  productPriceLabel(product.priceLkr),
                   style: GoogleFonts.nunito(
                     fontWeight: FontWeight.w800,
                     fontSize: 15,

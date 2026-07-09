@@ -19,3 +19,13 @@ import 'package:intl/intl.dart';
 final NumberFormat _priceFormatter = NumberFormat('#,###');
 
 String formatLkr(num amount) => _priceFormatter.format(amount);
+
+/// Retail price label for a product. Vendors may withhold the price
+/// (null, or legacy 0) — those render as "Ask for price" and the buyer's
+/// pathway is the existing chat button. ALL product price display sites
+/// must use this instead of interpolating `formatLkr` directly, so the
+/// ask-for-price behavior stays consistent app-wide.
+String productPriceLabel(double? priceLkr) =>
+    (priceLkr == null || priceLkr <= 0)
+        ? 'Ask for price'
+        : 'LKR ${formatLkr(priceLkr)}';

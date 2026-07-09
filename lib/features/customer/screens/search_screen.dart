@@ -100,11 +100,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       case SearchSortOption.bestReviewed:
         out.sort((a, b) => b.ratingAvg.compareTo(a.ratingAvg));
         break;
+      // Price-on-request products (no published price) sort LAST in both
+      // directions — a hidden price should never win a price sort.
       case SearchSortOption.priceAsc:
-        out.sort((a, b) => a.priceLkr.compareTo(b.priceLkr));
+        out.sort((a, b) => (a.hasPrice ? a.priceLkr! : double.maxFinite)
+            .compareTo(b.hasPrice ? b.priceLkr! : double.maxFinite));
         break;
       case SearchSortOption.priceDesc:
-        out.sort((a, b) => b.priceLkr.compareTo(a.priceLkr));
+        out.sort((a, b) => (b.hasPrice ? b.priceLkr! : -1.0)
+            .compareTo(a.hasPrice ? a.priceLkr! : -1.0));
         break;
       case SearchSortOption.mostFeatured:
         // TODO(featured): switch to a real `isFeatured` bool on Product

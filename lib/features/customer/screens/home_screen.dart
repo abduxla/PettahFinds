@@ -678,6 +678,31 @@ class _FeaturedShopCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   TierBadge(tier: business.effectiveTier),
+                  // Vibranium shops carry the market-leader mark on the
+                  // featured strip (the "Recommended Supplier" perk).
+                  if (business.effectiveTier.isRecommendedSupplier) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.verified_rounded,
+                            size: 11, color: AppColors.orange),
+                        const SizedBox(width: 3),
+                        Flexible(
+                          child: Text(
+                            'Recommended Supplier',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.dmSans(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.orange,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 4),
                   Text(
                     '${business.category} • ${business.location}',
@@ -1208,7 +1233,7 @@ class _RecentlyViewedCard extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'LKR ${formatLkr(product.priceLkr)}',
+                    productPriceLabel(product.priceLkr),
                     style: GoogleFonts.nunito(
                       fontWeight: FontWeight.w800,
                       fontSize: 13,
@@ -1450,7 +1475,7 @@ class _ProductCard extends ConsumerWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'LKR ${formatLkr(product.priceLkr)}',
+                      productPriceLabel(product.priceLkr),
                       style: GoogleFonts.nunito(
                         fontWeight: FontWeight.w800,
                         fontSize: 15,

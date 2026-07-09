@@ -73,7 +73,8 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       _shortTitleCtrl.text = product.shortTitle;
       _descCtrl.text = product.description;
       _selectedCategory = AppCategories.normalize(product.category);
-      _priceCtrl.text = product.priceLkr.toString();
+      // Price-on-request products keep the field blank (not "null"/"0").
+      _priceCtrl.text = product.hasPrice ? product.priceLkr!.toString() : '';
       // Wholesale tier round-trip: only hydrate when the stored values
       // are non-zero, so the form fields stay blank (not "0") for
       // single-tier products.
@@ -326,7 +327,11 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                 shortTitle: _shortTitleCtrl.text.trim(),
                 description: _descCtrl.text.trim(),
                 category: _selectedCategory!,
-                priceLkr: double.parse(_priceCtrl.text.trim()),
+                // Blank = price on request ("Ask for price" on cards);
+                // explicit null clears a previously published price.
+                priceLkr: _priceCtrl.text.trim().isEmpty
+                    ? null
+                    : double.parse(_priceCtrl.text.trim()),
                 wholesalePriceLkr: wholesalePrice,
                 minOrderQuantity: moq,
                 keywords: _keywordsCtrl.text.trim(),
@@ -357,7 +362,9 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
               shortTitle: _shortTitleCtrl.text.trim(),
               description: _descCtrl.text.trim(),
               category: _selectedCategory!,
-              priceLkr: double.parse(_priceCtrl.text.trim()),
+              priceLkr: _priceCtrl.text.trim().isEmpty
+                  ? null
+                  : double.parse(_priceCtrl.text.trim()),
               wholesalePriceLkr: wholesalePrice,
               minOrderQuantity: moq,
               keywords: _keywordsCtrl.text.trim(),
@@ -556,12 +563,23 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
             const SizedBox(height: 16),
             _buildField(
               controller: _priceCtrl,
-              label: 'Retail Price (LKR)',
+              label: 'Retail Price (LKR) — optional',
               icon: Icons.attach_money_rounded,
               prefixText: 'LKR ',
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               validator: Validators.price,
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 6, left: 4),
+              child: Text(
+                'Leave empty to show "Ask for price" — buyers will chat '
+                'with you for today\'s price instead.',
+                style: GoogleFonts.dmSans(
+                  fontSize: 11.5,
+                  color: AppColors.text3,
+                ),
+              ),
             ),
             const SizedBox(height: 16),
             // Optional wholesale tier — both fields blank = no wholesale

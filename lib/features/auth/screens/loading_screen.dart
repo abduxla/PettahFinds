@@ -117,9 +117,26 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen> {
     if (u.isBusiness) {
       if (u.businessId == null || u.businessId!.isEmpty) {
         _go('/business/setup');
-      } else {
+        return;
+      }
+      // Route by VERIFICATION, not just role. Sending every business to
+      // /business and letting the router bounce unverified ones to
+      // /business/under-review painted a one-frame dashboard flash right
+      // after signup (merchant-reported glitch). Wait for the business
+      // doc, then route to the correct destination in ONE hop.
+      final bizAsync = ref.read(currentUserBusinessStreamProvider);
+      final biz = bizAsync.valueOrNull;
+      if (biz != null) {
+        _go(biz.isVerified ? '/business' : '/business/under-review');
+      } else if (!bizAsync.isLoading) {
+        // Stream settled with no doc (deleted business?) — fall through
+        // to /business and let the router's guards handle it rather
+        // than stranding the user here.
         _go('/business');
       }
+      // else: doc still loading — the currentUserBusinessStreamProvider
+      // listener in build() re-invokes routing when it emits. The 20s
+      // stuck-recovery card remains the ultimate fallback.
       return;
     }
     _go('/home');
@@ -221,9 +238,11 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Two listeners — together they cover every way out:
+    // Three listeners — together they cover every way out:
     //   1. appUserProvider emits a real AppUser  → route by role.
     //   2. authStateProvider drops to null       → bail to /sign-in.
+    //   3. business doc emits after the AppUser  → verification-aware
+    //      business routing re-fires (post-signup race).
     ref.listen<AsyncValue<AppUser?>>(appUserProvider, (prev, next) {
       final u = next.valueOrNull;
       debugPrint(
@@ -249,6 +268,11 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen> {
       debugPrint(
           '⏳ [loading] authStateProvider emit: uid=${next.valueOrNull?.uid}');
       if (!next.isLoading && next.valueOrNull == null) _go('/sign-in');
+    });
+    ref.listen(currentUserBusinessStreamProvider, (prev, next) {
+      if (_navigated) return;
+      final u = ref.read(appUserProvider).valueOrNull;
+      if (u != null && u.isBusiness) _routeByRole(u);
     });
 
     if (_stuck) return _buildStuckRecovery();

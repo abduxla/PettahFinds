@@ -26,8 +26,11 @@ abstract class Validators {
     return null;
   }
 
+  /// Price is OPTIONAL: vendors who prefer not to publish prices leave it
+  /// blank and the product shows "Ask for price" (buyers use chat).
+  /// When a value IS entered it must be a valid non-negative number.
   static String? price(String? value) {
-    if (value == null || value.trim().isEmpty) return 'Price is required';
+    if (value == null || value.trim().isEmpty) return null;
     final parsed = double.tryParse(value.trim());
     if (parsed == null || parsed < 0) return 'Enter a valid price';
     return null;

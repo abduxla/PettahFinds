@@ -599,6 +599,11 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Monthly-report snapshots (delta baselines) — backend-only.
+    match /reportSnapshots/{businessId} {
+      allow read, write: if false;
+    }
+
     // ---------- Upgrade requests (portal) ----------
     // One open request per business, doc id == businessId, created and
     // transitioned ONLY by the requestUpgrade/decideUpgrade callables.
