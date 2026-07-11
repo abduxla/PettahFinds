@@ -609,6 +609,11 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Executive-report send markers (weekly/quarterly/yearly) — backend-only.
+    match /execReports/{businessId} {
+      allow read, write: if false;
+    }
+
     // ---------- Analytics daily buckets (portal BI) ----------
     // Written ONLY by recordEngagement / recordSearchEvent via the Admin
     // SDK. Each business reads its own buckets (docs carry businessId);

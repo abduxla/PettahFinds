@@ -2944,6 +2944,13 @@ exports.nightlyMarketAggregation = onSchedule(
 
       let batch = db.batch();
       let inBatch = 0;
+      // Milestone notifications (Vibranium): collected during the loop,
+      // minted AFTER the batch commits so a write failure can't spam.
+      const milestones = [];
+      const bizOwner = new Map();
+      for (const d of bizSnap.docs) {
+        bizOwner.set(d.id, (d.data() || {}).ownerUid || null);
+      }
       for (const r of bizRows) {
         const p = prev.get(r.id) || {};
         const cat = categoryStats[r.category] || null;
@@ -2993,6 +3000,7 @@ exports.nightlyMarketAggregation = onSchedule(
           marketplaceProductTotal: totalProducts,
           tierProductTotal: tierTotals[r.tier] || 0,
           productPositions: myProducts,
+          lifetimeViews: r.views,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
         inBatch++;
@@ -3001,10 +3009,305 @@ exports.nightlyMarketAggregation = onSchedule(
           batch = db.batch();
           inBatch = 0;
         }
+
+        // ---- Vibranium milestone detection (skip a business's first
+        // run: no baseline means every check would fire spuriously). ----
+        if (r.tier === "elite" && prev.has(r.id)) {
+          const owner = bizOwner.get(r.id);
+          if (owner) {
+            const newBand = band(r.percentile);
+            const oldBand = p.percentileBand;
+            if (oldBand && newBand !== oldBand &&
+                r.percentile < (p.percentile || 100) &&
+                newBand.startsWith("Top")) {
+              milestones.push([owner, "You entered the " + newBand + " 🚀",
+                `Your business now ranks #${r.marketplacePosition} of ` +
+                `${totalBusinesses} on PetaFinds.`]);
+            }
+            if (p.marketplacePosition &&
+                r.marketplacePosition < p.marketplacePosition &&
+                (p.marketplacePosition - r.marketplacePosition >= 3 ||
+                 (r.marketplacePosition <= 10 &&
+                  p.marketplacePosition > 10))) {
+              milestones.push([owner, "Marketplace position up ▲",
+                `#${p.marketplacePosition} → #${r.marketplacePosition} ` +
+                "overnight. Keep it going!"]);
+            }
+            const prevViews = typeof p.lifetimeViews === "number" ?
+              p.lifetimeViews : null;
+            if (prevViews !== null) {
+              for (const t of [1000, 5000, 10000, 50000, 100000]) {
+                if (prevViews < t && r.views >= t) {
+                  milestones.push([owner,
+                    `Your products passed ${t.toLocaleString()} views 🎉`,
+                    "A new all-time record for your shop."]);
+                  break;
+                }
+              }
+            }
+            const prevProdPos = new Map((p.productPositions || [])
+                .map((x) => [x.productId, x.marketplacePosition]));
+            for (const mp of myProducts) {
+              const was = prevProdPos.get(mp.productId);
+              if (mp.marketplacePosition <= 10 && was && was > 10) {
+                milestones.push([owner,
+                  "A product reached the marketplace Top 10 🏆",
+                  `It now sits at #${mp.marketplacePosition} of ` +
+                  `${totalProducts} products.`]);
+                break;
+              }
+            }
+          }
+        }
       }
       if (inBatch > 0) await batch.commit();
+
+      // Cap per night so a volatile ranking day can't flood an inbox.
+      for (const [uid, title, body] of milestones.slice(0, 60)) {
+        await mintNotification(uid, title, body, "membership");
+      }
 
       logger.info("[aggregation] nightly run complete:", totalBusinesses,
           "businesses,", totalProducts, "products,", termAgg.size, "terms");
     },
 );
+
+// --------------------------------------------------------------------------
+// executivePeriodicReports — Vibranium executive reports by email.
+//
+// Runs daily 07:00 Colombo and decides what is due:
+//   Monday          → weekly report  (last 7 full days vs the 7 before)
+//   1st of quarter  → quarterly report (previous quarter vs the one before)
+//   January 1st     → yearly report  (previous year vs the year before)
+// Monthly reports for ALL paid tiers are handled separately by
+// monthlyBusinessReport. Idempotent per business+period via markers in
+// execReports/{businessId} (a retry or double-fire never re-sends).
+// --------------------------------------------------------------------------
+exports.executivePeriodicReports = onSchedule(
+    {
+      schedule: "0 7 * * *",
+      timeZone: "Asia/Colombo",
+      secrets: [RESEND_API_KEY],
+      timeoutSeconds: 540,
+    },
+    async () => {
+      // "Now" in Colombo civil time.
+      const nowCo = new Date(Date.now() + 5.5 * 3600 * 1000);
+      const y = nowCo.getUTCFullYear();
+      const m = nowCo.getUTCMonth(); // 0-based
+      const dom = nowCo.getUTCDate();
+      const dow = nowCo.getUTCDay(); // 1 = Monday
+
+      /** @type {{type:string,key:string,from:string,to:string,
+       *          prevFrom:string,prevTo:string,label:string}[]} */
+      const due = [];
+      const dayKeyAgo = (n) =>
+        colomboDayKey(new Date(Date.now() - n * 86400000));
+      if (dow === 1) {
+        due.push({
+          type: "weekly",
+          key: `weekly_${dayKeyAgo(7)}`,
+          from: dayKeyAgo(7), to: dayKeyAgo(1),
+          prevFrom: dayKeyAgo(14), prevTo: dayKeyAgo(8),
+          label: "Weekly report",
+        });
+      }
+      if (dom === 1 && [0, 3, 6, 9].includes(m)) {
+        const qEndY = m === 0 ? y - 1 : y;
+        const qStartM = m === 0 ? 9 : m - 3;
+        const pad = (n) => String(n + 1).padStart(2, "0");
+        const lastDay = new Date(Date.UTC(qEndY, qStartM + 3, 0))
+            .getUTCDate();
+        due.push({
+          type: "quarterly",
+          key: `quarterly_${qEndY}-Q${Math.floor(qStartM / 3) + 1}`,
+          from: `${qEndY}-${pad(qStartM)}-01`,
+          to: `${qEndY}-${pad(qStartM + 2)}-${lastDay}`,
+          prevFrom: "", prevTo: "", // growth omitted for quarters v1
+          label: "Quarterly business report",
+        });
+      }
+      if (dom === 1 && m === 0) {
+        due.push({
+          type: "yearly",
+          key: `yearly_${y - 1}`,
+          from: `${y - 1}-01-01`, to: `${y - 1}-12-31`,
+          prevFrom: `${y - 2}-01-01`, prevTo: `${y - 2}-12-31`,
+          label: "Yearly business report",
+        });
+      }
+      if (due.length === 0) return;
+
+      const elite = await db.collection("businesses")
+          .where("tier", "==", "elite").get();
+      if (elite.empty) return;
+      const resend = new Resend(RESEND_API_KEY.value());
+
+      /** Sum a business's day-buckets over an inclusive key range.
+       * @param {string} col collection name.
+       * @param {string} bizId business id.
+       * @param {string} from from key.
+       * @param {string} to to key.
+       * @return {Promise<object>} summed numeric fields. */
+      const sumRange = async (col, bizId, from, to) => {
+        if (!from) return {};
+        const snap = await db.collection(col)
+            .where("businessId", "==", bizId)
+            .where("date", ">=", from)
+            .where("date", "<=", to)
+            .get();
+        const out = {};
+        for (const d of snap.docs) {
+          for (const [k, v] of Object.entries(d.data() || {})) {
+            if (typeof v === "number") out[k] = (out[k] || 0) + v;
+          }
+        }
+        return out;
+      };
+      /** Growth percentage, null when no baseline.
+       * @param {number} cur current value.
+       * @param {number} prevV previous value.
+       * @return {number|null} rounded percent. */
+      const growth = (cur, prevV) => prevV > 0 ?
+        Math.round(((cur - prevV) / prevV) * 100) : null;
+
+      for (const bizDoc of elite.docs) {
+        const biz = bizDoc.data() || {};
+        const email = String(biz.email || "").trim().toLowerCase();
+        if (!email) continue;
+        const markerRef = db.collection("execReports").doc(bizDoc.id);
+        const marker = (await markerRef.get()).data() || {};
+
+        for (const r of due) {
+          try {
+            if (marker[`last_${r.type}`] === r.key) continue;
+            const [cur, prevP, curS, insightsSnap] = await Promise.all([
+              sumRange("stats_daily", bizDoc.id, r.from, r.to),
+              sumRange("stats_daily", bizDoc.id, r.prevFrom, r.prevTo),
+              sumRange("search_daily", bizDoc.id, r.from, r.to),
+              db.collection("bizInsights").doc(bizDoc.id).get(),
+            ]);
+            const ins = insightsSnap.exists ?
+              (insightsSnap.data() || {}) : {};
+            const views = cur.productViews || 0;
+            const impressions = curS.impressions || 0;
+            const clicks = curS.clicks || 0;
+            const recs = [];
+            if (impressions > 0 && views / impressions < 0.05) {
+              recs.push("Search visibility is strong but clicks lag — " +
+                "sharper photos and titles usually lift CTR fastest.");
+            }
+            if ((cur.saves || 0) > 0 && (cur.chatsStarted || 0) === 0) {
+              recs.push("Customers are saving products but not chatting " +
+                "— check that your WhatsApp and phone are current.");
+            }
+            if (recs.length === 0) {
+              recs.push("Keep listings fresh — recently added products " +
+                "get a discovery boost.");
+            }
+            await resend.emails.send({
+              from: "PetaFinds <info@petafinds.lk>",
+              to: email,
+              subject: `${r.label} — ${biz.businessName || "your shop"}`,
+              html: _executiveReportHtml({
+                businessName: escapeHtml(biz.businessName || "Your shop"),
+                label: escapeHtml(r.label),
+                period: `${r.from} → ${r.to}`,
+                kpis: [
+                  ["Product views", views, growth(views,
+                      prevP.productViews || 0)],
+                  ["Profile views", cur.profileViews || 0,
+                    growth(cur.profileViews || 0,
+                        prevP.profileViews || 0)],
+                  ["Saves", cur.saves || 0,
+                    growth(cur.saves || 0, prevP.saves || 0)],
+                  ["Chats", cur.chatsStarted || 0,
+                    growth(cur.chatsStarted || 0,
+                        prevP.chatsStarted || 0)],
+                  ["Search impressions", impressions, null],
+                  ["Search CTR", impressions > 0 ?
+                    `${((clicks / impressions) * 100).toFixed(1)}%` : "—",
+                  null],
+                ],
+                standing: ins.percentileBand ?
+                  `${ins.percentileBand} — #${ins.marketplacePosition} ` +
+                  `of ${ins.totalBusinesses} businesses` : "",
+                recommendations: recs.map((x) => escapeHtml(x)),
+              }),
+            });
+            await markerRef.set(
+                {[`last_${r.type}`]: r.key}, {merge: true});
+          } catch (err) {
+            logger.error("[exec-report]", r.type, "failed for",
+                bizDoc.id, err);
+          }
+        }
+      }
+    },
+);
+
+/**
+ * Executive report email — house template style.
+ * @param {object} v Pre-escaped display values.
+ * @return {string} HTML body.
+ */
+function _executiveReportHtml(v) {
+  const kpiCell = ([label, value, g]) => `
+    <td style="width: 33%; padding: 12px 6px; text-align: center;
+      background: #fff; border: 1px solid #EFEFEF;">
+      <div style="font-size: 20px; font-weight: 800; color: #095858;">
+        ${typeof value === "number" ? value.toLocaleString() : value}
+      </div>
+      <div style="font-size: 11px; color: #777;">${label}</div>
+      ${g === null || g === undefined ? "" : `
+      <div style="font-size: 11px; font-weight: 700;
+        color: ${g >= 0 ? "#1a7f4e" : "#d63b3b"};">
+        ${g >= 0 ? "▲" : "▼"} ${Math.abs(g)}%
+      </div>`}
+    </td>`;
+  const rows = [];
+  for (let i = 0; i < v.kpis.length; i += 3) {
+    rows.push(`<tr>${v.kpis.slice(i, i + 3).map(kpiCell).join("")}</tr>`);
+  }
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 540px; margin: 0 auto; color: #1A1A1A;">
+      <div style="background: #095858; padding: 28px; text-align: center;
+        border-radius: 12px 12px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 800;">
+          👑 ${v.label}
+        </h1>
+        <p style="color: #A8D5D5; margin: 6px 0 0; font-size: 14px;">
+          ${v.businessName} · ${v.period}
+        </p>
+      </div>
+      <div style="padding: 28px 24px; background: #FAFAF8;
+        border-radius: 0 0 12px 12px; border: 1px solid #E8E8E8; border-top: none;">
+        <table style="width: 100%; border-collapse: collapse;">
+          ${rows.join("")}
+        </table>
+        ${v.standing ? `
+        <p style="margin: 20px 0 0; padding: 12px 16px; background: #E8F4F4;
+          border-radius: 8px; font-size: 14px; font-weight: 700; color: #095858;">
+          Marketplace standing: ${v.standing}
+        </p>` : ""}
+        <h3 style="font-size: 14px; margin: 22px 0 8px;">Recommendations</h3>
+        <ul style="margin: 0; padding-left: 18px; font-size: 13px;
+          color: #555; line-height: 1.7;">
+          ${v.recommendations.map((r) => `<li>${r}</li>`).join("")}
+        </ul>
+        <p style="text-align: center; margin: 24px 0 0;">
+          <a href="${PORTAL_URL}/analytics/"
+            style="display: inline-block; background: #095858; color: #fff;
+            text-decoration: none; font-weight: 700; font-size: 14px;
+            padding: 11px 26px; border-radius: 10px;">
+            Open the full dashboard
+          </a>
+        </p>
+        <p style="margin: 24px 0 0; font-size: 11px; color: #9E9E9E;">
+          Vibranium executive reporting · PetaFinds · Colombo 11
+        </p>
+      </div>
+    </div>
+  `;
+}
