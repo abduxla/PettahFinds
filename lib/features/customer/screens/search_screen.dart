@@ -82,12 +82,40 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         setState(() {
           _products = products;
         });
+        _recordImpressions(query, products);
       }
     } catch (e) {
       if (mounted) context.showErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// Analytics Phase A: record which results this search surfaced (top 10
+  /// in fetched relevance order). Deduped per term so the 350ms debounce
+  /// re-running the same query doesn't double-count, and the searcher's
+  /// own products never count toward their own visibility.
+  String? _lastImpressionTerm;
+  void _recordImpressions(String term, List<Product> products) {
+    if (products.isEmpty) return;
+    final normalized = term.toLowerCase();
+    if (_lastImpressionTerm == normalized) return;
+    _lastImpressionTerm = normalized;
+    final ownBusinessId = ref.read(appUserProvider).valueOrNull?.businessId;
+    final items = <Map<String, dynamic>>[];
+    for (var i = 0; i < products.length && items.length < 10; i++) {
+      final p = products[i];
+      if (p.businessId == ownBusinessId) continue;
+      items.add({
+        'productId': p.id,
+        'businessId': p.businessId,
+        'position': i + 1,
+      });
+    }
+    if (items.isEmpty) return;
+    ref
+        .read(analyticsRepositoryProvider)
+        .recordSearchImpressions(term, items);
   }
 
   /// Returns the products list sorted per the active SearchSortOption.
@@ -268,8 +296,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                               // border-radius, shadow, and image
                               // aspect ratio match home page cards
                               // exactly").
-                              itemBuilder: (_, i) =>
-                                  ProductCard(product: visibleProducts[i]),
+                              itemBuilder: (_, i) => ProductCard(
+                                product: visibleProducts[i],
+                                // Search CTR: attribute the open to this
+                                // search term at the visible position.
+                                onOpened: () => ref
+                                    .read(analyticsRepositoryProvider)
+                                    .recordSearchClick(
+                                      _searchCtrl.text.trim(),
+                                      visibleProducts[i].businessId,
+                                      visibleProducts[i].id,
+                                      i + 1,
+                                    ),
+                              ),
                             ),
             ),
           ],

@@ -51,6 +51,44 @@ class AnalyticsRepository {
     }
   }
 
+  /// Search visibility capture (Analytics Phase A). One call per executed
+  /// search with the top results actually shown (max 10, 1-based
+  /// positions). The server buckets impressions per business, per product
+  /// and per term by Colombo day. Best-effort like everything else here.
+  Future<void> recordSearchImpressions(
+      String term, List<Map<String, dynamic>> items) async {
+    if (term.trim().isEmpty || items.isEmpty) return;
+    try {
+      await _functions.httpsCallable('recordSearchEvent').call<dynamic>({
+        'kind': 'impressions',
+        'term': term.trim(),
+        'items': items.take(10).toList(),
+      });
+    } catch (_) {
+      // Best-effort — analytics must never break browsing.
+    }
+  }
+
+  /// A result opened FROM SEARCH (feeds CTR — distinct from the generic
+  /// product view, which still fires on the detail screen).
+  Future<void> recordSearchClick(String term, String businessId,
+      String productId, int position) async {
+    if (term.trim().isEmpty || businessId.isEmpty || productId.isEmpty) {
+      return;
+    }
+    try {
+      await _functions.httpsCallable('recordSearchEvent').call<dynamic>({
+        'kind': 'click',
+        'term': term.trim(),
+        'businessId': businessId,
+        'productId': productId,
+        'position': position,
+      });
+    } catch (_) {
+      // Best-effort — analytics must never break browsing.
+    }
+  }
+
   Future<void> recordProfileView(String businessId) =>
       _record('profileView', businessId);
 

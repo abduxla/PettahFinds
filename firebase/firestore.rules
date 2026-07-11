@@ -609,6 +609,41 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ---------- Analytics daily buckets (portal BI) ----------
+    // Written ONLY by recordEngagement / recordSearchEvent via the Admin
+    // SDK. Each business reads its own buckets (docs carry businessId);
+    // admins read all. Same confidentiality bar as the lifetime stats:
+    // no merchant can ever read another merchant's numbers.
+    match /stats_daily/{bucketId} {
+      allow read: if isAdmin()
+                  || (isSignedIn() && ownsBusiness(resource.data.businessId));
+      allow write: if false;
+    }
+    match /product_stats_daily/{bucketId} {
+      allow read: if isAdmin()
+                  || (isSignedIn() && ownsBusiness(resource.data.businessId));
+      allow write: if false;
+    }
+    match /search_daily/{bucketId} {
+      allow read: if isAdmin()
+                  || (isSignedIn() && ownsBusiness(resource.data.businessId));
+      allow write: if false;
+    }
+    match /product_search_daily/{bucketId} {
+      allow read: if isAdmin()
+                  || (isSignedIn() && ownsBusiness(resource.data.businessId));
+      allow write: if false;
+    }
+
+    // Market-wide search-term demand. Raw terms are NOT client-readable
+    // (they could contain user-typed text and are market intelligence);
+    // the Vibranium surfaces consume the anonymized aggregates produced
+    // by the nightly job instead. Admin read for operations only.
+    match /search_terms_daily/{bucketId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // ---------- Upgrade requests (portal) ----------
     // One open request per business, doc id == businessId, created and
     // transitioned ONLY by the requestUpgrade/decideUpgrade callables.

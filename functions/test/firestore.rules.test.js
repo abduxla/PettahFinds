@@ -453,3 +453,52 @@ test("founding badge cannot be self-seeded or edited by clients", async () => {
     updateDoc(doc(db(OWNER), "businesses", BIZ), {foundingMember: true}),
   );
 });
+
+// ---------------------------------------------------------------------------
+// Analytics Phase A: daily buckets are backend-owned + owner-scoped reads.
+// ---------------------------------------------------------------------------
+
+test("daily analytics buckets: no client writes, owner-scoped reads", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "businesses", BIZ), {ownerUid: OWNER});
+    await setDoc(doc(ctx.firestore(), "stats_daily", `${BIZ}_2026-07-10`), {
+      businessId: BIZ, date: "2026-07-10", profileViews: 5,
+    });
+    await setDoc(
+      doc(ctx.firestore(), "search_daily", `${BIZ}_2026-07-10`),
+      {businessId: BIZ, date: "2026-07-10", impressions: 40, clicks: 4},
+    );
+    await setDoc(
+      doc(ctx.firestore(), "search_terms_daily", "2026-07-10__phone"),
+      {term: "phone", date: "2026-07-10", searches: 12},
+    );
+  });
+  // Owner reads own buckets; attacker cannot.
+  await assertSucceeds(
+    getDoc(doc(db(OWNER), "stats_daily", `${BIZ}_2026-07-10`)),
+  );
+  await assertSucceeds(
+    getDoc(doc(db(OWNER), "search_daily", `${BIZ}_2026-07-10`)),
+  );
+  await assertFails(
+    getDoc(doc(db(ATTACKER), "stats_daily", `${BIZ}_2026-07-10`)),
+  );
+  await assertFails(
+    getDoc(doc(db(ATTACKER), "search_daily", `${BIZ}_2026-07-10`)),
+  );
+  // Raw market-wide terms are not client-readable (owner included).
+  await assertFails(
+    getDoc(doc(db(OWNER), "search_terms_daily", "2026-07-10__phone")),
+  );
+  // Nobody writes buckets client-side — not even the owner.
+  await assertFails(
+    setDoc(doc(db(OWNER), "stats_daily", `${BIZ}_2026-07-11`), {
+      businessId: BIZ, date: "2026-07-11", profileViews: 9999,
+    }),
+  );
+  await assertFails(
+    updateDoc(doc(db(OWNER), "search_daily", `${BIZ}_2026-07-10`), {
+      impressions: 99999,
+    }),
+  );
+});

@@ -38,6 +38,11 @@ class ProductCard extends ConsumerWidget {
   /// can override if they need a different aspect.
   final double imageHeight;
 
+  /// Fired when the card is opened (in addition to the navigation the
+  /// card performs itself). Lets list contexts attribute the open — e.g.
+  /// the search screen records a search-click for CTR analytics.
+  final VoidCallback? onOpened;
+
   static const _defaultTint = Color(0xFFFEF3E8);
 
   const ProductCard({
@@ -46,6 +51,7 @@ class ProductCard extends ConsumerWidget {
     this.tileColor,
     this.width,
     this.imageHeight = 108,
+    this.onOpened,
   });
 
   @override
@@ -146,7 +152,10 @@ class ProductCard extends ConsumerWidget {
       // .go would rebuild to [/home, /home/product/:id], dropping
       // any intermediate screen the user drilled through (search
       // results, businesses list, favorites, etc.).
-      onTap: () => context.push('/home/product/${product.id}'),
+      onTap: () {
+        onOpened?.call();
+        context.push('/home/product/${product.id}');
+      },
       child: card,
     );
 

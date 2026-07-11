@@ -621,34 +621,61 @@ exports.recordEngagement = onCall({enforceAppCheck: true}, async (request) => {
     null;
   const writes = [];
 
+  // Daily rollups (Analytics Phase A): every event ALSO lands in a
+  // per-day bucket so the portal BI module can answer time-filtered
+  // questions (Today / 7d / 30d / trends). The lifetime counters above
+  // remain the app dashboard's source of truth.
+  const day = colomboDayKey();
+  const bizDayRef =
+    db.collection("stats_daily").doc(`${businessId}_${day}`);
+  const prodDayRef = prodRef ?
+    db.collection("product_stats_daily").doc(`${productId}_${day}`) :
+    null;
+  const bizDaily = (fields) => writes.push(bizDayRef.set(
+      {businessId, date: day, ...fields, updatedAt: now}, {merge: true}));
+  const prodDaily = (fields) => {
+    if (prodDayRef) {
+      writes.push(prodDayRef.set(
+          {productId, businessId, date: day, ...fields, updatedAt: now},
+          {merge: true}));
+    }
+  };
+
   switch (type) {
     case "profileView":
       writes.push(bizRef.set(
         {profileViews: inc(1), updatedAt: now}, {merge: true}));
+      bizDaily({profileViews: inc(1)});
       break;
     case "productView":
       writes.push(bizRef.set(
         {productViews: inc(1), updatedAt: now}, {merge: true}));
+      bizDaily({productViews: inc(1)});
       if (prodRef) {
         writes.push(prodRef.set(
           {businessId, views: inc(1), updatedAt: now}, {merge: true}));
+        prodDaily({views: inc(1)});
       }
       break;
     case "chatStarted":
       writes.push(bizRef.set(
         {chatsStarted: inc(1), updatedAt: now}, {merge: true}));
+      bizDaily({chatsStarted: inc(1)});
       if (prodRef) {
         writes.push(prodRef.set(
           {businessId, chats: inc(1), updatedAt: now}, {merge: true}));
+        prodDaily({chats: inc(1)});
       }
       break;
     case "save":
     case "unsave": {
       const d = type === "save" ? 1 : -1;
       writes.push(bizRef.set({saves: inc(d), updatedAt: now}, {merge: true}));
+      bizDaily({saves: inc(d)});
       if (prodRef) {
         writes.push(prodRef.set(
           {businessId, saves: inc(d), updatedAt: now}, {merge: true}));
+        prodDaily({saves: inc(d)});
       }
       break;
     }
@@ -2470,3 +2497,179 @@ function _monthlyReportHtml(v) {
     </div>
   `;
 }
+
+// ============================================================================
+// ANALYTICS PHASE A — time-bucketed capture (BI foundation)
+//
+// The lifetime counters in business_stats / product_stats stay untouched
+// (the app's live dashboard keeps reading them). Phase A adds DAILY
+// buckets so the portal BI module can answer time-filtered questions
+// (Today / 7d / 30d / trends), plus a search-event pipeline (impressions,
+// clicks, positions, terms) that never existed before. All docs are
+// backend-owned; clients only read their own business's buckets.
+// ============================================================================
+
+/** Calendar day key in Asia/Colombo (+05:30, no DST) — the marketplace's
+ * home timezone, matching the daily sweep and monthly report.
+ * @param {Date} [d] moment to bucket (default now).
+ * @return {string} YYYY-MM-DD.
+ */
+function colomboDayKey(d = new Date()) {
+  return new Date(d.getTime() + 5.5 * 3600 * 1000)
+      .toISOString().slice(0, 10);
+}
+
+/** Sanitize a search term into a doc-id-safe slug (lowercased, dashed,
+ * capped); falls back to a hash for terms with no safe characters.
+ * @param {string} term raw user query (already trimmed/lowercased).
+ * @return {string} slug safe for use inside a Firestore doc id.
+ */
+function termSlug(term) {
+  const slug = term.toLowerCase().replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "").slice(0, 40);
+  if (slug) return slug;
+  return crypto.createHash("sha1").update(term).digest("hex").slice(0, 12);
+}
+
+// --------------------------------------------------------------------------
+// recordSearchEvent — search analytics capture (App Check enforced).
+//
+//   kind: "impressions" — fired once per executed search; `items` lists
+//         the top results shown (max 10) with their 1-based positions.
+//   kind: "click"       — fired when a result is opened from search.
+//
+// Per event this increments three families of daily docs:
+//   search_terms_daily/{day}__{slug}         market-wide term demand
+//   search_daily/{businessId}_{day}          per-business visibility
+//   product_search_daily/{productId}_{day}   per-product visibility
+// positionSum / impressions give average position; top10 counts
+// first-page appearances. Rate-limited per user so a hostile client
+// can't grind Firestore writes.
+// --------------------------------------------------------------------------
+exports.recordSearchEvent = onCall(
+    {enforceAppCheck: true},
+    async (request) => {
+      if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Sign in required.");
+      }
+      const data = request.data || {};
+      const kind = String(data.kind || "");
+      if (!["impressions", "click"].includes(kind)) {
+        throw new HttpsError(
+            "invalid-argument", "kind must be impressions or click.");
+      }
+      const term = String(data.term || "").trim().toLowerCase();
+      if (term.length < 1 || term.length > 60) {
+        throw new HttpsError(
+            "invalid-argument", "term must be 1-60 characters.");
+      }
+
+      const posOf = (v) => {
+        const p = Number(v);
+        return Number.isInteger(p) && p >= 1 && p <= 50 ? p : null;
+      };
+      const idOk = (s) =>
+        typeof s === "string" && s.length > 0 && s.length <= 128;
+
+      /** @type {{productId:string,businessId:string,position:number}[]} */
+      let items = [];
+      if (kind === "impressions") {
+        if (!Array.isArray(data.items) || data.items.length === 0 ||
+            data.items.length > 10) {
+          throw new HttpsError(
+              "invalid-argument", "items must contain 1-10 results.");
+        }
+        for (const raw of data.items) {
+          const position = posOf(raw && raw.position);
+          if (!raw || !idOk(raw.productId) || !idOk(raw.businessId) ||
+              position === null) {
+            throw new HttpsError(
+                "invalid-argument", "each item needs productId, " +
+                "businessId and a 1-50 position.");
+          }
+          items.push({
+            productId: raw.productId,
+            businessId: raw.businessId,
+            position,
+          });
+        }
+      } else {
+        const position = posOf(data.position);
+        if (!idOk(data.productId) || !idOk(data.businessId) ||
+            position === null) {
+          throw new HttpsError(
+              "invalid-argument", "click needs productId, businessId " +
+              "and a 1-50 position.");
+        }
+        items = [{
+          productId: data.productId,
+          businessId: data.businessId,
+          position,
+        }];
+      }
+
+      // 120 search events per user per hour — generous for a human,
+      // hostile for a write-grinder.
+      await enforceRateLimit(`search:${request.auth.uid}`, 120, 3600);
+
+      const day = colomboDayKey();
+      const inc = admin.firestore.FieldValue.increment;
+      const now = admin.firestore.FieldValue.serverTimestamp();
+      const writes = [];
+
+      // Market-wide term demand (backend/aggregation reads only).
+      writes.push(db.collection("search_terms_daily")
+          .doc(`${day}__${termSlug(term)}`)
+          .set({
+            term,
+            date: day,
+            searches: inc(kind === "impressions" ? 1 : 0),
+            clicks: inc(kind === "click" ? 1 : 0),
+            updatedAt: now,
+          }, {merge: true}));
+
+      // Group impressions per business so each business doc gets ONE write.
+      const byBusiness = new Map();
+      for (const it of items) {
+        const agg = byBusiness.get(it.businessId) ||
+          {impressions: 0, clicks: 0, positionSum: 0, top10: 0};
+        agg.impressions += kind === "impressions" ? 1 : 0;
+        agg.clicks += kind === "click" ? 1 : 0;
+        agg.positionSum += it.position;
+        agg.top10 += (kind === "impressions" && it.position <= 10) ? 1 : 0;
+        byBusiness.set(it.businessId, agg);
+      }
+      for (const [businessId, agg] of byBusiness) {
+        writes.push(db.collection("search_daily")
+            .doc(`${businessId}_${day}`)
+            .set({
+              businessId,
+              date: day,
+              impressions: inc(agg.impressions),
+              clicks: inc(agg.clicks),
+              positionSum: inc(agg.positionSum),
+              top10: inc(agg.top10),
+              updatedAt: now,
+            }, {merge: true}));
+      }
+
+      for (const it of items) {
+        writes.push(db.collection("product_search_daily")
+            .doc(`${it.productId}_${day}`)
+            .set({
+              productId: it.productId,
+              businessId: it.businessId,
+              date: day,
+              impressions: inc(kind === "impressions" ? 1 : 0),
+              clicks: inc(kind === "click" ? 1 : 0),
+              positionSum: inc(it.position),
+              top10: inc(
+                  kind === "impressions" && it.position <= 10 ? 1 : 0),
+              updatedAt: now,
+            }, {merge: true}));
+      }
+
+      await Promise.all(writes);
+      return {ok: true};
+    },
+);

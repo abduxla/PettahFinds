@@ -287,3 +287,51 @@ test("broadcastNotification rejects unauth, bad audience and bad content", async
     /businessId is required|invalid-argument/i,
   );
 });
+
+// ---------------------------------------------------------------------------
+// Analytics Phase A: recordSearchEvent input guards (offline).
+// ---------------------------------------------------------------------------
+
+test("recordSearchEvent rejects unauth, bad kinds, terms and items", async () => {
+  const rse = fft.wrap(fns.recordSearchEvent);
+  const U = {uid: "u1", token: {}};
+  await assert.rejects(
+    () => rse({data: {kind: "impressions", term: "phone", items: []},
+      app: APP}),
+    /unauthenticated|Sign in required/i,
+  );
+  await assert.rejects(
+    () => rse({data: {kind: "hover", term: "phone"}, auth: U, app: APP}),
+    /kind must be|invalid-argument/i,
+  );
+  await assert.rejects(
+    () => rse({data: {kind: "impressions", term: "x".repeat(61),
+      items: [{productId: "p", businessId: "b", position: 1}]},
+    auth: U, app: APP}),
+    /term must be|invalid-argument/i,
+  );
+  await assert.rejects(
+    () => rse({data: {kind: "impressions", term: "phone", items: []},
+      auth: U, app: APP}),
+    /items must contain|invalid-argument/i,
+  );
+  const eleven = Array.from({length: 11}, (_, i) => ({
+    productId: `p${i}`, businessId: "b", position: i + 1,
+  }));
+  await assert.rejects(
+    () => rse({data: {kind: "impressions", term: "phone", items: eleven},
+      auth: U, app: APP}),
+    /items must contain|invalid-argument/i,
+  );
+  await assert.rejects(
+    () => rse({data: {kind: "impressions", term: "phone",
+      items: [{productId: "p", businessId: "b", position: 99}]},
+    auth: U, app: APP}),
+    /each item needs|invalid-argument/i,
+  );
+  await assert.rejects(
+    () => rse({data: {kind: "click", term: "phone", productId: "p",
+      position: 3}, auth: U, app: APP}),
+    /click needs|invalid-argument/i,
+  );
+});
