@@ -2947,6 +2947,9 @@ exports.nightlyMarketAggregation = onSchedule(
       for (const r of bizRows) {
         const p = prev.get(r.id) || {};
         const cat = categoryStats[r.category] || null;
+        // Previous per-product positions → movement arrows in the portal.
+        const prevProd = new Map((p.productPositions || [])
+            .map((x) => [x.productId, x.marketplacePosition]));
         const myProducts = (prodByBiz.get(r.id) || [])
             .sort(byEngagement)
             .slice(0, 100) // doc-size guard; covers every current cap tier
@@ -2958,6 +2961,7 @@ exports.nightlyMarketAggregation = onSchedule(
               marketplacePosition: x.marketplacePosition,
               tierPosition: x.tierPosition,
               categoryPosition: x.categoryPosition,
+              prevMarketplacePosition: prevProd.get(x.id) || null,
             }));
         batch.set(db.collection("bizInsights").doc(r.id), {
           businessId: r.id,
