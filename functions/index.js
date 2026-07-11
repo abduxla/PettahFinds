@@ -2673,3 +2673,334 @@ exports.recordSearchEvent = onCall(
       return {ok: true};
     },
 );
+
+// ============================================================================
+// ANALYTICS PHASE B — nightly aggregation engine.
+//
+// One O(marketplace) pass at 03:30 Asia/Colombo computes everything the
+// tiered BI module displays, so portal pages are cheap single-doc reads
+// and NO merchant query ever touches another merchant's raw data:
+//
+//   bizInsights/{businessId}   PRIVATE per-business insights (owner+admin
+//                              read): marketplace/membership/category
+//                              positions + movement vs the previous run,
+//                              percentile band, per-product positions,
+//                              category benchmark deltas.
+//
+//   marketAggregates/latest    ANONYMOUS marketplace intelligence (any
+//   marketAggregates/{date}    signed-in read): category demand share,
+//                              category averages, tier averages, top /
+//                              trending / declining search terms. No
+//                              business or product identities inside.
+//
+// Rerunning is a pure overwrite of derived state — fully idempotent.
+// ============================================================================
+exports.nightlyMarketAggregation = onSchedule(
+    {
+      schedule: "30 3 * * *",
+      timeZone: "Asia/Colombo",
+      memory: "512MiB",
+      timeoutSeconds: 540,
+    },
+    async () => {
+      const today = colomboDayKey();
+      const dayKeyAgo = (n) =>
+        colomboDayKey(new Date(Date.now() - n * 86400000));
+
+      // ---------- load the marketplace ----------
+      const [bizSnap, bizStatsSnap, prodSnap, prodStatsSnap] =
+        await Promise.all([
+          db.collection("businesses").get(),
+          db.collection("business_stats").get(),
+          db.collection("products").where("isActive", "==", true)
+              .select("businessId", "category", "title").get(),
+          db.collection("product_stats").get(),
+        ]);
+
+      const businesses = new Map(); // id → {tier, category, ownerUid}
+      for (const d of bizSnap.docs) {
+        const b = d.data() || {};
+        businesses.set(d.id, {
+          tier: b.tier || "listed",
+          category: b.category || "Other",
+          suspended: b.suspended === true,
+        });
+      }
+      const bizStats = new Map(); // id → {profileViews,...}
+      for (const d of bizStatsSnap.docs) bizStats.set(d.id, d.data() || {});
+      const prodStats = new Map(); // id → {views, chats, saves}
+      for (const d of prodStatsSnap.docs) prodStats.set(d.id, d.data() || {});
+
+      // products joined with owner tier/category + engagement
+      const products = [];
+      for (const d of prodSnap.docs) {
+        const p = d.data() || {};
+        const owner = businesses.get(p.businessId);
+        if (!owner || owner.suspended) continue;
+        const s = prodStats.get(d.id) || {};
+        products.push({
+          id: d.id,
+          businessId: p.businessId,
+          category: p.category || owner.category || "Other",
+          tier: owner.tier,
+          views: s.views || 0,
+          chats: s.chats || 0,
+          saves: s.saves || 0,
+        });
+      }
+
+      // ---------- product rankings ----------
+      // Marketplace position = rank by lifetime views (ties broken by
+      // chats then saves so the order is stable night to night).
+      const byEngagement = (a, b) =>
+        (b.views - a.views) || (b.chats - a.chats) || (b.saves - a.saves);
+      products.sort(byEngagement);
+      const totalProducts = products.length;
+      const tierTotals = {};
+      const tierSeen = {};
+      const catTotals = {};
+      const catSeen = {};
+      for (const p of products) {
+        tierTotals[p.tier] = (tierTotals[p.tier] || 0) + 1;
+        catTotals[p.category] = (catTotals[p.category] || 0) + 1;
+      }
+      products.forEach((p, i) => {
+        p.marketplacePosition = i + 1;
+        tierSeen[p.tier] = (tierSeen[p.tier] || 0) + 1;
+        p.tierPosition = tierSeen[p.tier];
+        catSeen[p.category] = (catSeen[p.category] || 0) + 1;
+        p.categoryPosition = catSeen[p.category];
+      });
+
+      // ---------- business rankings ----------
+      const bizRows = [];
+      for (const [id, meta] of businesses) {
+        if (meta.suspended) continue;
+        const s = bizStats.get(id) || {};
+        bizRows.push({
+          id,
+          tier: meta.tier,
+          category: meta.category,
+          engagement: (s.profileViews || 0) + (s.productViews || 0) +
+            (s.chatsStarted || 0) + (s.saves || 0),
+          views: s.productViews || 0,
+          saves: s.saves || 0,
+          chats: s.chatsStarted || 0,
+        });
+      }
+      bizRows.sort((a, b) => b.engagement - a.engagement);
+      const totalBusinesses = bizRows.length;
+      const bTierTotals = {};
+      const bTierSeen = {};
+      for (const r of bizRows) {
+        bTierTotals[r.tier] = (bTierTotals[r.tier] || 0) + 1;
+      }
+      bizRows.forEach((r, i) => {
+        r.marketplacePosition = i + 1;
+        bTierSeen[r.tier] = (bTierSeen[r.tier] || 0) + 1;
+        r.tierPosition = bTierSeen[r.tier];
+        r.percentile = totalBusinesses > 1 ?
+          Math.ceil((r.marketplacePosition / totalBusinesses) * 100) : 100;
+      });
+      /** Human percentile band ("Top 5%") from a 1-100 percentile.
+       * @param {number} p percentile (lower = better).
+       * @return {string} display band. */
+      const band = (p) => {
+        for (const b of [1, 2, 5, 10, 25, 50]) {
+          if (p <= b) return `Top ${b}%`;
+        }
+        return "Growing";
+      };
+
+      // ---------- category benchmarks (anonymous averages) ----------
+      const catAgg = {}; // category → sums across businesses
+      for (const r of bizRows) {
+        const c = catAgg[r.category] ||
+          {businesses: 0, views: 0, saves: 0, chats: 0};
+        c.businesses++;
+        c.views += r.views;
+        c.saves += r.saves;
+        c.chats += r.chats;
+        catAgg[r.category] = c;
+      }
+      let marketViews = 0;
+      for (const c of Object.values(catAgg)) marketViews += c.views;
+      const categoryStats = {};
+      for (const [name, c] of Object.entries(catAgg)) {
+        categoryStats[name] = {
+          businesses: c.businesses,
+          products: catTotals[name] || 0,
+          avgViews: Math.round(c.views / c.businesses),
+          avgSaves: Math.round(c.saves / c.businesses),
+          avgChats: Math.round(c.chats / c.businesses),
+          demandSharePct: marketViews > 0 ?
+            Math.round((c.views / marketViews) * 1000) / 10 : 0,
+        };
+      }
+
+      // ---------- tier averages (incl. 7-day search visibility) ----------
+      const searchSnap = await db.collection("search_daily")
+          .where("date", ">=", dayKeyAgo(7)).get();
+      const bizSearch7 = new Map(); // businessId → {impressions, clicks}
+      for (const d of searchSnap.docs) {
+        const s = d.data() || {};
+        const cur = bizSearch7.get(s.businessId) ||
+          {impressions: 0, clicks: 0};
+        cur.impressions += s.impressions || 0;
+        cur.clicks += s.clicks || 0;
+        bizSearch7.set(s.businessId, cur);
+      }
+      const tierAverages = {};
+      for (const tier of ["listed", "spotlight", "prime", "elite"]) {
+        const rows = bizRows.filter((r) => r.tier === tier);
+        if (rows.length === 0) continue;
+        let imp = 0;
+        for (const r of rows) {
+          imp += (bizSearch7.get(r.id) || {}).impressions || 0;
+        }
+        tierAverages[tier] = {
+          businesses: rows.length,
+          avgEngagement: Math.round(
+              rows.reduce((a, r) => a + r.engagement, 0) / rows.length),
+          avgViews: Math.round(
+              rows.reduce((a, r) => a + r.views, 0) / rows.length),
+          avgSearchImpressions7d: Math.round(imp / rows.length),
+        };
+      }
+
+      // ---------- search-term intelligence (anonymized) ----------
+      const termsSnap = await db.collection("search_terms_daily")
+          .where("date", ">=", dayKeyAgo(30)).get();
+      const termAgg = new Map(); // term → {d1, d7, d30, prev7, clicks30}
+      for (const d of termsSnap.docs) {
+        const t = d.data() || {};
+        if (!t.term) continue;
+        const cur = termAgg.get(t.term) ||
+          {d1: 0, d7: 0, d30: 0, prev7: 0, clicks30: 0};
+        const searches = t.searches || 0;
+        cur.d30 += searches;
+        cur.clicks30 += t.clicks || 0;
+        if (t.date >= dayKeyAgo(1)) cur.d1 += searches;
+        if (t.date >= dayKeyAgo(7)) cur.d7 += searches;
+        else if (t.date >= dayKeyAgo(14)) cur.prev7 += searches;
+        termAgg.set(t.term, cur);
+      }
+      const termRows = [...termAgg.entries()].map(([term, v]) => ({
+        term, ...v,
+        growthPct: v.prev7 > 0 ?
+          Math.round(((v.d7 - v.prev7) / v.prev7) * 100) :
+          (v.d7 > 0 ? 100 : 0),
+      }));
+      const top = (key, n = 100) => [...termRows]
+          .sort((a, b) => b[key] - a[key])
+          .slice(0, n)
+          .filter((t) => t[key] > 0)
+          .map((t) => ({term: t.term, searches: t[key],
+            clicks: t.clicks30, growthPct: t.growthPct}));
+      const trending = [...termRows]
+          .filter((t) => t.d7 >= 3)
+          .sort((a, b) => b.growthPct - a.growthPct).slice(0, 25)
+          .map((t) => ({term: t.term, searches: t.d7,
+            growthPct: t.growthPct}));
+      const declining = [...termRows]
+          .filter((t) => t.prev7 >= 3)
+          .sort((a, b) => a.growthPct - b.growthPct).slice(0, 25)
+          .map((t) => ({term: t.term, searches: t.d7,
+            growthPct: t.growthPct}));
+
+      // ---------- write: anonymous market aggregates ----------
+      const aggregate = {
+        date: today,
+        totals: {
+          businesses: totalBusinesses,
+          products: totalProducts,
+          categories: Object.keys(categoryStats).length,
+        },
+        categoryStats,
+        tierAverages,
+        topTermsToday: top("d1"),
+        topTermsWeek: top("d7"),
+        topTermsMonth: top("d30"),
+        trendingTerms: trending,
+        decliningTerms: declining,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+      await db.collection("marketAggregates").doc("latest").set(aggregate);
+      await db.collection("marketAggregates").doc(today).set(aggregate);
+
+      // ---------- write: private per-business insights ----------
+      // Previous positions are read in bulk first so movement indicators
+      // compare against the prior run without N extra reads at write time.
+      const prevSnap = await db.collection("bizInsights").get();
+      const prev = new Map();
+      for (const d of prevSnap.docs) prev.set(d.id, d.data() || {});
+
+      const prodByBiz = new Map();
+      for (const p of products) {
+        const list = prodByBiz.get(p.businessId) || [];
+        list.push(p);
+        prodByBiz.set(p.businessId, list);
+      }
+
+      let batch = db.batch();
+      let inBatch = 0;
+      for (const r of bizRows) {
+        const p = prev.get(r.id) || {};
+        const cat = categoryStats[r.category] || null;
+        const myProducts = (prodByBiz.get(r.id) || [])
+            .sort(byEngagement)
+            .slice(0, 100) // doc-size guard; covers every current cap tier
+            .map((x) => ({
+              productId: x.id,
+              views: x.views,
+              chats: x.chats,
+              saves: x.saves,
+              marketplacePosition: x.marketplacePosition,
+              tierPosition: x.tierPosition,
+              categoryPosition: x.categoryPosition,
+            }));
+        batch.set(db.collection("bizInsights").doc(r.id), {
+          businessId: r.id,
+          date: today,
+          tier: r.tier,
+          category: r.category,
+          marketplacePosition: r.marketplacePosition,
+          totalBusinesses,
+          tierPosition: r.tierPosition,
+          tierTotal: bTierTotals[r.tier] || 0,
+          percentile: r.percentile,
+          percentileBand: band(r.percentile),
+          prevMarketplacePosition: p.marketplacePosition || null,
+          prevTierPosition: p.tierPosition || null,
+          categoryBenchmark: cat ? {
+            category: r.category,
+            avgViews: cat.avgViews,
+            avgSaves: cat.avgSaves,
+            avgChats: cat.avgChats,
+            myViews: r.views,
+            mySaves: r.saves,
+            myChats: r.chats,
+            viewsVsAvgPct: cat.avgViews > 0 ?
+              Math.round(((r.views - cat.avgViews) / cat.avgViews) * 100) :
+              0,
+          } : null,
+          search7d: bizSearch7.get(r.id) || {impressions: 0, clicks: 0},
+          totalProducts: (prodByBiz.get(r.id) || []).length,
+          marketplaceProductTotal: totalProducts,
+          tierProductTotal: tierTotals[r.tier] || 0,
+          productPositions: myProducts,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        inBatch++;
+        if (inBatch === 400) {
+          await batch.commit();
+          batch = db.batch();
+          inBatch = 0;
+        }
+      }
+      if (inBatch > 0) await batch.commit();
+
+      logger.info("[aggregation] nightly run complete:", totalBusinesses,
+          "businesses,", totalProducts, "products,", termAgg.size, "terms");
+    },
+);

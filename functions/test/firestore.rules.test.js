@@ -502,3 +502,33 @@ test("daily analytics buckets: no client writes, owner-scoped reads", async () =
     }),
   );
 });
+
+// ---------------------------------------------------------------------------
+// Analytics Phase B: insights are owner-private; market aggregates are
+// anonymous and read-only.
+// ---------------------------------------------------------------------------
+
+test("bizInsights owner-only; marketAggregates signed-in read, no writes", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "businesses", BIZ), {ownerUid: OWNER});
+    await setDoc(doc(ctx.firestore(), "bizInsights", BIZ), {
+      businessId: BIZ, marketplacePosition: 3, percentile: 4,
+    });
+    await setDoc(doc(ctx.firestore(), "marketAggregates", "latest"), {
+      totals: {businesses: 10}, categoryStats: {},
+    });
+  });
+  await assertSucceeds(getDoc(doc(db(OWNER), "bizInsights", BIZ)));
+  await assertFails(getDoc(doc(db(ATTACKER), "bizInsights", BIZ)));
+  await assertSucceeds(
+    getDoc(doc(db(ATTACKER), "marketAggregates", "latest")),
+  );
+  await assertFails(
+    updateDoc(doc(db(OWNER), "bizInsights", BIZ),
+      {marketplacePosition: 1}),
+  );
+  await assertFails(
+    setDoc(doc(db(ATTACKER), "marketAggregates", "latest"),
+      {totals: {businesses: 0}}),
+  );
+});

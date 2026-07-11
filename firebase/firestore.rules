@@ -644,6 +644,24 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Nightly per-business insights (positions, percentiles, benchmarks).
+    // Doc id == businessId; strictly owner + admin. Written only by the
+    // nightlyMarketAggregation job.
+    match /bizInsights/{businessId} {
+      allow read: if isAdmin()
+                  || (isSignedIn() && ownsBusiness(businessId));
+      allow write: if false;
+    }
+
+    // Anonymous marketplace aggregates (category demand, tier averages,
+    // top/trending terms). Contains NO business or product identities, so
+    // any signed-in user may read; tier gating of the fancy surfaces is a
+    // portal-UI concern. Written only by the nightly job.
+    match /marketAggregates/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
     // ---------- Upgrade requests (portal) ----------
     // One open request per business, doc id == businessId, created and
     // transitioned ONLY by the requestUpgrade/decideUpgrade callables.
