@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -6,15 +8,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../core/constants/categories.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/product.dart';
 import '../../../services/storage_service.dart';
+import '../../../utils/image_processor.dart';
 import '../../../utils/validators.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/shimmer_loading.dart';
+import 'camera_screen.dart';
 
 class AddEditProductScreen extends ConsumerStatefulWidget {
   final String? productId;
@@ -44,6 +49,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
   final _keywordsCtrl = TextEditingController();
   String? _selectedCategory;
   bool _saving = false;
+  bool _processingImage = false;
   bool _loadingProduct = false;
   bool _loadError = false;
   bool _acceptedListingResponsibility = false;
@@ -112,26 +118,145 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
+  // ── Image picking ──────────────────────────────────────────────────────────
+
+  /// Entry point — shows "Take Photo / Choose from Gallery / Cancel".
+  Future<void> _showImageSourceSheet() async {
     if (_existingUrls.length + _newFiles.length >= _maxImages) {
       context.showErrorSnackBar('Maximum $_maxImages images allowed');
       return;
     }
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Take Photo'),
+              onTap: () { Navigator.pop(ctx); _pickFromCamera(); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from Gallery'),
+              onTap: () { Navigator.pop(ctx); _pickFromGallery(); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.close),
+              title: const Text('Cancel'),
+              onTap: () => Navigator.pop(ctx),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Camera flow: check permission → open CameraScreen → process → add.
+  Future<void> _pickFromCamera() async {
+    // Permission check (Android requires explicit runtime grant; iOS prompts
+    // automatically when the CameraController initialises, but we check here
+    // so we can surface the "Open Settings" dialog on permanent denial).
+    final status = await Permission.camera.status;
+
+    if (status.isPermanentlyDenied) {
+      if (!mounted) return;
+      await _showPermissionDeniedDialog();
+      return;
+    }
+
+    if (!status.isGranted) {
+      final result = await Permission.camera.request();
+      if (!result.isGranted) {
+        if (!mounted) return;
+        if (result.isPermanentlyDenied) {
+          await _showPermissionDeniedDialog();
+        } else {
+          context.showErrorSnackBar(
+              'Camera permission is required to take photos.');
+        }
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    final XFile? captured = await Navigator.push<XFile>(
+      context,
+      MaterialPageRoute<XFile>(builder: (_) => const CameraScreen()),
+    );
+    if (captured == null || !mounted) return;
+    await _processAndAdd(captured);
+  }
+
+  /// Gallery flow: image_picker → process → add.
+  Future<void> _pickFromGallery() async {
     try {
       final picker = ImagePicker();
-      // imageQuality 70 + maxWidth 1280 keeps real uploads well under 1 MB
-      // on every device we've measured. Devices that ignore these hints
-      // are caught by the post-pick byte check in _uploadNewImages.
-      final picked = await picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 70,
-        maxWidth: 1280,
-      );
-      if (picked == null) return;
-      setState(() => _newFiles.add(picked));
+      final picked = await picker.pickImage(source: ImageSource.gallery);
+      if (picked == null || !mounted) return;
+      await _processAndAdd(picked);
     } catch (e) {
       if (mounted) context.showErrorSnackBar(e);
     }
+  }
+
+  /// Runs [processProductImage] in a background isolate, writes the result to
+  /// a temp file, and appends it to [_newFiles] so the existing upload
+  /// pipeline requires zero changes.
+  Future<void> _processAndAdd(XFile raw) async {
+    setState(() => _processingImage = true);
+    try {
+      final bytes = await processProductImage(raw.path);
+      final tmp = File(
+        '${Directory.systemTemp.path}'
+        '/pf_img_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+      await tmp.writeAsBytes(bytes, flush: true);
+      if (!mounted) return;
+      setState(() => _newFiles.add(XFile(tmp.path)));
+    } catch (e) {
+      if (mounted) context.showErrorSnackBar(e);
+    } finally {
+      if (mounted) setState(() => _processingImage = false);
+    }
+  }
+
+  Future<void> _showPermissionDeniedDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Camera Access Needed'),
+        content: const Text(
+          'PetaFinds needs camera access to take product photos. '
+          'Please open Settings and enable the Camera permission for PetaFinds.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              openAppSettings();
+            },
+            child: const Text('Open Settings'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _removeExistingUrl(int i) =>
@@ -505,9 +630,10 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
               existingUrls: _existingUrls,
               newFiles: _newFiles,
               maxImages: _maxImages,
-              onPick: _pickImage,
+              onPick: _showImageSourceSheet,
               onRemoveExisting: _removeExistingUrl,
               onRemoveNew: _removeNewFile,
+              processingImage: _processingImage,
             ),
             const SizedBox(height: 20),
 
@@ -760,6 +886,7 @@ class _ImagePickerGrid extends StatelessWidget {
   final VoidCallback onPick;
   final void Function(int) onRemoveExisting;
   final void Function(int) onRemoveNew;
+  final bool processingImage;
 
   const _ImagePickerGrid({
     required this.existingUrls,
@@ -768,6 +895,7 @@ class _ImagePickerGrid extends StatelessWidget {
     required this.onPick,
     required this.onRemoveExisting,
     required this.onRemoveNew,
+    this.processingImage = false,
   });
 
   @override
@@ -792,7 +920,9 @@ class _ImagePickerGrid extends StatelessWidget {
         onRemove: () => onRemoveNew(i),
       ));
     }
-    if (totalFilled < maxImages) {
+    if (processingImage) {
+      slots.add(const _ProcessingImageTile());
+    } else if (totalFilled < maxImages) {
       slots.add(_AddImageTile(onTap: onPick));
     }
 
@@ -894,6 +1024,28 @@ class _AddImageTile extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProcessingImageTile extends StatelessWidget {
+  const _ProcessingImageTile();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.bg,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border, width: 1.5),
+      ),
+      child: const Center(
+        child: SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(strokeWidth: 2),
         ),
       ),
     );

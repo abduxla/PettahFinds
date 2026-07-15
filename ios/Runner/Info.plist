@@ -53,11 +53,6 @@
 		ios/Runner/GoogleService-Info.plist and must stay in sync with
 		that file if Firebase regenerates the iOS OAuth client.
 	-->
-	<!-- image_picker: photo library and camera access -->
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>PetaFinds needs access to your photo library to upload a business logo or banner image.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>PetaFinds needs camera access to take a photo for your business profile.</string>
 	<!-- geolocator / mapbox: location for nearby-business map -->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>PetaFinds uses your location to show nearby businesses on the map.</string>
@@ -111,9 +106,9 @@
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>Petafinds uses your location to show nearby Pettah shops on the map and to surface businesses close to you.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Petafinds needs access to your photo library so you can attach photos to your business profile and product listings.</string>
+	<string>PetaFinds needs access to your photo library so you can add product photos to your business listings.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Petafinds uses the camera so you can take new photos of your products to attach to listings.</string>
+	<string>PetaFinds uses your camera so you can take product photos for your business listings.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Petafinds requests microphone access only when you attach a video to a listing.</string>
 </dict>
