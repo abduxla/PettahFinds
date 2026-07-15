@@ -17,7 +17,6 @@ import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/block_user_sheet.dart';
 import '../../../widgets/sign_in_required.dart';
-import '../../../widgets/tier_badge.dart';
 
 final _productDetailProvider =
     FutureProvider.autoDispose.family<Product, String>((ref, id) async {
@@ -668,11 +667,7 @@ class _SellerCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      // Membership level badge (nothing for Listed).
-                      if (business.effectiveTier.hasBadge) ...[
-                        const SizedBox(width: 6),
-                        TierBadge(tier: business.effectiveTier),
-                      ],
+                      // Tier hidden from customers by design.
                     ],
                   ),
                   const SizedBox(height: 2),
@@ -1306,7 +1301,7 @@ class _PricingBlock extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              productPriceLabel(product.priceLkr),
+              productPriceLabel(product.priceLkr, unit: product.unit),
               style: GoogleFonts.nunito(
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
@@ -1344,7 +1339,7 @@ class _PricingBlock extends StatelessWidget {
           _PriceRow(
             label: 'Retail',
             sub: 'per unit',
-            amount: productPriceLabel(product.priceLkr),
+            amount: productPriceLabel(product.priceLkr, unit: product.unit),
             emphasized: false,
           ),
           Padding(

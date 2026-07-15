@@ -829,7 +829,7 @@ class _AdminProductTileState extends ConsumerState<_AdminProductTile> {
                   Row(
                     children: [
                       Text(
-                        productPriceLabel(p.priceLkr),
+                        productPriceLabel(p.priceLkr, unit: p.unit),
                         style: GoogleFonts.dmSans(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,

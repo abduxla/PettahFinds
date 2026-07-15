@@ -16,7 +16,6 @@ import '../../../widgets/error_widget.dart';
 import '../../../widgets/sign_in_required.dart';
 import '../../../widgets/unread_badge.dart';
 import '../../../widgets/verify_email_banner.dart';
-import '../../../widgets/tier_badge.dart';
 
 // ---------- Real-data providers ----------
 final _homeBusinessByIdProvider =
@@ -233,8 +232,12 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                 // colour in dark mode.
                 SliverToBoxAdapter(child: _FeaturedSection()),
 
-                // ---- Featured shops (paid levels, rotated fairly) ----
-                const SliverToBoxAdapter(child: _FeaturedShopsStrip()),
+                // ---- Featured shops ----
+                // Hidden from customers for now: while every business is on
+                // a free trial, showcasing paid placement would expose who
+                // paid more. Re-enable after the trial period (widget kept
+                // below). Paid ranking still applies invisibly in search.
+                // const SliverToBoxAdapter(child: _FeaturedShopsStrip()),
 
                 // ---- Recently Viewed (white section) ----
                 SliverToBoxAdapter(
@@ -573,6 +576,11 @@ class _HeaderIconButton extends StatelessWidget {
 /// Horizontal strip of paid-level shops on the home screen. Hidden
 /// entirely when there are no featured shops. The repository rotates the
 /// order over time so featuring is fair rather than fixed.
+///
+/// Currently NOT rendered (see the commented sliver in the home build) —
+/// held back during the all-businesses free trial so paid placement isn't
+/// exposed. Retained intact for re-enabling later.
+// ignore: unused_element
 class _FeaturedShopsStrip extends ConsumerWidget {
   const _FeaturedShopsStrip();
 
@@ -676,33 +684,8 @@ class _FeaturedShopCard extends StatelessWidget {
                       letterSpacing: -0.2,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  TierBadge(tier: business.effectiveTier),
-                  // Vibranium shops carry the market-leader mark on the
-                  // featured strip (the "Recommended Supplier" perk).
-                  if (business.effectiveTier.isRecommendedSupplier) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.verified_rounded,
-                            size: 11, color: AppColors.orange),
-                        const SizedBox(width: 3),
-                        Flexible(
-                          child: Text(
-                            'Recommended Supplier',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.dmSans(
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.orange,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                  // Tier / Recommended-Supplier markers intentionally omitted
+                  // — tier is never surfaced to customers.
                   const SizedBox(height: 4),
                   Text(
                     '${business.category} • ${business.location}',
@@ -1131,7 +1114,7 @@ class _RecentlyViewedSection extends StatelessWidget {
           ),
           const SizedBox(height: 13),
           SizedBox(
-            height: 194,
+            height: 216,
             child: ScrollConfiguration(
               behavior: const _NoScrollbarBehavior(),
               child: ListView.separated(
@@ -1167,7 +1150,7 @@ class _RecentlyViewedCard extends ConsumerWidget {
     return _TapScale(
       onTap: () => context.push('/home/product/${product.id}'),
       child: Container(
-        width: 120,
+        width: 140,
         decoration: BoxDecoration(
           color: AppColors.bg,
           border: Border.all(color: AppColors.border),
@@ -1179,7 +1162,7 @@ class _RecentlyViewedCard extends ConsumerWidget {
             Stack(
               children: [
                 Container(
-                  height: 90,
+                  height: 108,
                   width: double.infinity,
                   decoration: BoxDecoration(
                     color: tileColor,
@@ -1195,7 +1178,7 @@ class _RecentlyViewedCard extends ConsumerWidget {
                           child: CachedImage(
                             imageUrl: product.image1Url,
                             width: double.infinity,
-                            height: 90,
+                            height: 108,
                             placeholderIcon: Icons.shopping_bag_outlined,
                           ),
                         )
@@ -1233,7 +1216,7 @@ class _RecentlyViewedCard extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    productPriceLabel(product.priceLkr),
+                    productPriceLabel(product.priceLkr, unit: product.unit),
                     style: GoogleFonts.nunito(
                       fontWeight: FontWeight.w800,
                       fontSize: 13,
@@ -1335,7 +1318,7 @@ class _CategorySection extends StatelessWidget {
           const SizedBox(height: 12),
           // Horizontal product scroll
           SizedBox(
-            height: 240,
+            height: 272,
             child: ScrollConfiguration(
               behavior: const _NoScrollbarBehavior(),
               child: ListView.separated(
@@ -1395,7 +1378,7 @@ class _CategorySection extends StatelessWidget {
 }
 
 // =========================================================================
-// PRODUCT CARD (width 150)
+// PRODUCT CARD (width 170)
 // =========================================================================
 class _ProductCard extends ConsumerWidget {
   final Product product;
@@ -1409,7 +1392,7 @@ class _ProductCard extends ConsumerWidget {
     return _TapScale(
       onTap: () => context.push('/home/product/${product.id}'),
       child: SizedBox(
-        width: 150,
+        width: 170,
         child: Container(
           decoration: BoxDecoration(
             color: AppColors.bg,
@@ -1422,7 +1405,7 @@ class _ProductCard extends ConsumerWidget {
               Stack(
                 children: [
                   Container(
-                    height: 108,
+                    height: 132,
                     width: double.infinity,
                     decoration: BoxDecoration(
                       color: tileColor,
@@ -1438,7 +1421,7 @@ class _ProductCard extends ConsumerWidget {
                             child: CachedImage(
                               imageUrl: product.image1Url,
                               width: double.infinity,
-                              height: 108,
+                              height: 132,
                               placeholderIcon: Icons.shopping_bag_outlined,
                             ),
                           )
@@ -1475,7 +1458,7 @@ class _ProductCard extends ConsumerWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      productPriceLabel(product.priceLkr),
+                      productPriceLabel(product.priceLkr, unit: product.unit),
                       style: GoogleFonts.nunito(
                         fontWeight: FontWeight.w800,
                         fontSize: 15,

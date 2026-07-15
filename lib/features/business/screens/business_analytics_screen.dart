@@ -82,7 +82,6 @@ class _LoadedAnalytics extends ConsumerWidget {
     final products =
         ref.watch(businessProductsProvider(businessId)).valueOrNull ??
             <Product>[];
-    final titles = {for (final p in products) p.id: p.title};
 
     return statsAsync.when(
       loading: () => LoadingWidget(),
@@ -94,7 +93,7 @@ class _LoadedAnalytics extends ConsumerWidget {
         stats: stats,
         tier: tier,
         productStats: productStats,
-        titles: titles,
+        products: products,
       ),
     );
   }
@@ -104,17 +103,31 @@ class _AnalyticsBody extends StatelessWidget {
   final BusinessStats stats;
   final BusinessTier tier;
   final List<ProductStat> productStats;
-  final Map<String, String> titles;
+  final List<Product> products;
   const _AnalyticsBody({
     required this.stats,
     required this.tier,
     required this.productStats,
-    required this.titles,
+    required this.products,
   });
 
   @override
   Widget build(BuildContext context) {
-    final ranked = productStats.where((p) => p.views > 0 || p.chats > 0).toList();
+    // Build a row for EVERY product the shop has, joining its stats
+    // (defaulting to zero for products no one has viewed yet). Previously
+    // this listed only products with recorded views, so a just-added
+    // product never appeared until a customer opened it — the seller
+    // couldn't confirm it was being tracked. Sort by views desc, then
+    // newest first so a brand-new listing surfaces at the top of the
+    // zero-activity group instead of vanishing.
+    final statById = {for (final s in productStats) s.productId: s};
+    final ranked = [...products]
+      ..sort((a, b) {
+        final av = statById[a.id]?.views ?? 0;
+        final bv = statById[b.id]?.views ?? 0;
+        if (av != bv) return bv.compareTo(av);
+        return b.createdAt.compareTo(a.createdAt);
+      });
 
     return ListView(
       padding: EdgeInsets.fromLTRB(20, 16, 20, 32),
@@ -147,7 +160,7 @@ class _AnalyticsBody extends StatelessWidget {
         Row(
           children: [
             Text(
-              'Top products',
+              'Your products',
               style: GoogleFonts.nunito(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
@@ -156,7 +169,7 @@ class _AnalyticsBody extends StatelessWidget {
             ),
             SizedBox(width: 6),
             Text(
-              'by views',
+              'ranked by views',
               style: GoogleFonts.dmSans(
                 fontSize: 12,
                 color: AppColors.text3,
@@ -175,8 +188,8 @@ class _AnalyticsBody extends StatelessWidget {
             ),
             child: Center(
               child: Text(
-                'No product activity yet. As customers open your listings, '
-                'your most-viewed products will rank here.',
+                'Add your first product and it will appear here, ready to '
+                'track as customers start browsing.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.dmSans(
                   fontSize: 13,
@@ -195,20 +208,19 @@ class _AnalyticsBody extends StatelessWidget {
             ),
             child: Column(
               children: [
-                for (var i = 0; i < ranked.length && i < 15; i++) ...[
+                for (var i = 0; i < ranked.length; i++) ...[
                   if (i > 0)
                     Divider(
                         height: 1, indent: 16, endIndent: 16,
                         color: AppColors.border),
                   _ProductStatRow(
                     rank: i + 1,
-                    productId: ranked[i].productId,
-                    title: titles[ranked[i].productId] ?? 'Removed product',
-                    views: ranked[i].views,
-                    saves: ranked[i].saves,
-                    chats: ranked[i].chats,
-                    // Only navigate to listings that still exist.
-                    tappable: titles.containsKey(ranked[i].productId),
+                    productId: ranked[i].id,
+                    title: ranked[i].title,
+                    views: statById[ranked[i].id]?.views ?? 0,
+                    saves: statById[ranked[i].id]?.saves ?? 0,
+                    chats: statById[ranked[i].id]?.chats ?? 0,
+                    tappable: true,
                   ),
                 ],
               ],

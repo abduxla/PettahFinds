@@ -20,7 +20,6 @@ import '../../../utils/maps_launcher.dart';
 import '../../../utils/whatsapp.dart';
 import '../../../widgets/whatsapp_icon.dart';
 import '../../../widgets/founding_badge.dart';
-import '../../../widgets/tier_badge.dart';
 
 // Stable family providers — defined top-level so `ref.invalidate` targets
 // the same instance the UI is watching and rebuilds don't re-subscribe.
@@ -217,11 +216,10 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis),
                                     ),
-                                    // Membership level badge (nothing for Listed).
-                                    if (business.effectiveTier.hasBadge) ...[
-                                      const SizedBox(width: 8),
-                                      TierBadge(tier: business.effectiveTier),
-                                    ],
+                                    // Membership tier is intentionally NOT
+                                    // shown to customers — paid placement is
+                                    // an invisible advantage, never a visible
+                                    // "who paid more" label.
                                   ],
                                 ),
                                 // Founding-50 honor — permanent, backend-stamped.
@@ -1171,7 +1169,7 @@ class _BusinessProductGridCell extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      productPriceLabel(product.priceLkr),
+                      productPriceLabel(product.priceLkr, unit: product.unit),
                       style: GoogleFonts.nunito(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,

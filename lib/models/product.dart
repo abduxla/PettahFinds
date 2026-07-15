@@ -16,6 +16,11 @@ class Product {
   /// use chat instead. The historical field name stays `priceLkr` so old
   /// docs round-trip unchanged.
   final double? priceLkr;
+  /// Selling unit label for goods priced per measure — e.g. "Meter",
+  /// "Litre", "Roll", "Kg". Empty = priced per item (the default). When
+  /// set, the price renders as "LKR 950 / Meter". Optional; only shops
+  /// that sell fabrics, liquids etc. need it.
+  final String unit;
   /// Per-unit wholesale price for bulk orders. `0` = not offered; the
   /// detail screen then hides the wholesale row entirely.
   final double wholesalePriceLkr;
@@ -45,6 +50,7 @@ class Product {
     this.image3Url = '',
     this.image4Url = '',
     this.priceLkr,
+    this.unit = '',
     this.wholesalePriceLkr = 0.0,
     this.minOrderQuantity = 0,
     this.keywords = '',
@@ -85,6 +91,7 @@ class Product {
       image3Url: data['image3Url'] ?? '',
       image4Url: data['image4Url'] ?? '',
       priceLkr: (data['priceLkr'] as num?)?.toDouble(),
+      unit: data['unit'] ?? '',
       wholesalePriceLkr:
           (data['wholesalePriceLkr'] ?? 0.0).toDouble(),
       minOrderQuantity:
@@ -111,6 +118,7 @@ class Product {
         'image3Url': image3Url,
         'image4Url': image4Url,
         'priceLkr': priceLkr,
+        'unit': unit,
         'wholesalePriceLkr': wholesalePriceLkr,
         'minOrderQuantity': minOrderQuantity,
         'keywords': keywords,
@@ -135,6 +143,7 @@ class Product {
     String? image3Url,
     String? image4Url,
     Object? priceLkr = _unsetPrice,
+    String? unit,
     double? wholesalePriceLkr,
     int? minOrderQuantity,
     String? keywords,
@@ -156,6 +165,7 @@ class Product {
         priceLkr: identical(priceLkr, _unsetPrice)
             ? this.priceLkr
             : priceLkr as double?,
+        unit: unit ?? this.unit,
         wholesalePriceLkr: wholesalePriceLkr ?? this.wholesalePriceLkr,
         minOrderQuantity: minOrderQuantity ?? this.minOrderQuantity,
         keywords: keywords ?? this.keywords,

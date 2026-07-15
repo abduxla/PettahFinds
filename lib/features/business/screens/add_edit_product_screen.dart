@@ -31,6 +31,10 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
   final _shortTitleCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _priceCtrl = TextEditingController();
+  // Optional selling unit (e.g. "Meter", "Litre") for goods priced per
+  // measure; blank = priced per item. Pairs with the retail price to
+  // render "LKR 950 / Meter" on cards.
+  final _unitCtrl = TextEditingController();
   // Optional wholesale tier. Treated as a paired pair — both filled or
   // both blank. Half-configured states are rejected by `_submit` so the
   // detail screen never has to handle a wholesale price without an MOQ
@@ -75,6 +79,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       _selectedCategory = AppCategories.normalize(product.category);
       // Price-on-request products keep the field blank (not "null"/"0").
       _priceCtrl.text = product.hasPrice ? product.priceLkr!.toString() : '';
+      _unitCtrl.text = product.unit;
       // Wholesale tier round-trip: only hydrate when the stored values
       // are non-zero, so the form fields stay blank (not "0") for
       // single-tier products.
@@ -100,6 +105,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     _shortTitleCtrl.dispose();
     _descCtrl.dispose();
     _priceCtrl.dispose();
+    _unitCtrl.dispose();
     _wholesalePriceCtrl.dispose();
     _moqCtrl.dispose();
     _keywordsCtrl.dispose();
@@ -332,6 +338,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
                 priceLkr: _priceCtrl.text.trim().isEmpty
                     ? null
                     : double.parse(_priceCtrl.text.trim()),
+                unit: _unitCtrl.text.trim(),
                 wholesalePriceLkr: wholesalePrice,
                 minOrderQuantity: moq,
                 keywords: _keywordsCtrl.text.trim(),
@@ -365,6 +372,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
               priceLkr: _priceCtrl.text.trim().isEmpty
                   ? null
                   : double.parse(_priceCtrl.text.trim()),
+              unit: _unitCtrl.text.trim(),
               wholesalePriceLkr: wholesalePrice,
               minOrderQuantity: moq,
               keywords: _keywordsCtrl.text.trim(),
@@ -575,6 +583,27 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
               child: Text(
                 'Leave empty to show "Ask for price" — buyers will chat '
                 'with you for today\'s price instead.',
+                style: GoogleFonts.dmSans(
+                  fontSize: 11.5,
+                  color: AppColors.text3,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Optional selling unit — for fabrics, liquids etc. priced per
+            // measure. Renders "LKR 950 / Meter" when set.
+            _buildField(
+              controller: _unitCtrl,
+              label: 'Priced per unit (optional)',
+              icon: Icons.straighten_rounded,
+              hint: 'e.g. Meter, Litre, Roll, Kg',
+              maxLength: 12,
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 6, left: 4),
+              child: Text(
+                'For goods sold by measure — shows the price as '
+                '"LKR 950 / Meter". Leave blank for per-item pricing.',
                 style: GoogleFonts.dmSans(
                   fontSize: 11.5,
                   color: AppColors.text3,

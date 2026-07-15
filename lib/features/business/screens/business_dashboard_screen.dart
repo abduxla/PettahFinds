@@ -739,7 +739,7 @@ class _MerchantProductCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      productPriceLabel(product.priceLkr),
+                      productPriceLabel(product.priceLkr, unit: product.unit),
                       style: GoogleFonts.nunito(
                         fontWeight: FontWeight.w800,
                         fontSize: 15,

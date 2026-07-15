@@ -204,7 +204,7 @@ class _ProductFavTile extends StatelessWidget {
       fallbackIcon: Icons.shopping_bag_outlined,
       typeLabel: 'PRODUCT',
       title: product.title,
-      subtitle: productPriceLabel(product.priceLkr),
+      subtitle: productPriceLabel(product.priceLkr, unit: product.unit),
       subtitleColor: AppColors.teal,
       subtitleWeight: FontWeight.w800,
       subtitleFont: 'nunito',

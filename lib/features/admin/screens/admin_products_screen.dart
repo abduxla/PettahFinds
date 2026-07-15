@@ -37,7 +37,7 @@ class AdminProductsScreen extends ConsumerWidget {
                       ),
                       title: Text(p.title),
                       subtitle: Text(
-                        '${productPriceLabel(p.priceLkr)} • ${p.category}\nBusiness: ${p.businessId}',
+                        '${productPriceLabel(p.priceLkr, unit: p.unit)} • ${p.category}\nBusiness: ${p.businessId}',
                         maxLines: 2,
                       ),
                       trailing: Chip(
