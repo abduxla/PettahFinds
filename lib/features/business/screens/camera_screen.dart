@@ -232,21 +232,28 @@ class _CameraScreenState extends State<CameraScreen>
     }
 
     final ctrl = _controller!;
-    final ps = ctrl.value.previewSize ?? const Size(4, 3);
-    // Android reports the sensor size in landscape (width > height).
-    // Swap to portrait so FittedBox.cover fills the phone screen correctly.
-    final previewW = Platform.isAndroid ? ps.height : ps.width;
-    final previewH = Platform.isAndroid ? ps.width : ps.height;
+    final size = MediaQuery.sizeOf(context);
 
-    return SizedBox.expand(
-      child: ClipRect(
-        child: FittedBox(
-          fit: BoxFit.cover,
-          child: SizedBox(
-            width: previewW,
-            height: previewH,
-            child: CameraPreview(ctrl),
-          ),
+    // Fill the portrait screen with a cover-crop that PRESERVES the
+    // camera's real aspect ratio, so the preview never stretches.
+    //
+    // `controller.value.aspectRatio` is reported in the sensor's natural
+    // (landscape, > 1) orientation on BOTH iOS and Android, so the old
+    // approach — a fixed-size SizedBox that only swapped width/height on
+    // Android — squashed the portrait preview into a landscape box on
+    // iOS and smeared it horizontally. `CameraPreview` already sizes
+    // itself to the camera aspect ratio; centring it and scaling up by
+    // the ratio mismatch covers the screen with pure zoom (no distortion,
+    // just crop of the excess), which is how a normal camera behaves.
+    var scale = size.aspectRatio * ctrl.value.aspectRatio;
+    if (scale < 1) scale = 1 / scale;
+
+    return ClipRect(
+      child: Transform.scale(
+        scale: scale,
+        alignment: Alignment.center,
+        child: Center(
+          child: CameraPreview(ctrl),
         ),
       ),
     );
