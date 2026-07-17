@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/providers/providers.dart';
 import '../../../models/business.dart';
 import '../../../widgets/cached_image.dart';
+import '../../../utils/marketplace_rank.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/empty_state_widget.dart';
@@ -27,7 +28,11 @@ class BusinessesListScreen extends ConsumerWidget {
         ),
       ),
       body: businessesAsync.when(
-        data: (businesses) {
+        data: (raw) {
+          // App-wide marketplace ranking: premium band (Vibranium +
+          // Platinum) first, then Gold, then Silver; recency decides
+          // within a band. See utils/marketplace_rank.dart.
+          final businesses = rankMarketplaceBusinesses(raw);
           if (businesses.isEmpty) {
             return const EmptyStateWidget(
               icon: Icons.store_outlined,

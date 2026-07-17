@@ -641,6 +641,27 @@ exports.recordEngagement = onCall({enforceAppCheck: true}, async (request) => {
     }
   };
 
+  // Total-exposure counting with a light abuse guard. Every genuine
+  // repeat view counts (the counter represents exposure, not unique
+  // visitors), but the same viewer hammering one product is bounded:
+  // a counted view per (viewer, product) at most every 20 seconds and
+  // at most 30 per day. App Check already blocks scripted callers
+  // outside the genuine app; this bounds what one real device can
+  // inflate. Uncounted calls still return ok so browsing never breaks.
+  if (type === "productView" && prodRef) {
+    const guardRef = db.collection("engagement_guard")
+        .doc(`${request.auth.uid}_${productId}`);
+    const guardSnap = await guardRef.get();
+    const g = guardSnap.exists ? (guardSnap.data() || {}) : {};
+    const nowMs = Date.now();
+    const dayCount = g.date === day ? (g.count || 0) : 0;
+    if ((g.lastAtMs && nowMs - g.lastAtMs < 20000) || dayCount >= 30) {
+      return {ok: true, counted: false};
+    }
+    writes.push(guardRef.set(
+        {date: day, count: dayCount + 1, lastAtMs: nowMs}));
+  }
+
   switch (type) {
     case "profileView":
       writes.push(bizRef.set(
@@ -2713,7 +2734,7 @@ exports.nightlyMarketAggregation = onSchedule(
           db.collection("businesses").get(),
           db.collection("business_stats").get(),
           db.collection("products").where("isActive", "==", true)
-              .select("businessId", "category", "title").get(),
+              .select("businessId", "category", "title", "rankViews").get(),
           db.collection("product_stats").get(),
         ]);
 
@@ -2771,6 +2792,38 @@ exports.nightlyMarketAggregation = onSchedule(
         catSeen[p.category] = (catSeen[p.category] || 0) + 1;
         p.categoryPosition = catSeen[p.category];
       });
+
+      // ---------- denormalize rankViews onto product docs ----------
+      // Discovery surfaces rank client-side (tier band first, views as
+      // the within-band refinement — utils/marketplace_rank.dart) but
+      // product_stats is owner-readable only. A nightly changed-docs-only
+      // copy of the lifetime view count onto the public product doc gives
+      // every surface the signal at zero per-view write cost, without
+      // churning customer product streams during the day. rankViews is
+      // backend-owned (blocked in the products update rule).
+      {
+        const currentRank = new Map();
+        for (const d of prodSnap.docs) {
+          currentRank.set(d.id, (d.data() || {}).rankViews || 0);
+        }
+        let rb = db.batch();
+        let rn = 0;
+        let rankWrites = 0;
+        for (const p of products) {
+          if ((currentRank.get(p.id) || 0) === p.views) continue;
+          rb.update(
+              db.collection("products").doc(p.id), {rankViews: p.views});
+          rankWrites++;
+          if (++rn === 400) {
+            await rb.commit();
+            rb = db.batch();
+            rn = 0;
+          }
+        }
+        if (rn > 0) await rb.commit();
+        logger.info("[aggregation] rankViews refreshed on",
+            rankWrites, "products");
+      }
 
       // ---------- business rankings ----------
       const bizRows = [];

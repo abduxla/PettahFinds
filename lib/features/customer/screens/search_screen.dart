@@ -6,7 +6,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../models/business.dart';
 import '../../../models/product.dart';
+import '../../../utils/marketplace_rank.dart';
 import '../../../widgets/empty_state_widget.dart';
 import '../../../widgets/product_card.dart';
 
@@ -121,8 +123,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   /// Returns the products list sorted per the active SearchSortOption.
   /// In-memory only — does NOT issue a new Firestore query, so no
   /// composite index is required for any sort mode.
+  ///
+  /// Default (no explicit sort) applies the app-wide marketplace
+  /// ranking so search matches every other discovery surface: tier
+  /// band first, views within the band, join-date tie-breakers. The
+  /// explicit price/review sorts are user choices and override it.
   List<Product> _sortedProducts(SearchSortOption? mode) {
-    if (mode == null) return _products;
+    Business? bizOf(String id) {
+      final list = ref.read(allBusinessesProvider).valueOrNull;
+      if (list == null) return null;
+      for (final b in list) {
+        if (b.id == id) return b;
+      }
+      return null;
+    }
+
+    if (mode == null) return rankMarketplaceProducts(_products, bizOf);
     final out = [..._products];
     switch (mode) {
       case SearchSortOption.bestReviewed:
@@ -139,11 +155,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             .compareTo(a.hasPrice ? a.priceLkr! : -1.0));
         break;
       case SearchSortOption.mostFeatured:
-        // TODO(featured): switch to a real `isFeatured` bool on Product
-        // when admin/merchant tooling for promoting listings lands. For
-        // now newest-first is the closest proxy.
-        out.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        break;
+        // "Most Featured" is now literally the marketplace ranking —
+        // premium tiers lead, ordered by real engagement.
+        return rankMarketplaceProducts(_products, bizOf);
     }
     return out;
   }

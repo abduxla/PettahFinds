@@ -41,6 +41,14 @@ class Product {
   /// has to scan the whole reviews collection.
   final double ratingAvg;
   final int ratingCount;
+  /// Lifetime view count, denormalized onto the doc once a night by the
+  /// nightlyMarketAggregation Cloud Function so customer discovery
+  /// surfaces can rank by popularity without reading the owner-only
+  /// product_stats collection. BACKEND-OWNED: deliberately absent from
+  /// [toMap] and blocked in the products update rule, so client writes
+  /// can never touch it. Coarse by design — ranking uses views as a
+  /// refinement within a tier band, so nightly freshness is plenty.
+  final int rankViews;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -64,6 +72,7 @@ class Product {
     this.pinnedAt,
     this.ratingAvg = 0.0,
     this.ratingCount = 0,
+    this.rankViews = 0,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -110,6 +119,7 @@ class Product {
       pinnedAt: (data['pinnedAt'] as Timestamp?)?.toDate(),
       ratingAvg: (data['ratingAvg'] ?? 0.0).toDouble(),
       ratingCount: (data['ratingCount'] as num?)?.toInt() ?? 0,
+      rankViews: (data['rankViews'] as num?)?.toInt() ?? 0,
       createdAt:
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       updatedAt:
@@ -185,6 +195,7 @@ class Product {
         pinnedAt: pinnedAt,
         ratingAvg: ratingAvg ?? this.ratingAvg,
         ratingCount: ratingCount ?? this.ratingCount,
+        rankViews: rankViews,
         createdAt: createdAt,
         updatedAt: DateTime.now(),
       );

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
 import '../../../models/business.dart';
+import '../../../utils/marketplace_rank.dart';
 import '../../../widgets/cached_image.dart';
 import '../../../widgets/empty_state_widget.dart';
 
@@ -80,7 +81,9 @@ class _BusinessSearchScreenState extends ConsumerState<BusinessSearchScreen> {
           await ref.read(businessRepositoryProvider).search(query);
       if (mounted) {
         setState(() {
-          _results = businesses;
+          // Same tier-band ordering as every other discovery surface;
+          // relevance order is preserved within each band.
+          _results = rankMarketplaceBusinesses(businesses);
         });
       }
     } catch (e) {

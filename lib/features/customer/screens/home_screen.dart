@@ -110,17 +110,17 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
     super.dispose();
   }
 
-  /// Reorder [products] within each category bucket so that:
-  ///  1. Categories the user has shown interest in (via product views)
-  ///     appear first.
-  ///  2. Within each category, products NOT previously shown on the
-  ///     home feed appear before already-shown ones.
-  ///  3. Each sub-group is shuffled so the same refresh doesn't
-  ///     produce the same order twice.
+  /// Order the category SECTIONS by user interest (categories the user
+  /// views most lead the feed). Product order WITHIN each section is
+  /// inherited untouched from [customerVisibleProductsProvider], which
+  /// applies the app-wide marketplace ranking (tier band → views →
+  /// join-date tie-breakers — see utils/marketplace_rank.dart). The old
+  /// unseen-first shuffle was removed deliberately: every discovery
+  /// surface must present the same deterministic ranking, and a shuffle
+  /// would let Silver products land above premium ones.
   List<_CategoryBucket> _buildInterestSections(
     List<Product> products,
     List<String> rankedCategories,
-    Set<String> shownIds,
   ) {
     if (products.isEmpty) return const [];
     final byCategory = <String, List<Product>>{};
@@ -148,14 +148,7 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
     for (final key in orderedKeys) {
       final bucket = byCategory[key];
       if (bucket == null || bucket.isEmpty) continue;
-
-      // Split into unseen vs. already-shown, shuffle each group,
-      // then concatenate so fresh products appear first.
-      final unseen = bucket.where((p) => !shownIds.contains(p.id)).toList()
-        ..shuffle();
-      final seen = bucket.where((p) => shownIds.contains(p.id)).toList()
-        ..shuffle();
-      ordered.add(_CategoryBucket(key, [...unseen, ...seen]));
+      ordered.add(_CategoryBucket(key, bucket));
     }
     return ordered;
   }
@@ -301,24 +294,13 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   /// Async helper that fetches interest data and builds sections.
+  /// (The shown-products rotation was retired with the deterministic
+  /// marketplace ranking — see _buildInterestSections.)
   Future<List<_CategoryBucket>> _loadInterestSections(
       List<Product> products) async {
     final service = ref.read(interestServiceProvider);
     final ranked = await service.rankedCategories();
-    final shown = await service.shownProductIds();
-    final sections = _buildInterestSections(products, ranked, shown);
-    // Mark the first few products of each section as "shown" so the
-    // NEXT refresh will de-prioritise them.
-    final toMark = <String>[];
-    for (final s in sections) {
-      // Mark up to 6 per category (roughly what fits in the horizontal
-      // scroll without the user manually scrolling).
-      for (var i = 0; i < s.products.length && i < 6; i++) {
-        toMark.add(s.products[i].id);
-      }
-    }
-    service.markShown(toMark);
-    return sections;
+    return _buildInterestSections(products, ranked);
   }
 
   /// Preferred category order from the spec.

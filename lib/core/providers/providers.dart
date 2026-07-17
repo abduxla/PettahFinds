@@ -21,6 +21,7 @@ import '../../services/chat_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/recently_viewed_service.dart';
 import '../../services/interest_service.dart';
+import '../../utils/marketplace_rank.dart';
 import '../../models/business.dart';
 import '../../models/chat_message.dart';
 import '../../models/conversation.dart';
@@ -185,11 +186,16 @@ final customerVisibleProductsProvider =
     return AsyncValue.error(
         businesses.error!, businesses.stackTrace ?? StackTrace.current);
   }
-  final verifiedIds =
-      businesses.requireValue.map((b) => b.id).toSet();
-  return AsyncValue.data(products.requireValue
-      .where((p) => verifiedIds.contains(p.businessId))
-      .toList());
+  // Verified-filter, then the shared marketplace ranking (tier band →
+  // views → join-date tie-breakers, utils/marketplace_rank.dart) so
+  // home, See-all and every downstream consumer share ONE order.
+  final bizById = {for (final b in businesses.requireValue) b.id: b};
+  return AsyncValue.data(rankMarketplaceProducts(
+    products.requireValue
+        .where((p) => bizById.containsKey(p.businessId))
+        .toList(),
+    (id) => bizById[id],
+  ));
 });
 
 /// Live newest-100 reviews for a single product. Mirrors
@@ -416,11 +422,15 @@ final customerVisibleProductsByCategoryProvider = Provider.autoDispose
     return AsyncValue.error(
         businesses.error!, businesses.stackTrace ?? StackTrace.current);
   }
-  final verifiedIds =
-      businesses.requireValue.map((b) => b.id).toSet();
-  return AsyncValue.data(products.requireValue
-      .where((p) => verifiedIds.contains(p.businessId))
-      .toList());
+  // Same verified-filter + shared marketplace ranking as the app-wide
+  // provider above, so category pages match every other surface.
+  final bizById = {for (final b in businesses.requireValue) b.id: b};
+  return AsyncValue.data(rankMarketplaceProducts(
+    products.requireValue
+        .where((p) => bizById.containsKey(p.businessId))
+        .toList(),
+    (id) => bizById[id],
+  ));
 });
 
 /// Resolves recently-viewed product IDs into full Product objects.

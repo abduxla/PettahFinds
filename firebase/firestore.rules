@@ -227,7 +227,8 @@ service cloud.firestore {
                       && request.resource.data.businessId == resource.data.businessId
                       && !request.resource.data.diff(resource.data)
                            .affectedKeys()
-                           .hasAny(['ratingAvg', 'ratingCount', 'ratingSum'])
+                           .hasAny(['ratingAvg', 'ratingCount', 'ratingSum',
+                                    'rankViews'])
                     );
 
       // Hard delete: admin OR the owning business (drives self-delete
