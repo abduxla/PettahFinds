@@ -43,6 +43,15 @@ const _mapboxAccessToken =
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Silence debugPrint in release builds. The codebase logs liberally
+  // (router redirects, auth flow, chat) which is invaluable in debug but
+  // in release each call still formats + throttle-prints to os_log/logcat
+  // — measurable overhead on hot paths like the router redirect that runs
+  // on every navigation. One assignment here beats guarding 170+ sites.
+  if (kReleaseMode) {
+    debugPrint = (String? message, {int? wrapWidth}) {};
+  }
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );

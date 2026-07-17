@@ -158,7 +158,12 @@ final customerVisibleProductsProvider =
     Provider<AsyncValue<List<Product>>>((ref) {
   final products = ref.watch(allActiveProductsProvider);
   final businesses = ref.watch(allBusinessesProvider);
-  if (products.isLoading || businesses.isLoading) {
+  // Loading is only surfaced on the FIRST load (no data yet). During a
+  // refresh/invalidate (pull-to-refresh re-subscribing the stream) the
+  // previous list keeps rendering while the new snapshot arrives, so
+  // the home feed never flashes a spinner over content it already has.
+  if ((products.isLoading && !products.hasValue) ||
+      (businesses.isLoading && !businesses.hasValue)) {
     return const AsyncValue.loading();
   }
   if (products.hasError) {
@@ -386,7 +391,10 @@ final customerVisibleProductsByCategoryProvider = Provider.autoDispose
   if (category.isEmpty) return const AsyncValue.data(<Product>[]);
   final products = ref.watch(productsByCategoryProvider(category));
   final businesses = ref.watch(allBusinessesProvider);
-  if (products.isLoading || businesses.isLoading) {
+  // Same first-load-only loading gate as customerVisibleProductsProvider
+  // above — refreshes keep the previous list on screen, no spinner flash.
+  if ((products.isLoading && !products.hasValue) ||
+      (businesses.isLoading && !businesses.hasValue)) {
     return const AsyncValue.loading();
   }
   if (products.hasError) {
@@ -407,8 +415,15 @@ final customerVisibleProductsByCategoryProvider = Provider.autoDispose
 /// Resolves recently-viewed product IDs into full Product objects.
 /// Silently skips deleted / inactive products so the UI never breaks.
 /// Fans out reads in parallel and preserves the input order.
+///
+/// Kept alive briefly so plain navigation (home → detail → back, tab
+/// switches) reuses the resolved list instead of re-running the up-to-
+/// 10-doc fan-out each time. Freshness is unaffected: the product
+/// detail screen explicitly invalidates this provider after recording
+/// a view, and pull-to-refresh invalidates it too.
 final recentlyViewedProductsProvider =
     FutureProvider.autoDispose<List<Product>>((ref) async {
+  ref.keepAliveFor(const Duration(minutes: 5));
   final ids = await ref.watch(recentlyViewedServiceProvider).getIds();
   if (ids.isEmpty) return const [];
   final repo = ref.watch(productRepositoryProvider);

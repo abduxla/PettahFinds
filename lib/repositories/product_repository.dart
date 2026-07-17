@@ -34,6 +34,7 @@ class ProductRepository {
       image3Url: product.image3Url,
       image4Url: product.image4Url,
       priceLkr: product.priceLkr,
+      unit: product.unit,
       wholesalePriceLkr: product.wholesalePriceLkr,
       minOrderQuantity: product.minOrderQuantity,
       keywords: product.keywords,

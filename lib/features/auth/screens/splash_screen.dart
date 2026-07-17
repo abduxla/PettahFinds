@@ -36,6 +36,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 500),
+      // Fade-out is deliberately faster than fade-in: it runs on the
+      // critical path to the first real screen (see _go), so every ms
+      // here delays Home on every single launch.
+      reverseDuration: const Duration(milliseconds: 260),
       value: 0,
     );
     _fadeAnim = CurvedAnimation(
@@ -58,7 +62,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     _timeoutTimer =
         Timer(const Duration(seconds: 15), _safeFallbackRoute);
 
-    Future.delayed(const Duration(milliseconds: 1600), () {
+    // Minimum brand hold before we try to route. Was 1600ms, which put
+    // ~1.6s of pure wait on EVERY cold start even when auth restored in
+    // 200ms — the single largest chunk of perceived launch time. 450ms
+    // keeps the wordmark readable (fade-in is still playing) while
+    // letting fast devices reach Home roughly 1.2s sooner. Slow auth
+    // still gets the full 15s fallback window above.
+    Future.delayed(const Duration(milliseconds: 450), () {
       if (mounted) _tryNavigate();
     });
   }

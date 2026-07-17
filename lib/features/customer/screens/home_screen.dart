@@ -17,29 +17,16 @@ import '../../../widgets/sign_in_required.dart';
 import '../../../widgets/unread_badge.dart';
 import '../../../widgets/verify_email_banner.dart';
 
-// ---------- Real-data providers ----------
-final _homeBusinessByIdProvider =
-    FutureProvider.autoDispose.family<Business?, String>((ref, id) async {
-  if (id.isEmpty) return null;
-  try {
-    return await ref.watch(businessRepositoryProvider).getById(id);
-  } catch (_) {
-    return null;
-  }
-});
-
-/// Streamed set of `productId`s currently favorited by the signed-in user.
-/// Used by product-card hearts to render true saved state and to toggle.
-final _favoriteProductIdsProvider =
-    StreamProvider.autoDispose.family<Set<String>, String>((ref, uid) {
-  return ref
-      .watch(favoriteRepositoryProvider)
-      .streamByUser(uid)
-      .map((list) => list
-          .where((f) => f.targetType == 'product')
-          .map((f) => f.targetId)
-          .toSet());
-});
+// Business-by-id and favorite-product-ids lookups use the SHARED
+// providers from core/providers.dart (businessByIdProvider,
+// userFavoriteProductIdsProvider). This file used to declare private
+// duplicates of both, which meant (a) a second live Firestore stream
+// of the user's entire favorites collection running alongside the
+// shared one, and (b) a street-pin business cache that wasn't shared
+// with search/product screens AND had no keepAlive — every scroll-away
+// re-fetched the same business docs. The shared versions carry a
+// 5-minute keepAlive, so each business doc is read once and reused
+// across every card on every screen.
 
 // ---------- Category visual style ----------
 class _CategoryStyle {
@@ -209,6 +196,12 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
             onRefresh: () async {
               ref.invalidate(allActiveProductsProvider);
               ref.invalidate(recentlyViewedProductsProvider);
+              // Hold the indicator until the re-subscribed stream delivers
+              // its first fresh snapshot. The feed itself keeps showing the
+              // previous list meanwhile (customerVisibleProductsProvider
+              // only surfaces loading on first load), so the pull reads as
+              // "refreshing" instead of retracting instantly.
+              await ref.read(allActiveProductsProvider.future);
             },
             child: CustomScrollView(
               controller: _scrollController,
@@ -1040,31 +1033,39 @@ class _SlideIllustration extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (_, _) {
-        final offset = (controller.value * 2 - 1) * 5;
-        return Transform.translate(
-          offset: Offset(0, offset),
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.10),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.15),
-                width: 1.0,
-              ),
-            ),
-            child: Icon(
-              icon,
-              color: Colors.white.withValues(alpha: 0.88),
-              size: size * 0.44,
+    // The float loop ticks every frame for as long as the carousel is
+    // on screen. The circle+icon subtree is passed as `child` so only
+    // the Transform re-evaluates per tick (not the decoration/icon
+    // build), and the RepaintBoundary keeps the per-frame repaint
+    // confined to this tiny layer instead of dirtying the whole slide.
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: controller,
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.10),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.15),
+              width: 1.0,
             ),
           ),
-        );
-      },
+          child: Icon(
+            icon,
+            color: Colors.white.withValues(alpha: 0.88),
+            size: size * 0.44,
+          ),
+        ),
+        builder: (_, child) {
+          final offset = (controller.value * 2 - 1) * 5;
+          return Transform.translate(
+            offset: Offset(0, offset),
+            child: child,
+          );
+        },
+      ),
     );
   }
 }
@@ -1488,7 +1489,7 @@ class _StreetPin extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bizAsync = ref.watch(_homeBusinessByIdProvider(businessId));
+    final bizAsync = ref.watch(businessByIdProvider(businessId));
     final street = bizAsync.valueOrNull?.location.trim() ?? '';
     final label = street.isEmpty ? 'Pettah' : street;
     return Container(
@@ -1534,7 +1535,7 @@ class _HeartButton extends ConsumerWidget {
     final saved = authUser == null
         ? false
         : (ref
-                .watch(_favoriteProductIdsProvider(authUser.uid))
+                .watch(userFavoriteProductIdsProvider(authUser.uid))
                 .valueOrNull ??
             const <String>{})
             .contains(productId);
