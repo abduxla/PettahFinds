@@ -3311,3 +3311,190 @@ function _executiveReportHtml(v) {
     </div>
   `;
 }
+
+// --------------------------------------------------------------------------
+// monthlyLeadsReport — Vibranium leads export by email.
+//
+// Runs 06:30 on the 1st (Colombo), after monthlyBusinessReport. For every
+// Vibranium (elite) business it collects the chat threads OPENED during
+// the previous month — each thread is one customer lead against one
+// product — and emails the owner a summary plus a CSV attachment
+// (Date, Product, Customer) for shops that track sales outside the app.
+//
+// Reads use a single equality query per business (no composite index);
+// the month window is filtered in memory. Month boundaries are computed
+// in UTC — ±5.5h skew vs Colombo at the month edge is acceptable for a
+// lead-count report and keeps this consistent with the other reports.
+// Idempotent via leadsReports/{businessId}.lastSentMonth, so a retry or
+// double-fire never re-sends. Businesses with zero leads are skipped
+// (marker still written so retries don't re-scan them).
+// --------------------------------------------------------------------------
+exports.monthlyLeadsReport = onSchedule(
+    {
+      schedule: "30 6 1 * *",
+      timeZone: "Asia/Colombo",
+      secrets: [RESEND_API_KEY],
+    },
+    async () => {
+      const anchor = new Date(Date.now() - 5 * 86400000); // inside prev month
+      const y = anchor.getUTCFullYear();
+      const m = anchor.getUTCMonth();
+      const monthKey =
+        `${y}-${String(m + 1).padStart(2, "0")}`; // YYYY-MM
+      const monthName = anchor.toLocaleString("en-US",
+          {month: "long", year: "numeric", timeZone: "UTC"});
+      const start = Date.UTC(y, m, 1);
+      const end = Date.UTC(y, m + 1, 1);
+      const resend = new Resend(RESEND_API_KEY.value());
+
+      const elite = await db.collection("businesses")
+          .where("tier", "==", "elite").get();
+      logger.info("[leads] monthly run", monthKey,
+          "candidates:", elite.size);
+
+      /** CSV-escape one field (quote + double internal quotes).
+       * @param {string} s raw value.
+       * @return {string} safe CSV field. */
+      const csvField = (s) => `"${String(s).replace(/"/g, "\"\"")}"`;
+
+      let sent = 0;
+      for (const bizDoc of elite.docs) {
+        try {
+          const biz = bizDoc.data() || {};
+          const email = String(biz.email || "").trim().toLowerCase();
+          if (!email) continue;
+
+          const markerRef =
+            db.collection("leadsReports").doc(bizDoc.id);
+          const marker = await markerRef.get();
+          if (marker.exists &&
+              (marker.data() || {}).lastSentMonth === monthKey) {
+            continue; // already sent this period
+          }
+
+          const convs = await db.collection("conversations")
+              .where("businessId", "==", bizDoc.id).get();
+          const leads = [];
+          for (const c of convs.docs) {
+            const v = c.data() || {};
+            const created = v.createdAt && v.createdAt.toMillis ?
+              v.createdAt.toMillis() : null;
+            if (created === null || created < start || created >= end) {
+              continue;
+            }
+            leads.push({
+              date: new Date(created).toISOString().slice(0, 10),
+              product: v.productTitle || "Product",
+              customer: v.customerName || "Customer",
+            });
+          }
+
+          if (leads.length === 0) {
+            await markerRef.set({
+              lastSentMonth: monthKey,
+              leads: 0,
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            continue;
+          }
+          leads.sort((a, b) => a.date.localeCompare(b.date));
+
+          // Per-product totals for the email body (top 5).
+          const byProduct = new Map();
+          for (const l of leads) {
+            byProduct.set(l.product, (byProduct.get(l.product) || 0) + 1);
+          }
+          const topProducts = [...byProduct.entries()]
+              .sort((a, b) => b[1] - a[1]).slice(0, 5);
+
+          const csv = ["Date,Product,Customer",
+            ...leads.map((l) =>
+              [l.date, l.product, l.customer].map(csvField).join(",")),
+          ].join("\r\n");
+
+          await resend.emails.send({
+            from: "PetaFinds <info@petafinds.lk>",
+            to: email,
+            subject:
+              `${leads.length} customer lead` +
+              `${leads.length === 1 ? "" : "s"} in ${monthName} — ` +
+              `${biz.businessName || "your shop"}`,
+            html: _leadsReportHtml({
+              businessName: escapeHtml(biz.businessName || "Your shop"),
+              monthName: escapeHtml(monthName),
+              total: leads.length,
+              topProducts: topProducts.map(([title, count]) =>
+                ({title: escapeHtml(title), count})),
+            }),
+            attachments: [{
+              filename: `petafinds-leads-${monthKey}.csv`,
+              content: Buffer.from(csv, "utf8").toString("base64"),
+            }],
+          });
+
+          await markerRef.set({
+            lastSentMonth: monthKey,
+            leads: leads.length,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          sent++;
+        } catch (err) {
+          logger.error("[leads] failed for", bizDoc.id, err);
+        }
+      }
+      logger.info("[leads] monthly leads reports sent:", sent);
+    },
+);
+
+/**
+ * Monthly leads report email — house template style.
+ * @param {object} v Pre-escaped display values.
+ * @return {string} HTML body.
+ */
+function _leadsReportHtml(v) {
+  const rows = v.topProducts.map((p) => `
+    <tr>
+      <td style="padding: 8px 12px; border-bottom: 1px solid #EFEFEF;
+        font-size: 13px; color: #333;">${p.title}</td>
+      <td style="padding: 8px 12px; border-bottom: 1px solid #EFEFEF;
+        font-size: 13px; font-weight: 800; color: #095858;
+        text-align: right;">${p.count}</td>
+    </tr>`).join("");
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      max-width: 540px; margin: 0 auto; color: #1A1A1A;">
+      <div style="background: #095858; padding: 28px; text-align: center;
+        border-radius: 12px 12px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 800;">
+          📋 Your ${v.monthName} leads
+        </h1>
+        <p style="color: #A8D5D5; margin: 6px 0 0; font-size: 14px;">
+          ${v.businessName}
+        </p>
+      </div>
+      <div style="padding: 28px 24px; background: #FAFAF8;
+        border-radius: 0 0 12px 12px; border: 1px solid #E8E8E8; border-top: none;">
+        <p style="margin: 0; font-size: 15px; line-height: 1.6;">
+          <strong>${v.total}</strong> customer${v.total === 1 ? "" : "s"}
+          started a chat about your products in ${v.monthName}.
+          The full list is attached as a CSV you can open in Excel.
+        </p>
+        <h3 style="font-size: 14px; margin: 22px 0 8px;">
+          Most-inquired products
+        </h3>
+        <table style="width: 100%; border-collapse: collapse;
+          background: #fff; border: 1px solid #EFEFEF;">
+          ${rows}
+        </table>
+        <p style="margin: 20px 0 0; font-size: 13px; color: #555;
+          line-height: 1.6;">
+          Reply to every lead while it's warm — buyers in Pettah usually
+          message several shops at once, and the first clear answer wins.
+        </p>
+        <p style="margin: 24px 0 0; font-size: 11px; color: #9E9E9E;">
+          Vibranium leads reporting · PetaFinds · Colombo 11
+        </p>
+      </div>
+    </div>
+  `;
+}

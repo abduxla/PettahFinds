@@ -31,7 +31,16 @@ final _businessByIdProvider =
 
 final _businessProductsProvider =
     StreamProvider.autoDispose.family<List<Product>, String>((ref, id) {
-  return ref.watch(productRepositoryProvider).streamByBusiness(id);
+  // Owner-pinned products lead the storefront (Vibranium perk), most
+  // recently pinned first; everything else keeps the stream's normal
+  // newest-first order. Marketplace-wide surfaces (home, search,
+  // category) are NOT affected — pinning is a shop-page feature only.
+  return ref.watch(productRepositoryProvider).streamByBusiness(id).map((list) {
+    if (!list.any((p) => p.isPinned)) return list;
+    final pinned = list.where((p) => p.isPinned).toList()
+      ..sort((a, b) => b.pinnedAt!.compareTo(a.pinnedAt!));
+    return [...pinned, ...list.where((p) => !p.isPinned)];
+  });
 });
 
 final _businessReviewsProvider =

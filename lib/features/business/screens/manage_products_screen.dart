@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../models/business_tier.dart';
 import '../../../models/product.dart';
 import '../../../utils/price_format.dart';
 import '../../../widgets/cached_image.dart';
@@ -90,22 +91,39 @@ class ManageProductsScreen extends ConsumerWidget {
             foregroundColor: Colors.white,
           ),
           body: productsAsync.when(
-            data: (products) => products.isEmpty
-                ? EmptyStateWidget(
-                    icon: Icons.inventory_2_outlined,
-                    title: 'No products yet',
-                    subtitle: 'Add your first product to start selling',
-                    actionLabel: 'Add Product',
-                    onAction: () => context.go('/business/products/add'),
-                  )
-                : ListView.builder(
-                    itemCount: products.length,
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
-                    itemBuilder: (_, i) {
-                      final p = products[i];
-                      return _ProductTile(product: p, theme: theme, ref: ref);
-                    },
-                  ),
+            data: (products) {
+              if (products.isEmpty) {
+                return EmptyStateWidget(
+                  icon: Icons.inventory_2_outlined,
+                  title: 'No products yet',
+                  subtitle: 'Add your first product to start selling',
+                  actionLabel: 'Add Product',
+                  onAction: () => context.go('/business/products/add'),
+                );
+              }
+              // Pinning is a Vibranium perk: pinned products lead the
+              // customer-facing storefront. The control is hidden for
+              // other levels; existing pins keep working if a shop later
+              // downgrades (they can still unpin via re-upgrade/admin).
+              final canPin =
+                  business.effectiveTier == BusinessTier.elite;
+              final pinnedCount =
+                  products.where((x) => x.isPinned).length;
+              return ListView.builder(
+                itemCount: products.length,
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+                itemBuilder: (_, i) {
+                  final p = products[i];
+                  return _ProductTile(
+                    product: p,
+                    theme: theme,
+                    ref: ref,
+                    canPin: canPin,
+                    pinnedCount: pinnedCount,
+                  );
+                },
+              );
+            },
             loading: () => const _ManageProductsSkeleton(),
             error: (e, _) => AppErrorWidget(
               message: e.toString(),
@@ -133,7 +151,17 @@ class _ProductTile extends StatefulWidget {
   final Product product;
   final ThemeData theme;
   final WidgetRef ref;
-  const _ProductTile({required this.product, required this.theme, required this.ref});
+  /// Whether the owner's level includes storefront pinning (Vibranium).
+  final bool canPin;
+  /// How many products are currently pinned (enforces the cap of 6).
+  final int pinnedCount;
+  const _ProductTile({
+    required this.product,
+    required this.theme,
+    required this.ref,
+    this.canPin = false,
+    this.pinnedCount = 0,
+  });
 
   @override
   State<_ProductTile> createState() => _ProductTileState();
@@ -198,6 +226,11 @@ class _ProductTileState extends State<_ProductTile> {
                 ),
               ),
               const Spacer(),
+              if (p.isPinned) ...[
+                Icon(Icons.push_pin_rounded,
+                    size: 13, color: AppColors.orange),
+                const SizedBox(width: 4),
+              ],
               // Status badge
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -239,6 +272,22 @@ class _ProductTileState extends State<_ProductTile> {
                             Text('Edit'),
                           ],
                         )),
+                    if (widget.canPin && p.isActive)
+                      PopupMenuItem(
+                        value: 'pin',
+                        child: Row(
+                          children: [
+                            Icon(
+                              p.isPinned
+                                  ? Icons.push_pin_outlined
+                                  : Icons.push_pin_rounded,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(p.isPinned ? 'Unpin from top' : 'Pin to top'),
+                          ],
+                        ),
+                      ),
                     PopupMenuItem(
                       value: 'toggle',
                       child: Row(
@@ -272,6 +321,29 @@ class _ProductTileState extends State<_ProductTile> {
                       // Top-level /edit-product/:id — single canonical
                       // edit route. push() so pop returns to this list.
                       context.push('/edit-product/${p.id}');
+                    } else if (val == 'pin') {
+                      if (!p.isPinned && widget.pinnedCount >= 6) {
+                        context.showErrorSnackBar(
+                            'You can pin up to 6 products. Unpin one first.');
+                        return;
+                      }
+                      setState(() => _toggling = true);
+                      try {
+                        await widget.ref
+                            .read(productRepositoryProvider)
+                            .setPinned(p.id, !p.isPinned);
+                        if (context.mounted) {
+                          context.showSuccessSnackBar(p.isPinned
+                              ? 'Unpinned'
+                              : 'Pinned — this product now leads your shop page');
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          context.showErrorSnackBar(e);
+                        }
+                      } finally {
+                        if (mounted) setState(() => _toggling = false);
+                      }
                     } else if (val == 'toggle') {
                       setState(() => _toggling = true);
                       try {

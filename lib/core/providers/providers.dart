@@ -13,6 +13,7 @@ import '../../repositories/report_repository.dart';
 import '../../repositories/notification_repository.dart';
 import '../../repositories/block_repository.dart';
 import '../../repositories/analytics_repository.dart';
+import '../../models/biz_insights.dart';
 import '../../models/business_stats.dart';
 import '../../models/product_stat.dart';
 import '../../services/account_deletion_service.dart';
@@ -77,6 +78,14 @@ final businessStatsProvider = StreamProvider.autoDispose
 final productStatsProvider = StreamProvider.autoDispose
     .family<List<ProductStat>, String>((ref, businessId) {
   return ref.watch(analyticsRepositoryProvider).streamProductStats(businessId);
+});
+
+/// Nightly market intelligence (rank, band, category benchmark) for the
+/// Vibranium "Market position" card. Null until the first nightly run.
+final bizInsightsProvider = StreamProvider.autoDispose
+    .family<BizInsights?, String>((ref, businessId) {
+  if (businessId.isEmpty) return Stream.value(null);
+  return ref.watch(analyticsRepositoryProvider).streamInsights(businessId);
 });
 
 // --- Services ---

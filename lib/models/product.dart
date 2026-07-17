@@ -30,6 +30,12 @@ class Product {
   final int minOrderQuantity;
   final String keywords;
   final bool isActive;
+  /// When the OWNER pinned this product to lead their storefront
+  /// (Vibranium perk). `null` = not pinned. The customer-facing shop
+  /// page sorts pinned products first (most recently pinned leading);
+  /// everything else keeps the normal newest-first order. Stored as a
+  /// timestamp rather than a bool so the owner's pin ORDER is stable.
+  final DateTime? pinnedAt;
   /// Per-product rating aggregate, mirrors the business rating fields.
   /// Bumped incrementally by `ProductReviewRepository` so the UI never
   /// has to scan the whole reviews collection.
@@ -55,6 +61,7 @@ class Product {
     this.minOrderQuantity = 0,
     this.keywords = '',
     this.isActive = true,
+    this.pinnedAt,
     this.ratingAvg = 0.0,
     this.ratingCount = 0,
     required this.createdAt,
@@ -77,6 +84,8 @@ class Product {
   /// LKR 0 in the directory).
   bool get hasPrice => priceLkr != null && priceLkr! > 0;
 
+  bool get isPinned => pinnedAt != null;
+
   factory Product.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return Product(
@@ -98,6 +107,7 @@ class Product {
           (data['minOrderQuantity'] as num?)?.toInt() ?? 0,
       keywords: data['keywords'] ?? '',
       isActive: data['isActive'] ?? true,
+      pinnedAt: (data['pinnedAt'] as Timestamp?)?.toDate(),
       ratingAvg: (data['ratingAvg'] ?? 0.0).toDouble(),
       ratingCount: (data['ratingCount'] as num?)?.toInt() ?? 0,
       createdAt:
@@ -123,6 +133,8 @@ class Product {
         'minOrderQuantity': minOrderQuantity,
         'keywords': keywords,
         'isActive': isActive,
+        'pinnedAt':
+            pinnedAt != null ? Timestamp.fromDate(pinnedAt!) : null,
         'ratingAvg': ratingAvg,
         'ratingCount': ratingCount,
         'createdAt': Timestamp.fromDate(createdAt),
@@ -170,6 +182,7 @@ class Product {
         minOrderQuantity: minOrderQuantity ?? this.minOrderQuantity,
         keywords: keywords ?? this.keywords,
         isActive: isActive ?? this.isActive,
+        pinnedAt: pinnedAt,
         ratingAvg: ratingAvg ?? this.ratingAvg,
         ratingCount: ratingCount ?? this.ratingCount,
         createdAt: createdAt,

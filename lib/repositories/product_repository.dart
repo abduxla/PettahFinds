@@ -78,6 +78,16 @@ class ProductRepository {
     await _ref.doc(id).update({'isActive': false});
   }
 
+  /// Pin / unpin a product to lead the shop's storefront (Vibranium
+  /// perk — the UI gates who sees the control; the field itself is
+  /// owner-writable under the products rule). Field-level update so it
+  /// can't clobber a concurrent edit of the rest of the doc.
+  Future<void> setPinned(String id, bool pinned) async {
+    await _ref.doc(id).update({
+      'pinnedAt': pinned ? Timestamp.now() : FieldValue.delete(),
+    });
+  }
+
   /// Hard delete — removes the Firestore doc entirely. Storage images
   /// must be cleaned up separately by the caller (the doc no longer has
   /// the URLs once this returns).

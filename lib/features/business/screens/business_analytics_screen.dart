@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../models/biz_insights.dart';
 import '../../../models/business_stats.dart';
 import '../../../models/business_tier.dart';
 import '../../../models/product.dart';
@@ -105,6 +106,7 @@ class _LoadedAnalyticsState extends ConsumerState<_LoadedAnalytics>
     ref.invalidate(businessStatsProvider(widget.businessId));
     ref.invalidate(productStatsProvider(widget.businessId));
     ref.invalidate(businessProductsProvider(widget.businessId));
+    ref.invalidate(bizInsightsProvider(widget.businessId));
   }
 
   @override
@@ -116,6 +118,8 @@ class _LoadedAnalyticsState extends ConsumerState<_LoadedAnalytics>
     final products =
         ref.watch(businessProductsProvider(widget.businessId)).valueOrNull ??
             <Product>[];
+    final insights =
+        ref.watch(bizInsightsProvider(widget.businessId)).valueOrNull;
 
     return statsAsync.when(
       loading: () => LoadingWidget(),
@@ -137,6 +141,7 @@ class _LoadedAnalyticsState extends ConsumerState<_LoadedAnalytics>
           tier: widget.tier,
           productStats: productStats,
           products: products,
+          insights: insights,
         ),
       ),
     );
@@ -148,11 +153,15 @@ class _AnalyticsBody extends StatelessWidget {
   final BusinessTier tier;
   final List<ProductStat> productStats;
   final List<Product> products;
+  /// Nightly market intelligence — null until the first nightly run (the
+  /// Vibranium market-position card hides itself in that case).
+  final BizInsights? insights;
   const _AnalyticsBody({
     required this.stats,
     required this.tier,
     required this.productStats,
     required this.products,
+    this.insights,
   });
 
   @override
@@ -201,6 +210,24 @@ class _AnalyticsBody extends StatelessWidget {
           value: stats.chatsStarted,
           color: Color(0xFF7C3AED),
         ),
+
+        // ---- Vibranium-only intelligence ----
+        // Market position comes from the nightly aggregation job and only
+        // renders once the shop's first run has produced a bizInsights doc.
+        // The conversion funnel is computed client-side from the stats
+        // already streaming above, so it's always available.
+        if (tier == BusinessTier.elite && insights != null) ...[
+          SizedBox(height: 12),
+          _MarketPositionCard(insights: insights!),
+        ],
+        if (tier == BusinessTier.elite) ...[
+          SizedBox(height: 12),
+          _FunnelCard(
+            stats: stats,
+            productStats: productStats,
+            products: products,
+          ),
+        ],
 
         // Per-product breakdown
         SizedBox(height: 22),
@@ -286,6 +313,324 @@ class _AnalyticsBody extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Vibranium: the shop's marketplace rank from the nightly aggregation —
+/// #N of M, percentile band, overnight movement, and views vs the
+/// category average. Numbers refresh once a night (03:30 Colombo).
+class _MarketPositionCard extends StatelessWidget {
+  final BizInsights insights;
+  const _MarketPositionCard({required this.insights});
+
+  @override
+  Widget build(BuildContext context) {
+    final move = insights.movement;
+    final vsAvg = insights.viewsVsAvgPct;
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.orange.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.emoji_events_rounded,
+                    color: AppColors.orange, size: 22),
+              ),
+              SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  'Market position',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.text1,
+                  ),
+                ),
+              ),
+              if (insights.percentileBand.isNotEmpty)
+                Container(
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.tealLight,
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: Text(
+                    insights.percentileBand,
+                    style: GoogleFonts.dmSans(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.teal,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '#${insights.marketplacePosition}',
+                style: GoogleFonts.nunito(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.text1,
+                  letterSpacing: -1,
+                  height: 1.0,
+                ),
+              ),
+              SizedBox(width: 6),
+              Padding(
+                padding: EdgeInsets.only(bottom: 3),
+                child: Text(
+                  'of ${insights.totalBusinesses} shops on PetaFinds',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 12.5,
+                    color: AppColors.text3,
+                  ),
+                ),
+              ),
+              Spacer(),
+              if (move != null && move != 0)
+                Padding(
+                  padding: EdgeInsets.only(bottom: 3),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        move > 0
+                            ? Icons.arrow_upward_rounded
+                            : Icons.arrow_downward_rounded,
+                        size: 14,
+                        color: move > 0 ? AppColors.teal : AppColors.red,
+                      ),
+                      SizedBox(width: 2),
+                      Text(
+                        '${move.abs()} overnight',
+                        style: GoogleFonts.dmSans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color:
+                              move > 0 ? AppColors.teal : AppColors.red,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          if (vsAvg != null) ...[
+            SizedBox(height: 12),
+            Divider(height: 1, color: AppColors.border),
+            SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Views vs ${insights.category.isEmpty ? 'category' : insights.category} average',
+                    style: GoogleFonts.dmSans(
+                      fontSize: 12.5,
+                      color: AppColors.text3,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${vsAvg >= 0 ? '+' : ''}$vsAvg%',
+                  style: GoogleFonts.nunito(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                    color: vsAvg >= 0 ? AppColors.teal : AppColors.red,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          SizedBox(height: 8),
+          Text(
+            'Updated nightly',
+            style: GoogleFonts.dmSans(
+              fontSize: 10.5,
+              color: AppColors.text4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Vibranium: how browsing turns into interest — views → saves → chats
+/// with conversion rates, plus up to two per-product reads (a product
+/// getting looks but no chats; the best converter). Computed entirely
+/// from the stats already streaming into this screen.
+class _FunnelCard extends StatelessWidget {
+  final BusinessStats stats;
+  final List<ProductStat> productStats;
+  final List<Product> products;
+  const _FunnelCard({
+    required this.stats,
+    required this.productStats,
+    required this.products,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final views = stats.productViews;
+    final saves = stats.saves;
+    final chats = stats.chatsStarted;
+    String rate(int part) =>
+        views <= 0 ? '—' : '${((part / views) * 100).toStringAsFixed(1)}%';
+
+    // Per-product reads. Titles joined from the live product list.
+    final titleById = {
+      for (final p in products)
+        p.id: p.shortTitle.isNotEmpty ? p.shortTitle : p.title,
+    };
+    ProductStat? looker; // most-viewed product with zero chats
+    ProductStat? converter; // best chats-per-view among viewed products
+    for (final s in productStats) {
+      if (!titleById.containsKey(s.productId)) continue;
+      if (s.views >= 15 && s.chats == 0) {
+        if (looker == null || s.views > looker.views) looker = s;
+      }
+      if (s.views >= 10 && s.chats > 0) {
+        final best = converter;
+        if (best == null ||
+            s.chats / s.views > best.chats / best.views) {
+          converter = s;
+        }
+      }
+    }
+
+    Widget step(String label, int value) => Expanded(
+          child: Column(
+            children: [
+              Text(
+                '$value',
+                style: GoogleFonts.nunito(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.text1,
+                ),
+              ),
+              SizedBox(height: 2),
+              Text(
+                label,
+                style: GoogleFonts.dmSans(
+                  fontSize: 11,
+                  color: AppColors.text3,
+                ),
+              ),
+            ],
+          ),
+        );
+
+    Widget insightRow(IconData icon, Color color, String text) => Padding(
+          padding: EdgeInsets.only(top: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 15, color: color),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  text,
+                  style: GoogleFonts.dmSans(
+                    fontSize: 12.5,
+                    height: 1.4,
+                    color: AppColors.text2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Color(0xFF7C3AED).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.filter_alt_rounded,
+                    color: Color(0xFF7C3AED), size: 22),
+              ),
+              SizedBox(width: 14),
+              Text(
+                'Conversion insights',
+                style: GoogleFonts.dmSans(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.text1,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 14),
+          Row(
+            children: [
+              step('Product views', views),
+              Icon(Icons.chevron_right_rounded,
+                  size: 18, color: AppColors.text4),
+              step('Saved (${rate(saves)})', saves),
+              Icon(Icons.chevron_right_rounded,
+                  size: 18, color: AppColors.text4),
+              step('Chats (${rate(chats)})', chats),
+            ],
+          ),
+          if (looker != null)
+            insightRow(
+              Icons.visibility_rounded,
+              AppColors.orange,
+              '"${titleById[looker.productId]}" gets plenty of looks but '
+              'no chats yet — a sharper price or better photos could '
+              'convert that interest.',
+            ),
+          if (converter != null)
+            insightRow(
+              Icons.trending_up_rounded,
+              AppColors.teal,
+              '"${titleById[converter.productId]}" converts best — '
+              '${converter.chats} chat${converter.chats == 1 ? '' : 's'} '
+              'from ${converter.views} views.',
+            ),
+          if (looker == null && converter == null)
+            insightRow(
+              Icons.hourglass_empty_rounded,
+              AppColors.text4,
+              'Per-product insights appear as customers browse your '
+              'listings.',
+            ),
+        ],
+      ),
     );
   }
 }

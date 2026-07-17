@@ -153,6 +153,9 @@ enum BusinessTier {
           'Recommended Supplier tag on featured surfaces',
           'Vibranium badge — the highest mark of trust',
           'Full live analytics + priority support',
+          'Market position & conversion insights',
+          'Pin up to 6 products to lead your shop page',
+          'Monthly leads report by email',
         ];
     }
   }

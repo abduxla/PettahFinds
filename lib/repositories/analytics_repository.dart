@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import '../core/constants/app_constants.dart';
+import '../models/biz_insights.dart';
 import '../models/business_stats.dart';
 import '../models/product_stat.dart';
 
@@ -130,6 +131,18 @@ class AnalyticsRepository {
       list.sort((a, b) => b.views.compareTo(a.views));
       return list;
     }));
+  }
+
+  /// Nightly market intelligence for the business (rank, percentile band,
+  /// category benchmark) — written by the nightlyMarketAggregation job,
+  /// owner-readable per rules. Emits null until the shop's first nightly
+  /// run has produced a doc; the UI hides the card in that case.
+  Stream<BizInsights?> streamInsights(String businessId) {
+    return _resilient(() => _firestore
+        .collection('bizInsights')
+        .doc(businessId)
+        .snapshots()
+        .map((doc) => doc.exists ? BizInsights.fromFirestore(doc) : null));
   }
 
   /// Wraps a Firestore snapshot stream so a transient `permission-denied`
