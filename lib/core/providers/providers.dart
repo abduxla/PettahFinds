@@ -62,14 +62,20 @@ final blockRepositoryProvider = Provider((ref) => BlockRepository());
 final analyticsRepositoryProvider = Provider((ref) => AnalyticsRepository());
 
 /// Live engagement totals for a business (seller analytics screen).
-final businessStatsProvider =
-    StreamProvider.family<BusinessStats, String>((ref, businessId) {
+///
+/// autoDispose is load-bearing for both stats providers: a kept-alive
+/// Firestore listener can be left half-dead by iOS after backgrounding
+/// (socket gone, SDK unaware), silently freezing the counters for the
+/// rest of the process. Disposing on screen exit means every visit to
+/// Analytics opens a fresh listen channel with an immediate server read.
+final businessStatsProvider = StreamProvider.autoDispose
+    .family<BusinessStats, String>((ref, businessId) {
   return ref.watch(analyticsRepositoryProvider).streamStats(businessId);
 });
 
 /// Per-product engagement for a business, most-viewed first.
-final productStatsProvider =
-    StreamProvider.family<List<ProductStat>, String>((ref, businessId) {
+final productStatsProvider = StreamProvider.autoDispose
+    .family<List<ProductStat>, String>((ref, businessId) {
   return ref.watch(analyticsRepositoryProvider).streamProductStats(businessId);
 });
 

@@ -68,32 +68,76 @@ class BusinessAnalyticsScreen extends ConsumerWidget {
   }
 }
 
-class _LoadedAnalytics extends ConsumerWidget {
+class _LoadedAnalytics extends ConsumerStatefulWidget {
   final String businessId;
   final BusinessTier tier;
   const _LoadedAnalytics({required this.businessId, required this.tier});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final statsAsync = ref.watch(businessStatsProvider(businessId));
+  ConsumerState<_LoadedAnalytics> createState() => _LoadedAnalyticsState();
+}
+
+class _LoadedAnalyticsState extends ConsumerState<_LoadedAnalytics>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Returning from background: iOS may have dropped the socket under the
+    // Firestore listen channel without the SDK noticing, which freezes the
+    // counters until it times out (minutes). Re-creating the subscriptions
+    // forces a fresh channel + immediate server read, so numbers are
+    // current the moment the seller looks at the screen again.
+    if (state == AppLifecycleState.resumed) _resync();
+  }
+
+  void _resync() {
+    ref.invalidate(businessStatsProvider(widget.businessId));
+    ref.invalidate(productStatsProvider(widget.businessId));
+    ref.invalidate(businessProductsProvider(widget.businessId));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final statsAsync = ref.watch(businessStatsProvider(widget.businessId));
     final productStats =
-        ref.watch(productStatsProvider(businessId)).valueOrNull ??
+        ref.watch(productStatsProvider(widget.businessId)).valueOrNull ??
             <ProductStat>[];
     final products =
-        ref.watch(businessProductsProvider(businessId)).valueOrNull ??
+        ref.watch(businessProductsProvider(widget.businessId)).valueOrNull ??
             <Product>[];
 
     return statsAsync.when(
       loading: () => LoadingWidget(),
       error: (e, _) => AppErrorWidget(
         message: e.toString(),
-        onRetry: () => ref.invalidate(businessStatsProvider(businessId)),
+        onRetry: () =>
+            ref.invalidate(businessStatsProvider(widget.businessId)),
       ),
-      data: (stats) => _AnalyticsBody(
-        stats: stats,
-        tier: tier,
-        productStats: productStats,
-        products: products,
+      data: (stats) => RefreshIndicator(
+        color: AppColors.teal,
+        onRefresh: () async {
+          _resync();
+          // Hold the spinner until the fresh subscription delivers, so a
+          // pull always means "these numbers are current as of now".
+          await ref.read(businessStatsProvider(widget.businessId).future);
+        },
+        child: _AnalyticsBody(
+          stats: stats,
+          tier: widget.tier,
+          productStats: productStats,
+          products: products,
+        ),
       ),
     );
   }
@@ -130,6 +174,9 @@ class _AnalyticsBody extends StatelessWidget {
       });
 
     return ListView(
+      // Always scrollable so the RefreshIndicator pull works even when the
+      // content fits on one screen (short product lists).
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.fromLTRB(20, 16, 20, 32),
       children: [
         _TotalCard(total: stats.totalEngagements, tier: tier),
