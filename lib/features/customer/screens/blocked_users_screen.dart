@@ -16,7 +16,7 @@ class BlockedUsersScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final me = ref.watch(authStateProvider).valueOrNull;
+    final me = ref.watch(realUserProvider);
     final blockedAsync = ref.watch(blockedUidsProvider);
 
     return Scaffold(

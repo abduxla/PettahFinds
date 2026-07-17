@@ -49,8 +49,9 @@ class NotificationsScreen extends ConsumerWidget {
       );
     }
 
-    // Guest → sign-in prompt (never spins).
-    if (authState.valueOrNull == null) {
+    // Guest → sign-in prompt (never spins). realUserProvider so
+    // anonymous guest sessions land here too.
+    if (ref.watch(realUserProvider) == null) {
       return Scaffold(
         backgroundColor: AppColors.bgSection,
         appBar: AppBar(

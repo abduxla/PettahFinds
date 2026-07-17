@@ -30,6 +30,9 @@ class _VerifyEmailBannerState extends ConsumerState<VerifyEmailBanner> {
 
     final firebaseUser = ref.watch(authStateProvider).valueOrNull;
     if (firebaseUser == null) return const SizedBox.shrink();
+    // Anonymous guest sessions have no email to verify — without this
+    // guard every guest would see a permanent "verify your email" nag.
+    if (firebaseUser.isAnonymous) return const SizedBox.shrink();
     // `emailVerified` only updates after `reload()`. Treating it as a
     // session-fresh value is fine — we re-check on next launch.
     if (firebaseUser.emailVerified) return const SizedBox.shrink();

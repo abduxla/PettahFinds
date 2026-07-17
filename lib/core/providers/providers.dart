@@ -129,7 +129,9 @@ final sellerConversationsProvider = StreamProvider.autoDispose
 /// same Firestore snapshot the chat list already subscribes to, so the
 /// badge tick updates instantly without an extra query.
 final totalUnreadCountProvider = StreamProvider.autoDispose<int>((ref) {
-  final uid = ref.watch(authStateProvider).valueOrNull?.uid;
+  // realUserProvider so anonymous guest sessions don't subscribe to a
+  // conversations query that can never match (guests can't chat).
+  final uid = ref.watch(realUserProvider)?.uid;
   if (uid == null || uid.isEmpty) return Stream.value(0);
   final service = ref.watch(chatServiceProvider);
   return service.streamAllForUser(uid).map((convs) {
@@ -452,12 +454,26 @@ final authStateProvider = StreamProvider<User?>((ref) {
   return ref.watch(authRepositoryProvider).authStateChanges;
 });
 
+/// The REAL signed-in user, or null for guests.
+///
+/// Guests carry an anonymous Firebase session (established in main.dart)
+/// purely so `recordEngagement` / `recordSearchEvent` can attribute their
+/// browsing — seller analytics must count window-shoppers. An anonymous
+/// session must never unlock member surfaces, so every guest gate in the
+/// app MUST use this provider (or [appUserProvider], which is already
+/// anonymous-aware) instead of null-checking [authStateProvider] raw.
+final realUserProvider = Provider<User?>((ref) {
+  final u = ref.watch(authStateProvider).valueOrNull;
+  return (u == null || u.isAnonymous) ? null : u;
+});
+
 /// Live set of UIDs the signed-in user has blocked. Customer/seller
 /// chat lists, review lists, and any UGC feed subtract this set so a
 /// blocked user's content disappears the instant they're blocked
 /// (App Store Guideline 1.2). Empty for guests.
 final blockedUidsProvider = StreamProvider<Set<String>>((ref) {
-  final uid = ref.watch(authStateProvider).valueOrNull?.uid;
+  // realUserProvider: guests (incl. anonymous sessions) have no blocks.
+  final uid = ref.watch(realUserProvider)?.uid;
   if (uid == null || uid.isEmpty) return Stream.value(const <String>{});
   return ref.watch(blockRepositoryProvider).streamBlockedUids(uid);
 });
@@ -489,7 +505,11 @@ final appUserProvider = StreamProvider<AppUser?>((ref) {
   final authState = ref.watch(authStateProvider);
   return authState.when(
     data: (user) {
-      if (user == null) return Stream.value(null);
+      // Anonymous guest sessions have no /users doc and never will —
+      // short-circuit instead of subscribing to a doc that can't exist,
+      // so everything downstream (router role logic, member gates)
+      // uniformly sees a guest.
+      if (user == null || user.isAnonymous) return Stream.value(null);
       return ref.watch(authRepositoryProvider).streamAppUser(user.uid);
     },
     loading: () => Stream.value(null),

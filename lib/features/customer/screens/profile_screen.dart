@@ -22,7 +22,8 @@ class ProfileScreen extends ConsumerWidget {
     final appUser = ref.watch(appUserProvider).valueOrNull;
 
     // Guest → show sign-in prompt instead of a perpetual skeleton.
-    if (authState.valueOrNull == null && !authState.isLoading) {
+    // realUserProvider so anonymous guest sessions land here too.
+    if (ref.watch(realUserProvider) == null && !authState.isLoading) {
       return Scaffold(
         appBar: AppBar(
           title: Text('Profile',

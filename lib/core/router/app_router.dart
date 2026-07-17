@@ -109,7 +109,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isHandlingSignIn = ref.read(isHandlingSignInProvider);
 
       final isAuthLoading = authState.isLoading;
-      final isLoggedIn = authState.valueOrNull != null;
+      // Anonymous guest sessions (established in main.dart so guest
+      // browsing can be counted in seller analytics) are NOT logged-in
+      // users. Treating them as logged in would send every guest to
+      // the /loading stranded-auth guard below — they have no /users
+      // doc and never will — ending in the emergency sign-out card.
+      final firebaseUser = authState.valueOrNull;
+      final isLoggedIn =
+          firebaseUser != null && !firebaseUser.isAnonymous;
       final currentPath = state.uri.path;
 
       debugPrint(

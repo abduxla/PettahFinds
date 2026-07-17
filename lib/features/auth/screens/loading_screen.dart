@@ -92,6 +92,14 @@ class _LoadingScreenState extends ConsumerState<LoadingScreen> {
     final authUser = ref.read(authStateProvider).valueOrNull;
     debugPrint(
         '⏳ [loading] tryRouteFromCurrentState: authUid=${authUser?.uid}');
+    // Anonymous guest session — this screen waits for a /users doc
+    // that will never exist for a guest. Send them home instead of
+    // stranding them on the 10s recovery card.
+    if (authUser != null && authUser.isAnonymous) {
+      debugPrint('⏳ [loading] anonymous guest → /home');
+      _go('/home');
+      return;
+    }
     // No Firebase Auth user at all — bail to sign-in immediately.
     // Defensive: the router redirect should have caught this, but if a
     // caller deep-links straight to /loading we must not strand them.

@@ -376,7 +376,9 @@ class _TealHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final topInset = MediaQuery.of(context).padding.top;
-    final isGuest = ref.watch(authStateProvider).valueOrNull == null;
+    // realUserProvider: an anonymous guest session must still see the
+    // guest experience (sign-in sheets on member actions).
+    final isGuest = ref.watch(realUserProvider) == null;
     // Live unread total across every thread the user is in. Returns 0
     // while loading or for guests, so the badge stays hidden until a
     // real number streams through Firestore.
@@ -1531,7 +1533,7 @@ class _HeartButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authUser = ref.watch(authStateProvider).valueOrNull;
+    final authUser = ref.watch(realUserProvider);
     final saved = authUser == null
         ? false
         : (ref

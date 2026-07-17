@@ -241,7 +241,8 @@ class _HeartButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authUser = ref.watch(authStateProvider).valueOrNull;
+    // realUserProvider: anonymous guest sessions get the sign-in sheet.
+    final authUser = ref.watch(realUserProvider);
     final saved = authUser == null
         ? false
         : (ref.watch(userFavoriteProductIdsProvider(authUser.uid)).valueOrNull ??

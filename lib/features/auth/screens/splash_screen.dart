@@ -80,8 +80,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       _routeByRole(user);
       return;
     }
+    // Anonymous guest sessions route as guests — they have no /users
+    // doc, so handing them to /loading would strand them on its
+    // wait-for-doc flow.
     final firebaseUser = ref.read(authStateProvider).valueOrNull;
-    if (firebaseUser != null) {
+    if (firebaseUser != null && !firebaseUser.isAnonymous) {
       // Firebase user resolved but AppUser doc not yet — hand off to
       // /loading instead of conservatively dumping them on /home. The
       // old behavior could land a business owner inside the customer
@@ -130,7 +133,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     final authState = ref.read(authStateProvider);
     authState.when(
       data: (firebaseUser) {
-        if (firebaseUser == null) {
+        // Anonymous guest session == guest. Only a REAL user has a
+        // /users doc for _waitForAppUser to wait on.
+        if (firebaseUser == null || firebaseUser.isAnonymous) {
           _goGuestStart();
           return;
         }
@@ -145,7 +150,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     ref.listenManual(authStateProvider, (prev, next) {
       next.when(
         data: (firebaseUser) {
-          if (firebaseUser == null) {
+          if (firebaseUser == null || firebaseUser.isAnonymous) {
             _goGuestStart();
           } else {
             _waitForAppUser();

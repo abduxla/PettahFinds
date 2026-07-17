@@ -53,8 +53,9 @@ class FavoritesScreen extends ConsumerWidget {
       );
     }
 
-    // Guest → sign-in prompt.
-    if (authState.valueOrNull == null) {
+    // Guest → sign-in prompt. realUserProvider so anonymous guest
+    // sessions land here too.
+    if (ref.watch(realUserProvider) == null) {
       return Scaffold(
         backgroundColor: AppColors.bgSection,
         appBar: AppBar(

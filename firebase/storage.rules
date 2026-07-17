@@ -3,8 +3,12 @@ service firebase.storage {
   match /b/{bucket}/o {
 
     // ---------- Helpers ----------
+    // Anonymous guest sessions are GUESTS here too (mirrors
+    // firestore.rules isSignedIn) — a guest must never be able to
+    // upload files under /users/{their-anon-uid}/ or anywhere else.
     function isSignedIn() {
-      return request.auth != null;
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
 
     // Two valid admin signals, mirroring firestore.rules isAdmin():

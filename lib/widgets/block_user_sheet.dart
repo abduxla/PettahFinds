@@ -23,7 +23,7 @@ Future<bool> showBlockUserDialog(
   String? blockedName,
   String? context_, // optional moderation context, e.g. conversation id
 }) async {
-  final me = ref.read(authStateProvider).valueOrNull;
+  final me = ref.read(realUserProvider);
   if (me == null) {
     context.showErrorSnackBar('Sign in to block users.');
     return false;

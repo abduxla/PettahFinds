@@ -166,8 +166,11 @@ class NotificationService {
   // ---------------------------------------------------------------------------
 
   Future<void> _persistToken() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
+    final user = FirebaseAuth.instance.currentUser;
+    // Anonymous guest sessions have no /users doc to attach a token to
+    // (and guests shouldn't receive pushes at all).
+    if (user == null || user.isAnonymous) return;
+    final uid = user.uid;
     try {
       final token = await _messaging.getToken();
       if (token == null) return;

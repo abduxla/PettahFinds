@@ -19,7 +19,9 @@ class ChatListScreen extends ConsumerWidget {
     final authState = ref.watch(authStateProvider);
     final appUser = ref.watch(appUserProvider).valueOrNull;
 
-    if (authState.valueOrNull == null && !authState.isLoading) {
+    // realUserProvider so anonymous guest sessions get the sign-in
+    // prompt rather than an empty member inbox.
+    if (ref.watch(realUserProvider) == null && !authState.isLoading) {
       return Scaffold(
         backgroundColor: AppColors.bgSection,
         appBar: AppBar(

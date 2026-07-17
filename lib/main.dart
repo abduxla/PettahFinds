@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -6,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'core/providers/providers.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_colors.dart';
@@ -113,17 +116,58 @@ class PetaFindsApp extends ConsumerStatefulWidget {
 
 class _PetaFindsAppState extends ConsumerState<PetaFindsApp> {
   bool _fcmInitFired = false;
+  bool _anonSignInInFlight = false;
+  StreamSubscription<User?>? _guestSessionSub;
+
+  @override
+  void initState() {
+    super.initState();
+    // Guest session keeper: every visitor gets an anonymous Firebase
+    // session so recordEngagement / recordSearchEvent can attribute
+    // guest browsing — seller analytics must count window-shoppers,
+    // not just signed-up customers. The listener re-establishes the
+    // session after sign-out and account deletion too (authStateChanges
+    // emits the current state immediately on subscribe, covering cold
+    // start). Real sign-in/sign-up methods REPLACE the anonymous
+    // session, so this never interferes with the auth flows; we still
+    // skip while an OAuth handshake is mid-flight as belt-and-braces.
+    // Failure (offline first launch) is silent: the app works exactly
+    // as before, views just aren't counted until the next launch.
+    _guestSessionSub =
+        FirebaseAuth.instance.authStateChanges().listen((user) async {
+      if (user != null || _anonSignInInFlight) return;
+      if (ref.read(isHandlingSignInProvider)) return;
+      _anonSignInInFlight = true;
+      try {
+        await FirebaseAuth.instance.signInAnonymously();
+        debugPrint('[guest] anonymous session established');
+      } catch (e) {
+        debugPrint('[guest] anonymous sign-in failed: $e');
+      } finally {
+        _anonSignInInFlight = false;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _guestSessionSub?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
 
-    // Bootstrap FCM exactly once after a user signs in. Firebase Auth
-    // state can flip null↔user multiple times during startup (anonymous
-    // → restore-from-keychain), so we gate on a non-null uid and a
-    // local one-shot flag.
-    final authedUid =
-        FirebaseAuth.instance.currentUser?.uid;
+    // Bootstrap FCM exactly once after a REAL user signs in. Anonymous
+    // guest sessions must not register push tokens (no /users doc to
+    // attach them to, and guests shouldn't be prompted for permission).
+    // Firebase Auth state can flip null↔user multiple times during
+    // startup, so we gate on a non-anonymous uid and a one-shot flag.
+    final authedUser = FirebaseAuth.instance.currentUser;
+    final authedUid = (authedUser != null && !authedUser.isAnonymous)
+        ? authedUser.uid
+        : null;
     if (!_fcmInitFired && authedUid != null) {
       _fcmInitFired = true;
       // Don't await — the rest of the app shouldn't wait on push
