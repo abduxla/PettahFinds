@@ -1,12 +1,16 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/categories.dart';
 import '../../../core/extensions/context_extensions.dart';
 import '../../../core/providers/providers.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/business.dart';
+import '../../../utils/image_processor.dart';
 import '../../../utils/validators.dart';
 import '../../../utils/whatsapp.dart';
 import '../../../widgets/loading_widget.dart';
@@ -35,6 +39,11 @@ class _EditBusinessProfileScreenState
   double? _pickedLng;
   bool _loading = false;
   bool _initialized = false;
+  // A freshly-picked logo awaiting upload on Save. Held as processed
+  // (square, 1200px) JPEG bytes so the preview and the upload use the
+  // exact same image, and the upload only happens if the user commits.
+  File? _pickedLogo;
+  bool _pickingLogo = false;
 
   void _initFields(Business business) {
     if (_initialized) return;
@@ -68,11 +77,78 @@ class _EditBusinessProfileScreenState
     super.dispose();
   }
 
+  /// Pick a business logo from camera or gallery, run it through the
+  /// shared square-crop processor (same 1200px pipeline product photos
+  /// use, so the avatar is always clean and consistent), and hold it for
+  /// upload on Save.
+  Future<void> _pickLogo() async {
+    if (_pickingLogo) return;
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: AppColors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            ListTile(
+              leading: Icon(Icons.photo_camera_rounded, color: AppColors.teal),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.pop(sheetCtx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: Icon(Icons.photo_library_rounded, color: AppColors.teal),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(sheetCtx, ImageSource.gallery),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+
+    setState(() => _pickingLogo = true);
+    try {
+      final picked = await ImagePicker().pickImage(source: source);
+      if (picked == null || !mounted) return;
+      // Square-crop + downscale off the UI thread, then stage as a temp
+      // file the existing byte-upload path can consume.
+      final bytes = await processProductImage(picked.path);
+      final tmp = File(
+        '${Directory.systemTemp.path}'
+        '/pf_logo_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+      await tmp.writeAsBytes(bytes, flush: true);
+      if (!mounted) return;
+      setState(() => _pickedLogo = tmp);
+    } catch (e) {
+      if (mounted) context.showErrorSnackBar(e);
+    } finally {
+      if (mounted) setState(() => _pickingLogo = false);
+    }
+  }
+
   Future<void> _save(Business business) async {
     if (_loading) return;
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
     try {
+      // Upload a freshly-picked logo first (if any). The download URL
+      // replaces logoUrl; the old file is left in Storage (cheap, and
+      // avoids deleting an image a concurrent reader might still hold).
+      var logoUrl = business.logoUrl;
+      final newLogo = _pickedLogo;
+      if (newLogo != null) {
+        final ts = DateTime.now().millisecondsSinceEpoch;
+        logoUrl = await ref.read(storageServiceProvider).uploadBytes(
+              path: 'businesses/${business.id}/logo_$ts.jpg',
+              bytes: await newLogo.readAsBytes(),
+            );
+      }
       await ref.read(businessRepositoryProvider).update(
             business.copyWith(
               businessName: _nameCtrl.text.trim(),
@@ -84,6 +160,7 @@ class _EditBusinessProfileScreenState
               category: _category ?? business.category,
               latitude: _pickedLat,
               longitude: _pickedLng,
+              logoUrl: logoUrl,
             ),
           );
       // Refresh the cached business so the dashboard reflects changes
@@ -129,52 +206,81 @@ class _EditBusinessProfileScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // ---- Avatar header ----
+                  // ---- Avatar header (tap to add / change logo) ----
                   Center(
-                    child: Stack(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                                color: AppColors.teal.withAlpha(40),
-                                width: 3),
-                          ),
-                          child: CircleAvatar(
-                            radius: 40,
-                            backgroundColor: AppColors.tealLight,
-                            backgroundImage: business.logoUrl.isNotEmpty
-                                ? NetworkImage(business.logoUrl)
-                                : null,
-                            child: business.logoUrl.isEmpty
-                                ? Icon(Icons.store,
-                                    size: 32, color: AppColors.teal)
-                                : null,
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: Container(
-                            width: 28,
-                            height: 28,
+                    child: GestureDetector(
+                      onTap: _pickingLogo ? null : _pickLogo,
+                      child: Stack(
+                        children: [
+                          Container(
                             decoration: BoxDecoration(
-                              color: AppColors.teal,
                               shape: BoxShape.circle,
                               border: Border.all(
-                                  color: AppColors.bgSection, width: 2.5),
+                                  color: AppColors.teal.withAlpha(40),
+                                  width: 3),
                             ),
-                            child: const Icon(
-                              Icons.camera_alt_rounded,
-                              color: Colors.white,
-                              size: 14,
+                            child: CircleAvatar(
+                              radius: 40,
+                              backgroundColor: AppColors.tealLight,
+                              // Freshly-picked logo wins the preview; else
+                              // the stored one; else the placeholder icon.
+                              backgroundImage: _pickedLogo != null
+                                  ? FileImage(_pickedLogo!)
+                                  : (business.logoUrl.isNotEmpty
+                                      ? NetworkImage(business.logoUrl)
+                                      : null) as ImageProvider?,
+                              child: (_pickedLogo == null &&
+                                      business.logoUrl.isEmpty)
+                                  ? Icon(Icons.store,
+                                      size: 32, color: AppColors.teal)
+                                  : null,
                             ),
                           ),
-                        ),
-                      ],
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: AppColors.teal,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                    color: AppColors.bgSection, width: 2.5),
+                              ),
+                              child: _pickingLogo
+                                  ? const Padding(
+                                      padding: EdgeInsets.all(6),
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.camera_alt_rounded,
+                                      color: Colors.white,
+                                      size: 14,
+                                    ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 6),
+                  Center(
+                    child: Text(
+                      business.logoUrl.isEmpty && _pickedLogo == null
+                          ? 'Add business logo'
+                          : 'Change logo',
+                      style: GoogleFonts.dmSans(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.teal,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
 
                   // ---- Form fields ----
                   TextFormField(

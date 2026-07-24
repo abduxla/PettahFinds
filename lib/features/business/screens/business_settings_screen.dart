@@ -53,7 +53,9 @@ class BusinessSettingsScreen extends ConsumerWidget {
               _MenuItem(
                 icon: Icons.insights_outlined,
                 label: 'Analytics',
-                onTap: () => context.push('/business-analytics'),
+                // Analytics is now its own bottom-nav tab; go() switches
+                // to that branch rather than stacking a second copy.
+                onTap: () => context.go('/business-analytics'),
               ),
               _MenuItem(
                 icon: Icons.forum_outlined,

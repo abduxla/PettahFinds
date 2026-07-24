@@ -83,6 +83,11 @@ class BusinessDashboardScreen extends ConsumerWidget {
                       ),
                     ),
 
+                    // ---- Live analytics summary (white section) ----
+                    SliverToBoxAdapter(
+                      child: _AnalyticsSummarySection(business: business),
+                    ),
+
                     // ---- Recent products (white section) ----
                     SliverToBoxAdapter(
                       child: productsAsync.when(
@@ -433,6 +438,178 @@ class _StatsSection extends StatelessWidget {
               // value but the client no longer reads or writes it).
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// =========================================================================
+// LIVE ANALYTICS SUMMARY — real-time KPIs on the dashboard home, one tap
+// from the full Analytics tab. Streams the same live providers the
+// Analytics screen uses, so numbers here move in real time too.
+// =========================================================================
+class _AnalyticsSummarySection extends ConsumerWidget {
+  final Business business;
+  const _AnalyticsSummarySection({required this.business});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    void open() => context.go('/business-analytics');
+
+    // Tiers without live analytics: a compact card that still lands on
+    // the Analytics tab (which shows the teaser + which levels unlock it).
+    if (!business.effectiveTier.hasAnalytics) {
+      return _wrap(
+        onTap: open,
+        child: Row(
+          children: [
+            _iconBadge(),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Analytics',
+                      style: GoogleFonts.nunito(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                          color: AppColors.text1)),
+                  const SizedBox(height: 2),
+                  Text('See who views your shop and products',
+                      style: GoogleFonts.dmSans(
+                          fontSize: 12, color: AppColors.text3)),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: AppColors.text4),
+          ],
+        ),
+      );
+    }
+
+    final stats = ref.watch(businessStatsProvider(business.id)).valueOrNull;
+    final insights =
+        ref.watch(bizInsightsProvider(business.id)).valueOrNull;
+
+    return _wrap(
+      onTap: open,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _iconBadge(),
+              const SizedBox(width: 10),
+              Text('Your Analytics',
+                  style: GoogleFonts.nunito(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                      color: AppColors.text1)),
+              const Spacer(),
+              Text('View all ›',
+                  style: GoogleFonts.dmSans(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12.5,
+                      color: AppColors.teal)),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              _MiniKpi(
+                  label: 'Shop views',
+                  value: stats?.profileViews ?? 0,
+                  color: AppColors.teal),
+              _MiniKpi(
+                  label: 'Product views',
+                  value: stats?.productViews ?? 0,
+                  color: AppColors.orange),
+              _MiniKpi(
+                  label: 'Chats',
+                  value: stats?.chatsStarted ?? 0,
+                  color: const Color(0xFF7C3AED)),
+            ],
+          ),
+          if (insights != null && insights.marketplacePosition > 0) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              decoration: BoxDecoration(
+                color: AppColors.tealLight,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.emoji_events_rounded,
+                      size: 15, color: AppColors.teal),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Ranked #${insights.marketplacePosition} of '
+                      '${insights.totalBusinesses} shops'
+                      '${insights.percentileBand.isNotEmpty ? '  ·  ${insights.percentileBand}' : ''}',
+                      style: GoogleFonts.dmSans(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.teal),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _iconBadge() => Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: AppColors.tealLight,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(Icons.insights_rounded, size: 19, color: AppColors.teal),
+      );
+
+  Widget _wrap({required Widget child, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        color: AppColors.white,
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _MiniKpi extends StatelessWidget {
+  final String label;
+  final int value;
+  final Color color;
+  const _MiniKpi(
+      {required this.label, required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('$value',
+              style: GoogleFonts.nunito(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 22,
+                  color: color,
+                  letterSpacing: -0.5)),
+          const SizedBox(height: 2),
+          Text(label,
+              style: GoogleFonts.dmSans(
+                  fontSize: 11, color: AppColors.text3)),
         ],
       ),
     );

@@ -12,7 +12,7 @@ import '../../../models/product.dart';
 import '../../../models/product_review.dart';
 import '../../../models/report.dart';
 import '../../../utils/price_format.dart';
-import '../../../widgets/cached_image.dart';
+import '../../../widgets/framed_image.dart';
 import '../../../widgets/shimmer_loading.dart';
 import '../../../widgets/error_widget.dart';
 import '../../../widgets/block_user_sheet.dart';
@@ -227,24 +227,20 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       ? Stack(
                           fit: StackFit.expand,
                           children: [
-                            // Light backdrop behind contained image so
-                            // tall portrait shots have a clean frame
-                            // instead of falling onto the transparent
-                            // app background.
-                            Container(color: const Color(0xFFF5F5F5)),
+                            // FramedImage puts each photo on a blurred
+                            // backdrop of itself, so portrait, square and
+                            // legacy landscape shots all present as one
+                            // consistent framed canvas — the product is
+                            // shown whole (never cropped) and the empty
+                            // border space is filled for free, no AI cost.
                             PageView.builder(
                               itemCount: product.imageUrls.length,
                               onPageChanged: (i) =>
                                   setState(() => _currentImageIndex = i),
-                              itemBuilder: (_, i) => CachedImage(
+                              itemBuilder: (_, i) => FramedImage(
                                 imageUrl: product.imageUrls[i],
                                 width: double.infinity,
                                 height: 340,
-                                // BoxFit.contain — show the whole hero
-                                // image, never crop. Same call as the
-                                // grid card so listing vs. detail can't
-                                // disagree on what the user is buying.
-                                fit: BoxFit.contain,
                               ),
                             ),
                             if (product.imageUrls.length > 1)

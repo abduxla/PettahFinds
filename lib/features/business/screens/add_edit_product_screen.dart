@@ -707,7 +707,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
             Padding(
               padding: const EdgeInsets.only(top: 6, left: 4),
               child: Text(
-                'Leave empty to show "Ask for price" — buyers will chat '
+                'Leave empty to show "Contact for price" — buyers will chat '
                 'with you for today\'s price instead.',
                 style: GoogleFonts.dmSans(
                   fontSize: 11.5,

@@ -363,11 +363,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const MembershipLevelScreen(),
       ),
 
-      // Seller analytics — gated inside the screen to Prime/Elite.
-      GoRoute(
-        path: '/business-analytics',
-        builder: (_, __) => const BusinessAnalyticsScreen(),
-      ),
+      // Seller analytics is now a first-class business-shell TAB (branch
+      // below), not a standalone pushed route — so it keeps the bottom
+      // nav visible and is reachable in one tap. Still gated inside the
+      // screen to Prime/Elite (lower tiers see the upgrade teaser).
 
       // --- Chat (top-level so it can be opened from any shell) ---
       //
@@ -528,6 +527,14 @@ final routerProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
+          // Analytics — branch index 1 (bottom-nav "Analytics" tab). Keeps
+          // the nav visible and is one tap from anywhere in the shell.
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/business-analytics',
+              builder: (_, __) => const BusinessAnalyticsScreen(),
+            ),
+          ]),
           StatefulShellBranch(routes: [
             GoRoute(
               path: '/business-profile',

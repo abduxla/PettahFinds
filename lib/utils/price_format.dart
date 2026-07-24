@@ -20,15 +20,23 @@ final NumberFormat _priceFormatter = NumberFormat('#,###');
 
 String formatLkr(num amount) => _priceFormatter.format(amount);
 
+/// The label shown when a vendor withholds the retail price (null, or a
+/// legacy 0). "Contact for price" is deliberately professional and
+/// action-oriented — it reads like a considered wholesale quote rather
+/// than "Ask for price" (which sounded tentative), and it points the
+/// buyer at the chat button that is the actual pathway. Single constant
+/// so the wording only ever lives in one place.
+const String priceOnRequestLabel = 'Contact for price';
+
 /// Retail price label for a product. Vendors may withhold the price
-/// (null, or legacy 0) — those render as "Ask for price" and the buyer's
-/// pathway is the existing chat button. When a selling [unit] is set
-/// (e.g. "Meter"), the price reads "LKR 950 / Meter". ALL product price
-/// display sites must use this instead of interpolating `formatLkr`
-/// directly, so ask-for-price and per-unit pricing stay consistent
+/// (null, or legacy 0) — those render as [priceOnRequestLabel] and the
+/// buyer's pathway is the existing chat button. When a selling [unit] is
+/// set (e.g. "Meter"), the price reads "LKR 950 / Meter". ALL product
+/// price display sites must use this instead of interpolating `formatLkr`
+/// directly, so price-on-request and per-unit pricing stay consistent
 /// app-wide.
 String productPriceLabel(double? priceLkr, {String unit = ''}) {
-  if (priceLkr == null || priceLkr <= 0) return 'Ask for price';
+  if (priceLkr == null || priceLkr <= 0) return priceOnRequestLabel;
   final u = unit.trim();
   return u.isEmpty ? 'LKR ${formatLkr(priceLkr)}' : 'LKR ${formatLkr(priceLkr)} / $u';
 }
