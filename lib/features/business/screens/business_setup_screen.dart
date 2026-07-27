@@ -189,12 +189,65 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
     }
   }
 
+  /// Escape hatch out of the forced setup flow. A user who signs up (e.g.
+  /// via Apple/iCloud), picks "business", then lands here has no business
+  /// doc yet — so the router pins them to this screen with nowhere to go.
+  /// Signing out releases them: auth flips to null and the router routes
+  /// back to /sign-in. Mirrors the loading screen's emergency sign-out
+  /// (clear cached session state + drop the mid-OAuth guard) so a stale
+  /// AppUser snapshot can't bounce them straight back in.
+  Future<void> _leaveSetup() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Leave setup?'),
+        content: const Text(
+          "You'll be signed out and can sign in again anytime. Anything "
+          "you've entered here won't be saved.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Stay'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Sign out'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+    try {
+      await ref.read(authRepositoryProvider).signOut();
+    } catch (_) {}
+    ref.invalidate(appUserProvider);
+    ref.invalidate(currentUserBusinessProvider);
+    ref.read(isHandlingSignInProvider.notifier).state = false;
+    if (!mounted) return;
+    context.go('/sign-in');
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      // Block the bare system back (it would otherwise be a no-op dead end
+      // on this router-pinned screen); route it through the same confirm +
+      // sign-out escape as the app-bar button.
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !_loading) _leaveSetup();
+      },
+      child: Scaffold(
       backgroundColor: AppColors.bgSection,
       appBar: AppBar(
         backgroundColor: AppColors.bgSection,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: 'Leave setup',
+          onPressed: _loading ? null : _leaveSetup,
+        ),
         title: Text('Set Up Your Business',
             style: GoogleFonts.nunito(
               color: AppColors.text1,
@@ -461,6 +514,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
