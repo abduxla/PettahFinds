@@ -56,9 +56,16 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
   Product? _existingProduct;
 
   // Up to 4 product images. `_existingUrls` holds already-uploaded URLs
-  // (from Firestore on edit). `_newFiles` holds new picks pending upload.
+  // (from Firestore on edit). `_staged` holds new picks — each starts
+  // uploading to Storage the moment it's picked (while the merchant types),
+  // so Save is near-instant instead of waiting 3-4s for the upload.
   final List<String> _existingUrls = [];
-  final List<XFile> _newFiles = [];
+  final List<_StagedImage> _staged = [];
+  // Set true once the product doc is written. Until then, dispose() deletes
+  // any pre-uploaded images so an abandoned form doesn't orphan Storage.
+  bool _committed = false;
+  // Business id resolved up front so pre-upload can start immediately.
+  String? _bizId;
   static const int _maxImages = 4;
 
   bool get _isEditing => widget.productId != null;
@@ -67,6 +74,16 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
   void initState() {
     super.initState();
     if (_isEditing) _loadProduct();
+    // Resolve the business id now so a picked image can start uploading
+    // immediately (pre-upload) rather than waiting for Save.
+    _bizId = ref.read(currentUserBusinessProvider).valueOrNull?.id;
+    if (_bizId == null || _bizId!.isEmpty) {
+      ref
+          .read(currentUserBusinessProvider.future)
+          .then((b) {
+        if (mounted) _bizId = b?.id;
+      }).catchError((_) {});
+    }
   }
 
   Future<void> _loadProduct() async {
@@ -107,6 +124,16 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
 
   @override
   void dispose() {
+    // Abandoned-form cleanup: if the merchant left without saving, delete
+    // any images already pre-uploaded so they don't orphan in Storage.
+    // A standalone StorageService is used because `ref` isn't safe here.
+    if (!_committed) {
+      final storage = StorageService();
+      for (final s in _staged) {
+        final u = s.url;
+        if (u != null && u.isNotEmpty) storage.deleteFile(u);
+      }
+    }
     _titleCtrl.dispose();
     _shortTitleCtrl.dispose();
     _descCtrl.dispose();
@@ -122,7 +149,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
 
   /// Entry point — shows "Take Photo / Choose from Gallery / Cancel".
   Future<void> _showImageSourceSheet() async {
-    if (_existingUrls.length + _newFiles.length >= _maxImages) {
+    if (_existingUrls.length + _staged.length >= _maxImages) {
       context.showErrorSnackBar('Maximum $_maxImages images allowed');
       return;
     }
@@ -212,9 +239,10 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
     }
   }
 
-  /// Runs [processProductImage] in a background isolate, writes the result to
-  /// a temp file, and appends it to [_newFiles] so the existing upload
-  /// pipeline requires zero changes.
+  /// Runs [processProductImage] in a background isolate, writes the result
+  /// to a temp file, stages it, and kicks off its Storage upload right away
+  /// — so by the time the merchant finishes typing, the image is already in
+  /// the cloud and Save is near-instant.
   Future<void> _processAndAdd(XFile raw) async {
     setState(() => _processingImage = true);
     try {
@@ -225,11 +253,67 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
       );
       await tmp.writeAsBytes(bytes, flush: true);
       if (!mounted) return;
-      setState(() => _newFiles.add(XFile(tmp.path)));
+      final staged = _StagedImage(XFile(tmp.path));
+      setState(() => _staged.add(staged));
+      // Fire the upload now, in the background. Don't await — the merchant
+      // keeps filling the form while the bytes go up.
+      staged.task = _uploadStaged(staged);
     } catch (e) {
       if (mounted) context.showErrorSnackBar(e);
     } finally {
       if (mounted) setState(() => _processingImage = false);
+    }
+  }
+
+  /// Background pre-upload of one staged image. Keeps the staged item's
+  /// status current so the grid shows a spinner / error, and deletes the
+  /// orphan if the image is removed (or the screen closes) mid-upload.
+  Future<void> _uploadStaged(_StagedImage s) async {
+    try {
+      var bizId = _bizId;
+      if (bizId == null || bizId.isEmpty) {
+        final b = await ref.read(currentUserBusinessProvider.future);
+        bizId = b?.id;
+        _bizId = bizId;
+      }
+      if (bizId == null || bizId.isEmpty) throw Exception('Business not ready');
+
+      final bytes = await s.file.readAsBytes();
+      const maxBytes = 5 * 1024 * 1024;
+      if (bytes.lengthInBytes > maxBytes) {
+        throw Exception('Image is over 5 MB — pick a smaller photo.');
+      }
+      final mime = (s.file.mimeType ?? '').isNotEmpty
+          ? s.file.mimeType!
+          : _mimeFromName(s.file.name);
+      final ext = _extFromMime(mime);
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      final path = 'products/$bizId/${ts}_${ts.hashCode & 0xffff}.$ext';
+      final url = await _uploadWithRetry(
+        storage: ref.read(storageServiceProvider),
+        path: path,
+        bytes: bytes,
+        mime: mime,
+      );
+      // Removed while uploading, or the screen is gone → drop the orphan.
+      if (!mounted || !_staged.contains(s)) {
+        if (url.isNotEmpty) StorageService().deleteFile(url);
+        return;
+      }
+      if (url.isEmpty) throw Exception('Image upload failed (empty URL)');
+      setState(() {
+        s.url = url;
+        s.uploading = false;
+        s.failed = false;
+      });
+    } catch (e) {
+      debugPrint('[product] pre-upload failed: $e');
+      if (mounted && _staged.contains(s)) {
+        setState(() {
+          s.uploading = false;
+          s.failed = true;
+        });
+      }
     }
   }
 
@@ -261,55 +345,16 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
 
   void _removeExistingUrl(int i) =>
       setState(() => _existingUrls.removeAt(i));
-  void _removeNewFile(int i) => setState(() => _newFiles.removeAt(i));
 
-  /// Upload pending files to Storage and return their download URLs in
-  /// the same order they were picked. Stores the actual file in Firebase
-  /// Storage; only the https download URL goes into Firestore.
-  Future<List<String>> _uploadNewImages(String businessId) async {
-    if (_newFiles.isEmpty) return const [];
-    if (businessId.isEmpty) {
-      throw Exception('Missing business — cannot upload images.');
+  /// Remove a staged (new) image. If it already pre-uploaded, delete the
+  /// Storage object so a removed image never orphans.
+  void _removeStaged(int i) {
+    final s = _staged[i];
+    final u = s.url;
+    if (u != null && u.isNotEmpty) {
+      ref.read(storageServiceProvider).deleteFile(u); // fire-and-forget
     }
-    final storage = ref.read(storageServiceProvider);
-    final urls = <String>[];
-    // Matches the Storage rule cap (5 MB). Reject before upload so we
-    // don't waste the user's data plan on a doomed request.
-    const maxBytes = 5 * 1024 * 1024;
-    debugPrint('[product] uploading ${_newFiles.length} image(s) for biz=$businessId');
-    for (var i = 0; i < _newFiles.length; i++) {
-      final file = _newFiles[i];
-      final bytes = await file.readAsBytes();
-      if (bytes.lengthInBytes > maxBytes) {
-        throw Exception(
-            'Image #${i + 1} is ${(bytes.lengthInBytes / (1024 * 1024)).toStringAsFixed(1)} MB. '
-            'Pick a smaller image (under 5 MB).');
-      }
-      // Pick sensible contentType + extension from the picked file.
-      final mime = (file.mimeType ?? '').isNotEmpty
-          ? file.mimeType!
-          : _mimeFromName(file.name);
-      final ext = _extFromMime(mime);
-      // millisecond + uniqueId-ish (loop index) makes collisions across a
-      // single submit impossible. Concurrent submits from the same biz
-      // still can't collide because the path includes the millisecond ts.
-      final ts = DateTime.now().millisecondsSinceEpoch;
-      final path = 'products/$businessId/${ts}_$i.$ext';
-      debugPrint('[product] upload #$i path=$path bytes=${bytes.length}');
-      final url = await _uploadWithRetry(
-        storage: storage,
-        path: path,
-        bytes: bytes,
-        mime: mime,
-      );
-      if (url.isEmpty) {
-        throw Exception('Image upload failed (empty URL)');
-      }
-      debugPrint('[product] upload #$i ok');
-      urls.add(url);
-    }
-    debugPrint('[product] all ${urls.length} image(s) uploaded');
-    return urls;
+    setState(() => _staged.removeAt(i));
   }
 
   /// One automatic retry on transient failures. 60 s timeout per attempt
@@ -438,9 +483,19 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
         }
       }
 
-      // Upload any new files first (with a per-file timeout so a hung
-      // Storage request can't freeze the save forever).
-      final uploaded = await _uploadNewImages(business.id);
+      // Images were pre-uploaded while the merchant filled the form. Just
+      // wait for any still in flight, then collect their URLs — so Save is
+      // near-instant instead of blocking on the upload here.
+      await Future.wait(
+        _staged.map((s) => s.task).whereType<Future<void>>(),
+      );
+      if (_staged.any((s) => s.failed)) {
+        throw Exception('An image failed to upload. Remove it and try again.');
+      }
+      final uploaded = _staged
+          .where((s) => s.url != null && s.url!.isNotEmpty)
+          .map((s) => s.url!)
+          .toList();
       final allUrls = [..._existingUrls, ...uploaded];
       debugPrint('[product] writing firestore (${allUrls.length} image url(s))');
       final img1 = allUrls.isNotEmpty ? allUrls[0] : '';
@@ -476,6 +531,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
             .timeout(const Duration(seconds: 20),
                 onTimeout: () =>
                     throw Exception('Saving timed out. Check connection.'));
+        _committed = true; // saved — dispose must not delete these images
         if (!mounted) return;
         setState(() => _saving = false);
         _refreshBusinessProducts(business.id);
@@ -512,6 +568,7 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
           .timeout(const Duration(seconds: 20),
               onTimeout: () =>
                   throw Exception('Saving timed out. Check connection.'));
+      _committed = true; // saved — dispose must not delete these images
       if (!mounted) return;
       setState(() => _saving = false);
       _refreshBusinessProducts(business.id);
@@ -628,11 +685,11 @@ class _AddEditProductScreenState extends ConsumerState<AddEditProductScreen> {
             // ---- Image picker grid (up to 4 images) ----
             _ImagePickerGrid(
               existingUrls: _existingUrls,
-              newFiles: _newFiles,
+              staged: _staged,
               maxImages: _maxImages,
               onPick: _showImageSourceSheet,
               onRemoveExisting: _removeExistingUrl,
-              onRemoveNew: _removeNewFile,
+              onRemoveStaged: _removeStaged,
               processingImage: _processingImage,
             ),
             const SizedBox(height: 20),
@@ -881,26 +938,26 @@ class _XFilePreview extends StatelessWidget {
 /// the × on a tile removes it.
 class _ImagePickerGrid extends StatelessWidget {
   final List<String> existingUrls;
-  final List<XFile> newFiles;
+  final List<_StagedImage> staged;
   final int maxImages;
   final VoidCallback onPick;
   final void Function(int) onRemoveExisting;
-  final void Function(int) onRemoveNew;
+  final void Function(int) onRemoveStaged;
   final bool processingImage;
 
   const _ImagePickerGrid({
     required this.existingUrls,
-    required this.newFiles,
+    required this.staged,
     required this.maxImages,
     required this.onPick,
     required this.onRemoveExisting,
-    required this.onRemoveNew,
+    required this.onRemoveStaged,
     this.processingImage = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final totalFilled = existingUrls.length + newFiles.length;
+    final totalFilled = existingUrls.length + staged.length;
     final slots = <Widget>[];
 
     for (var i = 0; i < existingUrls.length; i++) {
@@ -914,10 +971,38 @@ class _ImagePickerGrid extends StatelessWidget {
         onRemove: () => onRemoveExisting(i),
       ));
     }
-    for (var i = 0; i < newFiles.length; i++) {
+    for (var i = 0; i < staged.length; i++) {
+      final s = staged[i];
       slots.add(_ImageTile(
-        child: _XFilePreview(file: newFiles[i]),
-        onRemove: () => onRemoveNew(i),
+        // Local preview with a live upload-status overlay: spinner while the
+        // pre-upload runs, a red error mark if it failed.
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _XFilePreview(file: s.file),
+            if (s.uploading)
+              Container(
+                color: Colors.black.withValues(alpha: 0.28),
+                child: const Center(
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                  ),
+                ),
+              ),
+            if (s.failed)
+              Container(
+                color: AppColors.red.withValues(alpha: 0.38),
+                child: const Center(
+                  child: Icon(Icons.error_outline,
+                      color: Colors.white, size: 22),
+                ),
+              ),
+          ],
+        ),
+        onRemove: () => onRemoveStaged(i),
       ));
     }
     if (processingImage) {
@@ -1196,4 +1281,19 @@ class _ListingResponsibilityCheckbox extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A newly-picked product image that pre-uploads to Storage in the
+/// background. [file] is the local temp file (for preview); [url] is the
+/// public download URL once the upload finishes; [task] is the in-flight
+/// upload the Save step awaits. [failed] flags an upload that errored.
+class _StagedImage {
+  final XFile file;
+  String? url;
+  bool uploading;
+  bool failed;
+  Future<void>? task;
+  _StagedImage(this.file)
+      : uploading = true,
+        failed = false;
 }

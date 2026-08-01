@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -54,6 +55,9 @@ class ProductDetailScreen extends ConsumerStatefulWidget {
 
 class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   int _currentImageIndex = 0;
+  // Guards one-time precache of the gallery so sliding between photos is
+  // instant instead of fetching each one on demand mid-swipe.
+  bool _precached = false;
 
   @override
   void initState() {
@@ -67,6 +71,24 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     // Record category interest for personalised home feed ordering.
     // Runs async after the product loads so we have the category string.
     _recordInterest();
+  }
+
+  /// Warm the whole gallery into the image cache once the product loads,
+  /// so swiping between photos is instant. The cover (image1) is usually
+  /// already cached from the card the user tapped; this covers the rest.
+  /// Uses the same CachedNetworkImageProvider the display widgets use, so
+  /// it populates the shared cache — no duplicate downloads.
+  void _precacheImages(List<String> urls) {
+    if (_precached || urls.isEmpty) return;
+    _precached = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      for (final u in urls) {
+        if (u.isEmpty) continue;
+        precacheImage(CachedNetworkImageProvider(u), context)
+            .catchError((_) {});
+      }
+    });
   }
 
   Future<void> _recordInterest() async {
@@ -113,6 +135,8 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 
     return productAsync.when(
       data: (product) {
+        // Warm the gallery so swiping between photos is instant.
+        _precacheImages(product.imageUrls);
         // Customers (and owner-preview) viewing an inactive product
         // get a friendly "no longer available" placeholder instead of
         // the full listing — the merchant or an admin has hidden it.
