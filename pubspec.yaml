@@ -1,7 +1,7 @@
 name: petafinds
 description: "PetaFinds - Discover local businesses, products, and deals."
 publish_to: 'none'
-version: 1.0.6+40
+version: 1.0.7+41
 
 environment:
   sdk: ^3.10.7
