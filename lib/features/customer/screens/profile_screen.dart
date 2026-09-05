@@ -149,6 +149,13 @@ class ProfileScreen extends ConsumerWidget {
                         onTap: () => context.go('/favorites'),
                       ),
                       _MenuItem(
+                        icon: Icons.notifications_active_outlined,
+                        label: 'Following',
+                        // Cross-branch drill-down; push() keeps /profile
+                        // underneath for swipe-back.
+                        onTap: () => context.push('/profile/following'),
+                      ),
+                      _MenuItem(
                         icon: Icons.store_outlined,
                         label: 'Business Directory',
                         // Cross-branch drill-down. push() keeps /profile

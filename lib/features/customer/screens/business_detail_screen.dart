@@ -48,6 +48,70 @@ final _businessReviewsProvider =
   return ref.watch(reviewRepositoryProvider).streamByBusiness(id);
 });
 
+/// Follow / Following pill for the business page.
+///
+/// Following opts the user into push + in-app notifications whenever this
+/// business posts a new product or drops a price (fanned out server-side by
+/// the follow Cloud Functions). Distinct from the heart button, which is a
+/// silent private bookmark. Signed-out taps route to the sign-in sheet.
+/// The visible state is driven by [followedBusinessIdsProvider], so it
+/// flips the instant Firestore acks the toggle — no local state needed.
+Widget _followButton(
+  BuildContext context,
+  WidgetRef ref, {
+  required String businessId,
+  required String? uid,
+  required bool isFollowing,
+}) {
+  final theme = Theme.of(context);
+
+  Future<void> onTap() async {
+    if (uid == null) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+      showSignInRequiredSheet(context);
+      return;
+    }
+    final nowFollowing = await ref
+        .read(followRepositoryProvider)
+        .toggle(userId: uid, businessId: businessId);
+    if (!context.mounted) return;
+    context.showSuccessSnackBar(
+      nowFollowing
+          ? "Following — we'll notify you about new products & deals"
+          : 'Unfollowed',
+    );
+  }
+
+  return SizedBox(
+    width: double.infinity,
+    child: isFollowing
+        ? OutlinedButton.icon(
+            onPressed: onTap,
+            icon: const Icon(Icons.notifications_active, size: 18),
+            label: const Text('Following'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: theme.colorScheme.primary,
+              side: BorderSide(color: theme.colorScheme.primary),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          )
+        : FilledButton.icon(
+            onPressed: onTap,
+            icon: const Icon(Icons.add_alert_outlined, size: 18),
+            label: const Text('Follow'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+  );
+}
+
 class BusinessDetailScreen extends ConsumerStatefulWidget {
   final String businessId;
   const BusinessDetailScreen({super.key, required this.businessId});
@@ -96,6 +160,12 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
     final reviewsAsync =
         ref.watch(_businessReviewsProvider(widget.businessId));
     final appUser = ref.watch(appUserProvider).valueOrNull;
+    // Which businesses this user follows (live). Empty when signed out —
+    // the Follow button then routes taps to the sign-in sheet.
+    final followedIds = appUser == null
+        ? const <String>[]
+        : (ref.watch(followedBusinessIdsProvider(appUser.uid)).valueOrNull ??
+            const <String>[]);
 
     return businessAsync.when(
       data: (business) => Scaffold(
@@ -273,6 +343,17 @@ class _BusinessDetailScreenState extends ConsumerState<BusinessDetailScreen> {
                             ),
                           ),
                         ],
+                      ),
+
+                      // Follow / Following — subscribe to this shop's new
+                      // products & price drops (push + in-app inbox).
+                      const SizedBox(height: 16),
+                      _followButton(
+                        context,
+                        ref,
+                        businessId: business.id,
+                        uid: appUser?.uid,
+                        isFollowing: followedIds.contains(business.id),
                       ),
 
                       // Rating

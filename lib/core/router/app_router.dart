@@ -19,6 +19,7 @@ import '../../features/customer/screens/business_detail_screen.dart';
 import '../../features/customer/screens/products_list_screen.dart';
 import '../../features/customer/screens/product_detail_screen.dart';
 import '../../features/customer/screens/favorites_screen.dart';
+import '../../features/customer/screens/following_screen.dart';
 import '../../features/customer/screens/profile_screen.dart';
 import '../../features/customer/screens/notifications_screen.dart';
 import '../../features/customer/screens/settings_screen.dart';
@@ -463,6 +464,9 @@ final routerProvider = Provider<GoRouter>((ref) {
                 GoRoute(
                     path: 'notifications',
                     builder: (_, __) => const NotificationsScreen()),
+                GoRoute(
+                    path: 'following',
+                    builder: (_, __) => const FollowingScreen()),
                 GoRoute(
                     path: 'edit',
                     builder: (_, __) =>

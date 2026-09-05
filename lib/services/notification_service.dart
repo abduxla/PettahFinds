@@ -221,6 +221,15 @@ class NotificationService {
       case 'approval':
         ctx.go('/business');
         break;
+      case 'product':
+        // A followed business posted a new product or dropped a price.
+        // id = productId → open the product detail screen.
+        ctx.go('/home/product/$id');
+        break;
+      case 'business':
+        // Generic business update from a followed shop. id = businessId.
+        ctx.go('/home/business/$id');
+        break;
       default:
         // Unknown type — ignore. Don't crash.
         break;

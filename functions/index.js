@@ -156,6 +156,148 @@ exports.onNewMessage = onDocumentCreated(
 );
 
 // --------------------------------------------------------------------------
+// Follows — fan a notification out to everyone following a business.
+//
+// A follow doc lives at /follows/{userId}_{businessId} with a `businessId`
+// field, so "who follows this shop" is a single equality query. For each
+// follower we mint an in-app inbox notification (always) and best-effort
+// send an FCM push (when the device has a registered token). Users opt in
+// by tapping Follow on the business page and opt out by unfollowing —
+// there's no separate notification preference to check.
+// --------------------------------------------------------------------------
+
+/** Business display name for notification copy (falls back to "A shop"). */
+async function businessDisplayName(businessId) {
+  try {
+    const snap = await db.collection("businesses").doc(businessId).get();
+    return (snap.exists && (snap.data() || {}).businessName) || "A shop";
+  } catch (err) {
+    logger.warn("[follow] name lookup failed", businessId, err);
+    return "A shop";
+  }
+}
+
+/** "Rs. 1,250" — thousands-separated LKR, no decimals. */
+function formatLkr(n) {
+  return "Rs. " + (Math.round(Number(n) || 0)).toLocaleString("en-US");
+}
+
+/**
+ * Notify every follower of `businessId`. Mints an in-app notification for
+ * each and best-effort pushes to their device. Processed in chunks so a
+ * shop with thousands of followers doesn't blow memory or the parallelism
+ * budget; user docs are batch-read via getAll to keep round-trips down.
+ * @param {string} businessId The business whose followers to notify.
+ * @param {{title: string, body: string, type: string, id: string}} payload
+ *   Notification copy + a `type`/`id` for tap deep-linking.
+ */
+async function notifyFollowers(businessId, {title, body, type, id}) {
+  if (!businessId) return;
+  const followSnap = await db.collection("follows")
+    .where("businessId", "==", businessId).get();
+  if (followSnap.empty) return;
+
+  const uids = [];
+  const seen = new Set();
+  for (const d of followSnap.docs) {
+    const u = (d.data() || {}).userId;
+    if (u && !seen.has(u)) {
+      seen.add(u);
+      uids.push(u);
+    }
+  }
+  if (uids.length === 0) return;
+
+  const CHUNK = 200;
+  for (let i = 0; i < uids.length; i += CHUNK) {
+    const group = uids.slice(i, i + CHUNK);
+    const refs = group.map((u) => db.collection("users").doc(u));
+    const userSnaps = await db.getAll(...refs);
+    await Promise.all(userSnaps.map(async (us, idx) => {
+      const uid = group[idx];
+      // In-app inbox entry regardless of device token, so the update is
+      // always recoverable inside the app.
+      await mintNotification(uid, title, body, type, id);
+      const token = us.exists ? (us.data() || {}).fcmToken : null;
+      await sendPush(uid, token, title, body, {type, id});
+    }));
+  }
+  logger.info("[follow] notified", uids.length, "followers of", businessId);
+}
+
+// --------------------------------------------------------------------------
+// New product from a followed business → notify followers.
+// Fires on create for products that are active on creation (the common
+// path); a draft that is published later is handled by onProductUpdated.
+// --------------------------------------------------------------------------
+exports.onProductCreated = onDocumentCreated(
+  "products/{productId}",
+  async (event) => {
+    const product = event.data?.data();
+    if (!product) return;
+    if (product.isActive !== true) return; // drafts: see onProductUpdated
+    const businessId = product.businessId;
+    if (!businessId) return;
+
+    const name = await businessDisplayName(businessId);
+    await notifyFollowers(businessId, {
+      title: `${name} posted a new product`,
+      body: truncate(product.title || "New listing", 80),
+      type: "product",
+      id: event.params.productId,
+    });
+  },
+);
+
+// --------------------------------------------------------------------------
+// A followed business publishes a draft, or drops a price → notify.
+// Only two edits ping followers; every other product write is silent.
+// --------------------------------------------------------------------------
+exports.onProductUpdated = onDocumentUpdated(
+  "products/{productId}",
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!before || !after) return;
+    const productId = event.params.productId;
+    const businessId = after.businessId;
+    if (!businessId) return;
+
+    const wasActive = before.isActive === true;
+    const nowActive = after.isActive === true;
+
+    // Draft → published counts as a fresh "new product".
+    if (!wasActive && nowActive) {
+      const name = await businessDisplayName(businessId);
+      await notifyFollowers(businessId, {
+        title: `${name} posted a new product`,
+        body: truncate(after.title || "New listing", 80),
+        type: "product",
+        id: productId,
+      });
+      return;
+    }
+
+    // Price drop on a live product = a "deal" worth a ping. Only a genuine
+    // decrease (both prices > 0); price rises and unrelated edits (title,
+    // stock, rating rollups, pinning) stay silent.
+    const oldP = Number(before.priceLkr) || 0;
+    const newP = Number(after.priceLkr) || 0;
+    if (wasActive && nowActive && oldP > 0 && newP > 0 && newP < oldP) {
+      const name = await businessDisplayName(businessId);
+      const label = truncate(after.title || "A product", 50);
+      const body = `${label} now ${formatLkr(newP)} (was ${formatLkr(oldP)})`;
+      await notifyFollowers(businessId, {
+        title: `Price drop at ${name}`,
+        body,
+        type: "product",
+        id: productId,
+      });
+    }
+  },
+);
+
+// --------------------------------------------------------------------------
 // 2a. Business submitted → email owner "under review"
 // --------------------------------------------------------------------------
 exports.onBusinessCreated = onDocumentCreated(
@@ -545,6 +687,7 @@ exports.onBusinessDeleted = onDocumentDeleted(
       deleteByQuery(
         db.collection("productReviews").where("businessId", "==", bizId)),
       deleteByQuery(db.collection("offers").where("businessId", "==", bizId)),
+      deleteByQuery(db.collection("follows").where("businessId", "==", bizId)),
       deleteByQuery(
         db.collection("product_stats").where("businessId", "==", bizId)),
       deleteRefs(productsSnap.docs.map((d) => d.ref)),
@@ -1224,17 +1367,24 @@ function paymentDupeKey(referenceNumber, amountLkr, paidOnYmd) {
   return crypto.createHash("sha256").update(normalized).digest("hex");
 }
 
-/** Mint an in-app inbox notification (server-side; bypasses rules). */
-async function mintNotification(userId, title, body, type) {
+/**
+ * Mint an in-app inbox notification (server-side; bypasses rules).
+ * `targetId` is optional — when set (e.g. a productId or businessId) the
+ * inbox tile can deep-link to that content on tap. Older callers that omit
+ * it are unaffected (the field is simply absent).
+ */
+async function mintNotification(userId, title, body, type, targetId) {
   try {
-    await db.collection("notifications").add({
+    const doc = {
       userId,
       title,
       body,
       type,
       read: false,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    };
+    if (targetId) doc.targetId = String(targetId);
+    await db.collection("notifications").add(doc);
   } catch (err) {
     logger.error("[notify] mint failed for", userId, err);
   }

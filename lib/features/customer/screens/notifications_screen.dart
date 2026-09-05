@@ -128,13 +128,29 @@ class NotificationsScreen extends ConsumerWidget {
                 itemCount: notifications.length,
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
                 separatorBuilder: (_, __) => const SizedBox(height: 8),
-                itemBuilder: (_, i) => _NotificationTile(
+                itemBuilder: (context, i) => _NotificationTile(
                   notification: notifications[i],
                   onTap: () {
-                    if (!notifications[i].read) {
+                    final n = notifications[i];
+                    if (!n.read) {
                       ref
                           .read(notificationRepositoryProvider)
-                          .markAsRead(notifications[i].id);
+                          .markAsRead(n.id);
+                    }
+                    // Deep-link to the content when the notification carries
+                    // a target (new-product / price-drop, etc.). Older
+                    // notifications without one just mark read.
+                    if (n.targetId.isEmpty) return;
+                    switch (n.type) {
+                      case 'product':
+                        context.push('/product/${n.targetId}');
+                        break;
+                      case 'business':
+                        context.push('/home/business/${n.targetId}');
+                        break;
+                      case 'message':
+                        context.push('/chat/${n.targetId}');
+                        break;
                     }
                   },
                 ),

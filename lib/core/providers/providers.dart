@@ -9,6 +9,7 @@ import '../../repositories/category_repository.dart';
 import '../../repositories/review_repository.dart';
 import '../../repositories/product_review_repository.dart';
 import '../../repositories/favorite_repository.dart';
+import '../../repositories/follow_repository.dart';
 import '../../repositories/report_repository.dart';
 import '../../repositories/notification_repository.dart';
 import '../../repositories/block_repository.dart';
@@ -57,6 +58,7 @@ final reviewRepositoryProvider = Provider((ref) => ReviewRepository());
 final productReviewRepositoryProvider =
     Provider((ref) => ProductReviewRepository());
 final favoriteRepositoryProvider = Provider((ref) => FavoriteRepository());
+final followRepositoryProvider = Provider((ref) => FollowRepository());
 final reportRepositoryProvider = Provider((ref) => ReportRepository());
 final notificationRepositoryProvider =
     Provider((ref) => NotificationRepository());
@@ -306,6 +308,14 @@ final userFavoriteProductIdsProvider =
           .where((f) => f.targetType == 'product')
           .map((f) => f.targetId)
           .toSet());
+});
+
+/// Live set of businessIds the given user follows. Drives every Follow
+/// button's state and the Following screen. Newest-first (repository sorts
+/// client-side). Signed-out callers should not watch this.
+final followedBusinessIdsProvider =
+    StreamProvider.autoDispose.family<List<String>, String>((ref, uid) {
+  return ref.watch(followRepositoryProvider).streamFollowedBusinessIds(uid);
 });
 
 /// Customer-facing list of businesses — verified only. Powers home,

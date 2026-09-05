@@ -374,6 +374,32 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    // ---------- Follows (business subscriptions) ----------
+    // A follow subscribes a user to a business's new-product / price-drop
+    // notifications, fanned out server-side by the follow Cloud Functions.
+    // Mirror of the favorites rules: owner-only, with a deterministic
+    // `${uid}_${businessId}` doc id. The `resource == null` branch lets the
+    // toggle's pre-write get() on a not-yet-existent doc pass (Firestore
+    // evaluates read rules even for missing docs). The notifications the
+    // follow triggers mint are written by the Admin SDK, which bypasses
+    // rules — clients never write cross-user notifications.
+    match /follows/{followId} {
+      allow read: if isSignedIn()
+                  && (
+                    resource == null
+                    || resource.data.userId == request.auth.uid
+                  );
+
+      allow create: if isSignedIn()
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.businessId is string;
+
+      allow delete: if isSignedIn()
+                    && resource.data.userId == request.auth.uid;
+
+      allow update: if false;
+    }
+
     // ---------- Reports ----------
     match /reports/{reportId} {
       // Reports are for moderation — only the submitter and admins read.
